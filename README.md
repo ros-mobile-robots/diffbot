@@ -7,4 +7,10 @@ The robot setup is supposed to run on Ubuntu 18.04 Bionic. [ROS Melodic]() is in
 
 Use `catkin build` instead of `catkin_make`.
 
-https://wiki.ros.org/catkin/Tutorials
+From the [catkin tutorial](https://wiki.ros.org/catkin/Tutorials) here are the commands used to create the workspace:
+
+```
+$ mkdir -p ~/ros/src
+$ cd ~/ros/
+$ catkin build
+``` 
