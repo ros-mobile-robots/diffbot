@@ -37,6 +37,7 @@
 build
 devel
 logs
+.catkin_tools
 
 # OS X
 .DS_Store
