@@ -64,6 +64,7 @@ To create a new Catkin package when in your workspace use the following command:
 ```
 $ catkin create pkg PKG_NAME
 ```
+For example the `control` package was created with the following command:
 
 <pre><font color="#8AE234"><b>fjp@ubuntu</b></font>:<font color="#729FCF"><b>~/git/2wd-robot/ros/src</b></font>$ catkin create pkg control
 Creating package &quot;control&quot; in &quot;/home/fjp/git/2wd-robot/ros/src&quot;...
