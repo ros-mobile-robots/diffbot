@@ -55,3 +55,18 @@ Starting  <font color="#8AE234"><b>&gt;&gt;&gt;</b></font> <font color="#34E2E2"
 [build]   <font color="#555753"><i><b>Abandoned: None.</b></i></font>                                                                                                                                                                        
 [build]   <font color="#555753"><i><b>Failed:    None.</b></i></font>                                                                                                                                                                        
 [build] <i><b>Runtime:</b></i> <i>10.1 seconds total.</i>                         </pre>
+
+
+## Create a new Catkin package
+
+To create a new Catkin package when in your workspace use the following command:
+
+```
+$ catkin create pkg PKG_NAME
+```
+
+<pre><font color="#8AE234"><b>fjp@ubuntu</b></font>:<font color="#729FCF"><b>~/git/2wd-robot/ros/src</b></font>$ catkin create pkg control
+Creating package &quot;control&quot; in &quot;/home/fjp/git/2wd-robot/ros/src&quot;...
+Created file control/package.xml
+Created file control/CMakeLists.txt
+Successfully created package files in /home/fjp/git/2wd-robot/ros/src/control.</pre>
