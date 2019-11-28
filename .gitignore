@@ -33,5 +33,10 @@
 .settings
 *.pydevproject
 
+# ROS
+build
+devel
+logs
+
 # OS X
 .DS_Store
