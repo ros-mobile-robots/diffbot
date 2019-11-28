@@ -1,5 +1,12 @@
 ## Control - Catkin package
 
+This package was created with `catkin create pkg PKG_NAME`:
+
+<pre><font color="#8AE234"><b>fjp@ubuntu</b></font>:<font color="#729FCF"><b>~/git/2wd-robot/ros/src</b></font>$ catkin create pkg control
+Creating package &quot;control&quot; in &quot;/home/fjp/git/2wd-robot/ros/src&quot;...
+Created file control/package.xml
+Created file control/CMakeLists.txt
+Successfully created package files in /home/fjp/git/2wd-robot/ros/src/control.</pre>
 
 ### Grove - I2C Motor Driver V1.3
 
