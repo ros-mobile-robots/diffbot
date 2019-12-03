@@ -39,5 +39,8 @@ devel
 logs
 .catkin_tools
 
+# Python
+*.pyc
+
 # OS X
 .DS_Store
