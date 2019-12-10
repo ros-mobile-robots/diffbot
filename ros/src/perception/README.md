@@ -2,11 +2,13 @@
 
 This package was created with `catkin create pkg PKG_NAME`:
 
-<pre><font color="#8AE234"><b>fjp@ubuntu</b></font>:<font color="#729FCF"><b>~/git/2wd-robot/ros/src</b></font>$ catkin create pkg perception
-Creating package &quot;perception&quot; in &quot;/home/fjp/git/2wd-robot/ros/src&quot;...
+```bash
+fjp@ubuntu:~/git/2wd-robot/ros/src$ catkin create pkg perception
+Creating package "perception" in "/home/fjp/git/2wd-robot/ros/src"...
 Created file perception/CMakeLists.txt
 Created file perception/package.xml
-Successfully created package files in /home/fjp/git/2wd-robot/ros/src/perception.</pre>
+Successfully created package files in /home/fjp/git/2wd-robot/ros/src/perception.
+```
 
 ### 
 
