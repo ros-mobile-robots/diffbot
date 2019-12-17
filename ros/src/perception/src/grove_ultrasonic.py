@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
- * Ultrasonic ranger class for Grove Ultrasonic ranger from Seeed Studio
+ * UltrasonicRanger class for Grove ultrasonic ranger from Seeed Studio
  *
  * Author: Franz Pucher
  * Date (y.m.d): 2019.12.17
@@ -11,7 +11,7 @@
 import RPi.GPIO as GPIO
 import time
 
-class Ultrasonic:
+class UltrasonicRanger:
     def __init__(self, i_gpio_sig = 11):
         """Initializes the ultrasonic object.
         
@@ -123,7 +123,7 @@ class Ultrasonic:
 if __name__ == '__main__':
     try:  
         # construct ultrasonic sensor
-        sensor = Ultrasonic()
+        sensor = UltrasonicRanger()
 
         # loop and print the distances to obstacles
         sensor.getAndPrint()
