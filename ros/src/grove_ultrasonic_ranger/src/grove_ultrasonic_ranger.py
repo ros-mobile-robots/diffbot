@@ -36,7 +36,7 @@ class GroveUltrasonicRanger:
         """Current measured distance (unit: centimeter) to an obstacle"""
         
 
-    def __del__(self):
+    #def __del__(self):
         # Reset GPIO settings
         #print "destructor: GPIO.cleanup()"
         #GPIO.cleanup() # results in AttributeException error when used in destructor
