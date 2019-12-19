@@ -37,8 +37,8 @@ class GroveUltrasonicRanger:
         
 
     def __del__(self):
-        print "destructor: GPIO.cleanup()"
         # Reset GPIO settings
+        #print "destructor: GPIO.cleanup()"
         #GPIO.cleanup() # results in AttributeException error when used in destructor
         #print "destructor: GPIO.cleanup() done"
 
