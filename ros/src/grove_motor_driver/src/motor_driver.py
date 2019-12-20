@@ -9,13 +9,19 @@ from geometry_msgs.msg import Twist
 
 
 def twist_callback(msg):
-    if (msg.linear.x > 0):
+    if (msg.linear.x > 0.0):
+        print "Forward"
         motor.MotorDirectionSet(0b1010)
         motor.MotorSpeedSetAB(100,100)
-    elif (msg.linear.x < 0):
-        motor.MotorDirectionSet(0b1010)
+    elif (msg.linear.x < 0.0):
+        print "Back"
+        motor.MotorDirectionSet(0b0101)
         motor.MotorSpeedSetAB(100,100)
+    elif (-0.1 < msg.linear.x and msg.linear.x < 0.1):
+        print "Stop Delta"
+        motor.MotorSpeedSetAB(0,0)
     else:
+        print "Stop"
         motor.MotorSpeedSetAB(0,0)
     
 
