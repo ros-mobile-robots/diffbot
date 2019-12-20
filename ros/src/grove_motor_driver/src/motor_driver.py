@@ -10,7 +10,7 @@ from geometry_msgs.msg import Twist
 
 def twist_callback(msg):
     if (msg.linear.x > 0):
-		    motor.MotorDirectionSet(0b1010)
+        motor.MotorDirectionSet(0b1010)
         motor.MotorSpeedSetAB(100,100)
     elif (msg.linear.x < 0):
         motor.MotorDirectionSet(0b1010)
