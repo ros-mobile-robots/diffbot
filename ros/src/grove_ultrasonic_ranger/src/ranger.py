@@ -22,7 +22,7 @@ if __name__ == '__main__':
     msg = Range()
     msg.header.frame_id = "ranger_distance"
     # http://wiki.seeedstudio.com/Grove-Ultrasonic_Ranger/#specification
-    msg.field_of_view = 15
+    msg.field_of_view = 0.261799 # rad (15 deg)
     msg.min_range = 0.02 # m
     msg.max_range = 3.5  # m
 
