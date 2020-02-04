@@ -64,10 +64,13 @@ class motor_driver:
 
 if __name__ == "__main__":
 	m= motor_driver()
-	while True:
-		m.MotorSpeedSetAB(100,100)
-		m.MotorDirectionSet(0b1010)
-		time.sleep(2)
-		m.MotorSpeedSetAB(100,100)
-		m.MotorDirectionSet(0b0101)
-		time.sleep(2)
+	try:
+	    while True:
+		    m.MotorSpeedSetAB(100,100)
+		    m.MotorDirectionSet(0b1010)
+		    time.sleep(2)
+		    m.MotorSpeedSetAB(100,100)
+		    m.MotorDirectionSet(0b0101)
+		    time.sleep(2)
+	except KeyboardInterrupt:
+	    m.MotorSpeedSetAB(0,0)
