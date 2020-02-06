@@ -32,8 +32,6 @@ SPEED_SENSOR_RIGHT = 16
 # Rotating motors cause the the encoder wheels to spin and produce 
 # pulses of light when light travels from the LED to the transistor.
 # This causes the transistor to switch on and off, leading to high/low transitions.
-# between the optocoupler  spins pressed and 24 will go to 3V3 (3.3V)
-# this enables us to demonstrate both rising and falling edge detection
 GPIO.setup(SPEED_SENSOR_LEFT , GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(SPEED_SENSOR_RIGHT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
