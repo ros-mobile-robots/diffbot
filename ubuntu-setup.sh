@@ -7,6 +7,7 @@ sudo apt install i2c-tools
 
 # Add i2c support to /boot/firmware/config.txt
 # dtparam=i2c0=on
+sudo sed -i '/dtparam=i2c0=on/s/^#//g' /boot/firmware/config.txt
 
 # ROS Melodic setup
 sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
