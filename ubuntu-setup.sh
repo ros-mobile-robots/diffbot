@@ -24,3 +24,18 @@ sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main"
 wget http://packages.ros.org/ros.key -O - | sudo apt-key add -
 sudo apt update
 sudo apt install python-catkin-tools
+
+
+# git setup
+git config --global credential.helper store
+
+echo "Enter your user.email for git config" 
+read email
+
+git config --global user.email \"$email\"
+
+echo "Enter your user.name for git config"
+read name
+
+git config --global user.name \"$name\"
+
