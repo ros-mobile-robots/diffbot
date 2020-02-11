@@ -58,7 +58,7 @@
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>roscpp</exec_depend>
   <exec_depend>rospy</exec_depend>
-
+  <exec_depend>python-rpi.gpio</exec_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
