@@ -1,15 +1,14 @@
 """
-Optical Sensor Two Motor Demonstration
-DualMotorSpeedDemo.ino
-Demonstrates use of Hardware Interrupts
-to measure speed from two motors
-	
-DroneBot Workshop 2017
-http://dronebotworkshop.com
+Optical speed sensors attached to rotary wheel encoder disk
+
+Demonstrates use of hardware interrupts to measure position and speed from two motors
 """
 
 # Use time module to sleep for specified time
 import time
+
+# Import module for constant pi
+import math
 
 # RPi.GPIO module
 # https://sourceforge.net/p/raspberry-gpio-python/wiki/BasicUsage/
@@ -93,16 +92,24 @@ class LM393SpeedSensor:
     # Timer Interrupt Service Routine
     def _isr_timer(self):
         # Calculate RPM for left motor
-        rotation_left = (self.counter_left / self.diskslots) * self.update_rate * 60.00
-        print("Motor Speed 1:", rotation_left, "RPM")  
-        counter_left = 0  # Reset counter to zero
+        rpm_left = (self.counter_left / self.diskslots) * self.update_rate * 60.00
+        print("Motor Speed 1:", rpm_left, "RPM")  
+        self.counter_left = 0  # Reset counter to zero
+	
+	self.ticks_left = self.ticks_left % self.diskslots
+	angle_left = self.ticks_left / self.diskslots * (2.0 * math.pi)
+	print("Motor angle 1:", angle_left, "rad")
 
         # Calculate RPM for right motor
-        rotation_right = (self.counter_right / self.diskslots) * self.update_rate * 60.00
-        print("Motor Speed 2: ", rotation_right, "RPM")
-        counter_right = 0;  # Reset counter to zero
+        rpm_right = (self.counter_right / self.diskslots) * self.update_rate * 60.00
+        print("Motor Speed 2: ", rpm_right, "RPM")
+        self.counter_right = 0;  # Reset counter to zero
+	
+	self.ticks_right = self.ticks_right % self.diskslots
+	angle_right = self.ticks_left / self.diskslots * (2.0 * math.pi)
+	print("Motor angle 2:", angle_right, "rad")
     
-        return rotation_left, rotation_right
+        return rpm_left, rpm_right
 
             
     def run(self):
