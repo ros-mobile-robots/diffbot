@@ -39,35 +39,35 @@ class LM393SpeedSensor:
         # Use Board numbering scheme (physical pin numbers) instead of 
         # BCM (channel numbers on the Broadcom SOC) to avoid re-wiring due to board revision changes.
         GPIO.setmode(self.gpio_mode)
-		
+
         # Speed sensor 1 interrupt pin. Default pin BCM 22, Physical 15
         self.gpio_sensor_left = gpio_sensor_left
         # Speed sensor 2 interrupt pin. Default pin BCM 23, Physical 16
         self.gpio_sensor_right = gpio_sensor_right
-		
-		
-	# GPIO 15 & 16 set up as inputs. Both are pulled up.
-	# The pins will go to GND when the encoder wheels spin. 
-	# They are located in the gap of the H206 slot-type opto interrupters,
-	# between LED and phototransistor sensor. 
-	# Rotating motors cause the the encoder wheels to spin and produce 
-	# pulses of light when light travels from the LED to the transistor.
-	# This causes the transistor to switch on and off, leading to high/low transitions.
-	GPIO.setup(self.gpio_sensor_left , GPIO.IN, pull_up_down=GPIO.PUD_UP)
-	GPIO.setup(self.gpio_sensor_right, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
-		
-	# Integers for pulse counters
-	self.counter_left = 0
-	self.counter_right = 0
-		
-		
-	# Float for number of slots in encoder disk
-	self.diskslots = 20.0  # Change to match value of encoder disk
+
+        # GPIO 15 & 16 set up as inputs. Both are pulled up.
+        # The pins will go to GND when the encoder wheels spin. 
+        # They are located in the gap of the H206 slot-type opto interrupters,
+        # between LED and phototransistor sensor. 
+        # Rotating motors cause the the encoder wheels to spin and produce 
+        # pulses of light when light travels from the LED to the transistor.
+        # This causes the transistor to switch on and off, leading to high/low transitions.
+        GPIO.setup(self.gpio_sensor_left , GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(self.gpio_sensor_right, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+
+        # Integers for pulse counters
+        self.counter_left = 0
+        self.counter_right = 0
+            
+            
+        # Float for number of slots in encoder disk
+        self.diskslots = 20.0  # Change to match value of encoder disk
         
         # Update rate (in seconds) of the speed sensors
         self.update_rate = update_rate
-		
+
         # When a falling edge is detected on the interrupt pins, regardless of whatever   
         # else is happening in the program, the function ISR_count_left and ISR_count_right will be run
         # Increase counter left when speed sensor pin goes high
@@ -95,19 +95,19 @@ class LM393SpeedSensor:
         rpm_left = (self.counter_left / self.diskslots) * self.update_rate * 60.00
         print("Motor Speed 1:", rpm_left, "RPM")  
         self.counter_left = 0  # Reset counter to zero
-	
-	self.ticks_left = self.ticks_left % self.diskslots
-	angle_left = self.ticks_left / self.diskslots * (2.0 * math.pi)
-	print("Motor angle 1:", angle_left, "rad")
+
+        self.ticks_left = self.ticks_left % self.diskslots
+        angle_left = self.ticks_left / self.diskslots * (2.0 * math.pi)
+        print("Motor angle 1:", angle_left, "rad")
 
         # Calculate RPM for right motor
         rpm_right = (self.counter_right / self.diskslots) * self.update_rate * 60.00
         print("Motor Speed 2: ", rpm_right, "RPM")
         self.counter_right = 0;  # Reset counter to zero
-	
-	self.ticks_right = self.ticks_right % self.diskslots
-	angle_right = self.ticks_left / self.diskslots * (2.0 * math.pi)
-	print("Motor angle 2:", angle_right, "rad")
+
+        self.ticks_right = self.ticks_right % self.diskslots
+        angle_right = self.ticks_left / self.diskslots * (2.0 * math.pi)
+        print("Motor angle 2:", angle_right, "rad")
     
         return rpm_left, rpm_right
 
