@@ -105,7 +105,7 @@
       <mass value="${base_mass}" />
       <origin xyz="0 0 0" />
         <!--The 3x3 rotational inertia matrix. -->
-        <box_inertia  m="${base_mass}" w="${base_width}" h="${base_length}" d="${base_height}" />
+        <xacro:box_inertia  m="${base_mass}" w="${base_width}" h="${base_length}" d="${base_height}" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -164,13 +164,13 @@
 
 
   <!-- Wheel Definitions -->
-  <wheel fb="front" lr="right" parent="base_link" 
+  <xacro:wheel fb="front" lr="right" parent="base_link" 
     mass="${wheel_mass}" radius="${wheel_radius}" width="${wheel_width}" reflect="1" 
     transX="${base_x_origin_to_wheel_origin}" 
     transY="${base_y_origin_to_wheel_origin}"
     transZ="${base_z_origin_to_wheel_origin}" 
     flipY="1" />
-  <wheel fb="front" lr="left" parent="base_link" 
+  <xacro:wheel fb="front" lr="left" parent="base_link" 
     mass="${wheel_mass}" radius="${wheel_radius}" width="${wheel_width}" reflect="-1" 
     transX="${base_x_origin_to_wheel_origin}" 
     transY="${base_y_origin_to_wheel_origin}"
