@@ -5,7 +5,7 @@
     <!-- Setting gui parameter to true for display joint slider -->
     <!-- param name="use_gui" value="true"/ -->
     <!-- Starting Joint state publisher node which will publish the joint values -->
-    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+    <!-- node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" /-->
     <node name="joint_state_publisher_gui" pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" />
     <!-- Starting robot state publish which will publish tf -->
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
