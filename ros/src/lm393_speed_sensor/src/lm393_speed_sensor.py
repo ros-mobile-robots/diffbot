@@ -103,7 +103,7 @@ class LM393SpeedSensor:
         # Calculate RPM for right motor
         rpm_right = (self.counter_right / self.diskslots) * self.update_rate * 60.00
         print("Motor Speed 2: ", rpm_right, "RPM")
-        self.counter_right = 0;  # Reset counter to zero
+        self.counter_right = 0  # Reset counter to zero
 
         self.ticks_right = self.ticks_right % self.diskslots
         angle_right = self.ticks_left / self.diskslots * (2.0 * math.pi)
