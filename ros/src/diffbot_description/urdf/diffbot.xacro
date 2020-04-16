@@ -1,50 +1,19 @@
 <?xml version="1.0"?>
 <robot name="diffbot" xmlns:xacro="http://ros.org/wiki/xacro">
 
-  <xacro:include filename="$(find diffbot_description)/urdf/wheel.urdf.xacro" /> 
-
-
-  <!-- Defining the colors used in this robot -->
-  <material name="black">
-    <color rgba="0.0 0.0 0.0 1.0"/>
-  </material>
-
-  <material name="red">
-    <color rgba="0.8 0.0 0.0 1.0"/>
-  </material>
-
-  <material name="yellow">
-    <color rgba="0.9 0.7 0.1 1.0"/>
-  </material>
-
-  <material name="white">
-    <color rgba="1.0 1.0 1.0 1.0"/>
-  </material>
-
-  <material name="blue">
-    <color rgba="0.0 0.0 0.8 1.0"/>
-  </material>
-
-
-  <!-- PROPERTY LIST -->
+  <!-- Properties -->
   <!--All units in m-kg-s-radians unit system -->
+  <!-- Constants for robot dimensions -->
   <xacro:property name="M_PI" value="3.1415926535897931" />
   <xacro:property name="M_PI_2" value="1.570796327" />
   <xacro:property name="DEG_TO_RAD" value="0.017453293" />
 
-  <!-- Main body width, length and height -->
-  <!-- Main body box base   -->
+  <!-- Main body height, length width and mass -->
+  <!-- Main body box base -->
   <xacro:property name="base_height" value="0.02" /> 
   <xacro:property name="base_length" value="0.30" /> 
   <xacro:property name="base_width" value="0.15" /> 
   <xacro:property name="base_mass" value="5" /> <!-- in kg-->
-
-  <!-- Macro for box geometry -->
-  <xacro:macro name="box_geometry" params="length:=${base_length} width:=${base_width} ${base_height}">
-    <geometry>
-      <box size="${length} ${width} ${height}" />
-    </geometry>
-  </xacro:macro>
 
   <!-- Macro for calculating inertia of box, see https://en.wikipedia.org/wiki/List_of_moments_of_inertia -->
   <xacro:macro name="box_inertia" params="m w h d">
@@ -54,18 +23,17 @@
   </xacro:macro>
 
 
-  <!-- Wheels -->
+  <!-- Wheel properties -->
+  <!-- Wheel radius, width and mass -->
   <xacro:property name="wheel_radius" value="0.04" /> 
   <xacro:property name="wheel_width" value="0.02" />
   <xacro:property name="wheel_mass" value="2.5" /> <!-- in kg-->
-  
+  <!-- Wheel placement relative to base origin -->
   <xacro:property name="base_x_origin_to_wheel_origin" value="${base_length/2.0*0.7}" />
   <xacro:property name="base_y_origin_to_wheel_origin" value="${base_width/2.0}" />
   <xacro:property name="base_z_origin_to_wheel_origin" value="0.0" />
 
-
-  <!-- Caster wheel radius and height -->
-  <!-- Caster wheel mass -->
+  <!-- Caster wheel radius, width and mass -->
   <xacro:property name="caster_height" value="0.04" /> 
   <xacro:property name="caster_radius" value="0.025" /> 
   <xacro:property name="caster_mass" value="0.5" /> <!-- in kg-->
@@ -76,8 +44,16 @@
   <xacro:property name="hokuyo_size" value="0.05" />
 
 
+  <xacro:include filename="$(find diffbot_description)/urdf/wheel.urdf.xacro" /> 
 
-  <!-- BASE-FOOTPRINT -->
+  <!-- Import all Gazebo-customization elements, including Gazebo colors -->
+  <xacro:include filename="$(find diffbot_description)/urdf/diffbot.gazebo" />
+  <!-- Import RViz colors -->
+  <xacro:include filename="$(find diffbot_description)/urdf/materials.xacro" />
+
+
+
+  <!-- Base-Footprint -->
   <!-- base_footprint is a fictitious link(frame) that is on the ground right below base_link origin -->
   <link name="base_footprint">
     <collision>
@@ -88,18 +64,15 @@
     </collision>
   </link>
 
-  <gazebo reference="base_footprint">
-    <turnGravityOff>false</turnGravityOff>
-  </gazebo>
-
+  <!-- Joint to connect base_footprint with base_link -->
   <joint name="base_footprint_joint" type="fixed">
     <origin xyz="0 0 ${wheel_radius - base_z_origin_to_wheel_origin}" rpy="0 0 0" />
     <parent link="base_footprint"/>
     <child link="base_link" />
   </joint>
   
-  <!-- BASE-LINK -->
-  <!--Actual body/chassis of the robot-->
+  <!-- Base-Link -->
+  <!-- Actual body/chassis of the robot-->
   <link name="base_link">
     <inertial>
       <mass value="${base_mass}" />
@@ -122,11 +95,12 @@
     </collision>     
   </link>
 
-  <gazebo reference="base_link">
-    <material>Gazebo/White</material>
-    <turnGravityOff>false</turnGravityOff>
-  </gazebo>
-
+  <!-- Joint between base_link and back caster wheel -->
+  <joint name="caster_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="caster_link"/>
+    <origin xyz="-0.135 0.0 0.009" rpy="${-M_PI/2} 0 0"/>
+  </joint>
 
   <!-- Caster back  -->
   <link name="caster_link">
@@ -152,18 +126,7 @@
       </inertial>
   </link>
 
-  <joint name="caster_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="caster_link"/>
-    <origin xyz="-0.135 0.0 0.009" rpy="${-M_PI/2} 0 0"/>
-  </joint>
-
-  <gazebo reference="caster_link">
-    <turnGravityOff>false</turnGravityOff>
-  </gazebo>
-
-
-  <!-- Wheel Definitions -->
+  <!-- Wheel definitions -->
   <xacro:wheel fb="front" lr="right" parent="base_link" 
     mass="${wheel_mass}" radius="${wheel_radius}" width="${wheel_width}" reflect="1" 
     transX="${base_x_origin_to_wheel_origin}" 
@@ -176,31 +139,5 @@
     transY="${base_y_origin_to_wheel_origin}"
     transZ="${base_z_origin_to_wheel_origin}" 
     flipY="1" />
-
-
-  <!-- Differential drive controller  -->
-  <gazebo>
-    <plugin name="differential_drive_controller" filename="libgazebo_ros_diff_drive.so">
-      <legacyMode>true</legacyMode>
-      <rosDebugLevel>Debug</rosDebugLevel>
-      <publishWheelTF>false</publishWheelTF>
-      <robotNamespace>/</robotNamespace>
-      <publishTf>1</publishTf>
-      <publishWheelJointState>false</publishWheelJointState>
-      <alwaysOn>true</alwaysOn>
-      <updateRate>100.0</updateRate>
-      <leftJoint>front_left_wheel_joint</leftJoint>
-      <rightJoint>front_right_wheel_joint</rightJoint>
-      <wheelSeparation>${2*base_width}</wheelSeparation>
-      <wheelDiameter>${2*wheel_radius}</wheelDiameter>
-      <broadcastTF>1</broadcastTF>
-      <wheelTorque>30</wheelTorque>
-      <wheelAcceleration>1.8</wheelAcceleration>
-      <commandTopic>cmd_vel</commandTopic>
-      <odometryFrame>odom</odometryFrame> 
-      <odometryTopic>odom</odometryTopic> 
-      <robotBaseFrame>base_footprint</robotBaseFrame>
-    </plugin>
-  </gazebo> 
 
 </robot>

@@ -1,0 +1,103 @@
+<?xml version="1.0"?>
+<robot>
+
+  <!-- base_footprint -->
+  <gazebo reference="base_footprint">
+    <turnGravityOff>false</turnGravityOff>
+  </gazebo>
+
+  <!-- base_link -->
+  <gazebo reference="base_link">
+    <material>Gazebo/White</material>
+    <turnGravityOff>false</turnGravityOff>
+  </gazebo>
+
+  <!-- Back caster wheel -->
+  <gazebo reference="caster_link">
+    <turnGravityOff>false</turnGravityOff>
+  </gazebo>
+
+
+
+  <!-- ros_control plugin -->
+  <gazebo>
+    <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+      <robotNamespace>/rrbot</robotNamespace>
+      <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
+    </plugin>
+  </gazebo>
+
+  <!-- Differential drive controller -->
+  <gazebo>
+    <plugin name="differential_drive_controller" filename="libgazebo_ros_diff_drive.so">
+      <legacyMode>true</legacyMode>
+      <rosDebugLevel>Debug</rosDebugLevel>
+      <publishWheelTF>false</publishWheelTF>
+      <robotNamespace>/</robotNamespace>
+      <publishTf>1</publishTf>
+      <publishWheelJointState>false</publishWheelJointState>
+      <alwaysOn>true</alwaysOn>
+      <updateRate>100.0</updateRate>
+      <leftJoint>front_left_wheel_joint</leftJoint>
+      <rightJoint>front_right_wheel_joint</rightJoint>
+      <wheelSeparation>${2*base_width}</wheelSeparation>
+      <wheelDiameter>${2*wheel_radius}</wheelDiameter>
+      <broadcastTF>1</broadcastTF>
+      <wheelTorque>30</wheelTorque>
+      <wheelAcceleration>1.8</wheelAcceleration>
+      <commandTopic>cmd_vel</commandTopic>
+      <odometryFrame>odom</odometryFrame> 
+      <odometryTopic>odom</odometryTopic> 
+      <robotBaseFrame>base_footprint</robotBaseFrame>
+    </plugin>
+  </gazebo> 
+
+  <!-- camera -->
+  <gazebo reference="camera_link">
+    <sensor type="camera" name="camera1">
+      <update_rate>30.0</update_rate>
+      <camera name="head">
+        <horizontal_fov>1.3962634</horizontal_fov>
+        <image>
+          <width>800</width>
+          <height>800</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.02</near>
+          <far>300</far>
+        </clip>
+        <noise>
+          <type>gaussian</type>
+          <!-- Noise is sampled independently per pixel on each frame.
+               That pixel's noise value is added to each of its color
+               channels, which at that point lie in the range [0,1]. -->
+          <mean>0.0</mean>
+          <stddev>0.007</stddev>
+        </noise>
+      </camera>
+      <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+        <alwaysOn>true</alwaysOn>
+        <updateRate>0.0</updateRate>
+        <cameraName>rrbot/camera1</cameraName>
+        <imageTopicName>image_raw</imageTopicName>
+        <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+        <frameName>camera_link_optical</frameName>
+        <!-- setting hackBaseline to anything but 0.0 will cause a misalignment
+            between the gazebo sensor image and the frame it is supposed to
+            be attached to -->
+        <hackBaseline>0.0</hackBaseline>
+        <distortionK1>0.0</distortionK1>
+        <distortionK2>0.0</distortionK2>
+        <distortionK3>0.0</distortionK3>
+        <distortionT1>0.0</distortionT1>
+        <distortionT2>0.0</distortionT2>
+        <CxPrime>0</CxPrime>
+        <Cx>0.0</Cx>
+        <Cy>0.0</Cy>
+        <focalLength>0.0</focalLength>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+</robot>
