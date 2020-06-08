@@ -1,6 +1,6 @@
 # DiffBot
 
-DiffBot is an autonomous two wheel differential drive robot running ROS Melodic on a Raspberry Pi 4 B with Ubuntu 18.04.
+DiffBot is an autonomous differential drive robot with two wheels. Its main processing unit is a Raspberry Pi 4 B running Ubuntu 18.04 and the ROS 1 (ROS Melodic) middleware.
 
 
 ![DiffBot RViz](docs/resources/rviz_diffbot_basic.png)
