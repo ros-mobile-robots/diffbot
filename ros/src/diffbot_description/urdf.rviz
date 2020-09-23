@@ -108,7 +108,7 @@ Visualization Manager:
   Global Options:
     Background Color: 122; 122; 122
     Fixed Frame: base_link
-    Frame Rate: 5
+    Frame Rate: 30
   Name: root
   Tools:
     - Class: rviz/Interact
