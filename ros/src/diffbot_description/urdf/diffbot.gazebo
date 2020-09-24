@@ -17,17 +17,16 @@
     <turnGravityOff>false</turnGravityOff>
   </gazebo>
 
-
-
   <!-- ros_control plugin -->
   <gazebo>
     <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
-      <robotNamespace>/rrbot</robotNamespace>
+      <robotNamespace>/diffbot</robotNamespace>
       <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
     </plugin>
   </gazebo>
 
   <!-- Differential drive controller -->
+  <!--
   <gazebo>
     <plugin name="differential_drive_controller" filename="libgazebo_ros_diff_drive.so">
       <legacyMode>true</legacyMode>
@@ -50,7 +49,8 @@
       <odometryTopic>odom</odometryTopic> 
       <robotBaseFrame>base_footprint</robotBaseFrame>
     </plugin>
-  </gazebo> 
+  </gazebo>
+  -->
 
   <!-- camera -->
   <gazebo reference="camera_link">
