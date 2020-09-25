@@ -5,18 +5,13 @@
     -->
 
     <!-- Load joint controller configurations from YAML file to parameter server -->
-    <rosparam command="load"
-                file="$(find diffbot_control)/config/diffbot_control.yaml" />
+    <rosparam file="$(find diffbot_control)/config/diffbot_control.yaml" command="load"/>
                 <!-- ns="diffbot" / -->
 
     <!-- load the controllers -->
-    <node name="controller_spawner" pkg="controller_manager" type="spawner"
-        respawn="false"
-        output="screen" 
-        ns="/diffbot" 
-        args="joint_state_controller
-              mobile_base_controller
-            "/>
+    <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
+        output="screen" ns="/diffbot" args="joint_state_controller
+                                            mobile_base_controller"/>
 
     <!-- convert joint states to TF transforms for rviz, etc -->
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"

@@ -64,6 +64,8 @@
   <build_export_depend>sensor_msgs</build_export_depend>
   <build_export_depend>transmission_interface</build_export_depend>
   <exec_depend>controller_manager</exec_depend>
+  <exec_depend>joint_state_controller</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>diff_drive_controller</exec_depend>
   <exec_depend>hardware_interface</exec_depend>
   <exec_depend>roscpp</exec_depend>

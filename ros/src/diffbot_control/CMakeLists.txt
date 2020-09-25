@@ -12,7 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   diff_drive_controller
   hardware_interface
   roscpp
-  rosparam_shortcuts
+  #rosparam_shortcuts
   sensor_msgs
   transmission_interface
 )
