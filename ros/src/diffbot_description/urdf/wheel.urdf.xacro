@@ -20,7 +20,7 @@
       flipY:=${1}"> 
     <link name="${fb}_${lr}_wheel">
       <visual>
-        <origin xyz="0 0 0" rpy="${flipY*M_PI/2} 0  0 " /> 
+        <origin xyz="0 0 0" rpy="${flipY*M_PI/2} 0 0 " /> 
         <geometry>
           <cylinder length="${width}" radius="${radius}" />
         </geometry>
@@ -53,7 +53,7 @@
       <parent link="${parent}"/>
       <child link="${fb}_${lr}_wheel"/>
       <origin xyz="${transX} ${reflect * (transY + wheel_width/2.0)} ${transZ}" rpy="0 0 0" /> 
-      <axis xyz="0 1 0" rpy="0  0" />
+      <axis xyz="0 1 0" rpy="0 0 0" />
       <limit effort="100" velocity="100"/>
       <joint_properties damping="0.0" friction="0.0"/>
     </joint>
