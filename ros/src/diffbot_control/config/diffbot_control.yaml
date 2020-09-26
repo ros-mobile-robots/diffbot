@@ -11,7 +11,11 @@ diffbot:
     left_wheel: 'front_left_wheel_joint'
     right_wheel: 'front_right_wheel_joint'
 
-    wheel_separation: 0.44
+    # Wheel separation and diameter. These are both optional.
+    # diff_drive_controller will attempt to read either one or both from the
+    # URDF if not specified as a parameter
+    wheel_separation : 0.2
+    wheel_radius : 0.04
 
     # Odometry covariances for the encoder output of the robot. These values should
     # be tuned to your robot's sample odometry data, but these values are a good place
@@ -23,15 +27,15 @@ diffbot:
     base_frame_id: base_link
 
     # Velocity and acceleration limits for the robot
-    linear:
-      x:
-        has_velocity_limits    : true
-        max_velocity           : 0.2   # m/s
-        has_acceleration_limits: true
-        max_acceleration       : 0.6   # m/s^2
-    angular:
-      z:
-        has_velocity_limits    : true
-        max_velocity           : 2.0   # rad/s
-        has_acceleration_limits: true
-        max_acceleration       : 6.0   # rad/s^2
+    #linear:
+    #  x:
+    #    has_velocity_limits    : true
+    #    max_velocity           : 0.2   # m/s
+    #    has_acceleration_limits: true
+    #    max_acceleration       : 0.6   # m/s^2
+    #angular:
+    #  z:
+    #    has_velocity_limits    : true
+    #    max_velocity           : 2.0   # rad/s
+    #    has_acceleration_limits: true
+    #    max_acceleration       : 6.0   # rad/s^2

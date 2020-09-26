@@ -1,0 +1,7 @@
+diffbot:
+  gazebo_ros_control:
+    pid_gains:
+      front_right_wheel_joint:
+        {p: 5.0, i: 0, d: 0}
+      front_left_wheel_joint:
+        {p: 5.0, i: 0, d: 0}

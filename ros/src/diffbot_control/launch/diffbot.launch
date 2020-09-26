@@ -1,0 +1,16 @@
+<launch>
+    <arg name="rvizconfig" default="$(find diffbot_control)/rviz/diffbot.rviz" />
+
+    <include file="$(find diffbot_gazebo)/launch/diffbot.launch">
+        <!--arg name="model" value="$(arg model)" /-->
+    </include>
+
+    <include file="$(find diffbot_control)/launch/diffbot_control.launch">
+        <!-- arg name="model" value="$(arg model)" /-->
+    </include>
+
+    
+
+    <!-- Launch visualization in rviz -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find diffbot_control)/rviz/diffbot.rviz" required="true" />
+</launch>
