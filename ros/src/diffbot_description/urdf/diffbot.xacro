@@ -132,9 +132,9 @@
   </link>
 
   <!--gazebo reference="caster_link">
-      <mu1 value="1.0"/>
-      <mu2 value="1.0"/>
-      <kp  value="10000000.0" />
+      <mu1 value="50.0"/>
+      <mu2 value="25.0"/>
+      <kp  value="10000.0" />
       <kd  value="1.0" />
       <fdir1 value="1 0 0"/>
       <material>Gazebo/Grey</material>
@@ -154,5 +154,5 @@
     transY="${base_y_origin_to_wheel_origin}"
     transZ="${base_z_origin_to_wheel_origin}"
     flipY="1" />
-    
+
 </robot>
