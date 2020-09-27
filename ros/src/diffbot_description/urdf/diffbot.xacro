@@ -13,30 +13,36 @@
   <xacro:property name="base_height" value="0.02" /> 
   <xacro:property name="base_length" value="0.30" /> 
   <xacro:property name="base_width" value="0.15" /> 
-  <xacro:property name="base_mass" value="5" /> <!-- in kg-->
+  <xacro:property name="base_mass" value="16.0" /> <!-- in kg-->
 
   <!-- Macro for calculating inertia of box, see https://en.wikipedia.org/wiki/List_of_moments_of_inertia -->
-  <xacro:macro name="box_inertia" params="m w h d">
-    <inertia  ixx="${m/12*(h*h + d*d)}" ixy = "0" ixz = "0"
-              iyy="${m/12*(w*w + d*d)}" iyz = "0"
-              izz="${m/12*(w*w + h*h)}" /> 
+  <xacro:macro name="box_inertia" params="m l w h">
+    <inertia  ixx="${m/12*(w*w + h*h)}" ixy = "0" ixz = "0"
+              iyy="${m/12*(l*l + h*h)}" iyz = "0"
+              izz="${m/12*(l*l + w*w)}" />
+  </xacro:macro>
+
+  <xacro:macro name="sphere_inertia" params="m r">
+    <inertia  ixx="${m*2/5*r*r}" ixy = "0" ixz = "0"
+              iyy="${m*2/5*r*r}" iyz = "0"
+              izz="${m*2/5*r*r}" />
   </xacro:macro>
 
 
   <!-- Wheel properties -->
   <!-- Wheel radius, width and mass -->
-  <xacro:property name="wheel_radius" value="0.04" /> 
+  <xacro:property name="wheel_radius" value="0.04" />
   <xacro:property name="wheel_width" value="0.02" />
-  <xacro:property name="wheel_mass" value="0.1" /> <!-- in kg-->
+  <xacro:property name="wheel_mass" value="1.0" /> <!-- in kg-->
   <!-- Wheel placement relative to base origin -->
   <xacro:property name="base_x_origin_to_wheel_origin" value="${base_length/2.0*0.7}" />
   <xacro:property name="base_y_origin_to_wheel_origin" value="${base_width/2.0}" />
   <xacro:property name="base_z_origin_to_wheel_origin" value="0.0" />
 
   <!-- Caster wheel radius, width and mass -->
-  <xacro:property name="caster_height" value="0.04" /> 
-  <xacro:property name="caster_radius" value="0.025" /> 
-  <xacro:property name="caster_mass" value="0.5" /> <!-- in kg-->
+  <xacro:property name="caster_height" value="0.04" />
+  <xacro:property name="caster_radius" value="0.025" />
+  <xacro:property name="caster_mass" value="1.0" /> <!-- in kg-->
 
 
 
@@ -44,7 +50,7 @@
   <xacro:property name="hokuyo_size" value="0.05" />
 
 
-  <xacro:include filename="$(find diffbot_description)/urdf/wheel.urdf.xacro" /> 
+  <xacro:include filename="$(find diffbot_description)/urdf/wheel.urdf.xacro" />
 
   <!-- Import all Gazebo-customization elements, including Gazebo colors -->
   <xacro:include filename="$(find diffbot_description)/urdf/diffbot.gazebo" />
@@ -77,8 +83,8 @@
     <inertial>
       <mass value="${base_mass}" />
       <origin xyz="0 0 0" />
-        <!--The 3x3 rotational inertia matrix. -->
-        <xacro:box_inertia  m="${base_mass}" w="${base_width}" h="${base_length}" d="${base_height}" />
+      <!--The 3x3 rotational inertia matrix. -->
+      <xacro:box_inertia  m="${base_mass}" l="${base_length}" w="${base_width}" h="${base_height}" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -86,58 +92,67 @@
           <box size="${base_length} ${base_width} ${base_height}" />
       </geometry>
       <material name="white" />
-    </visual>  
+    </visual>
     <collision>
-      <origin xyz="0 0 0" rpy="0 0 0 " />
+      <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
           <box size="${base_length} ${base_width} ${base_height}" />
       </geometry>
-    </collision>     
+    </collision>
   </link>
 
   <!-- Joint between base_link and back caster wheel -->
   <joint name="caster_joint" type="fixed">
     <parent link="base_link"/>
     <child link="caster_link"/>
-    <origin xyz="-0.135 0.0 0.009" rpy="${-M_PI/2} 0 0"/>
+    <origin xyz="-0.12 0.0 -0.02" rpy="0 0 0"/>
   </joint>
 
   <!-- Caster back  -->
   <link name="caster_link">
     <visual>
-      <origin xyz="0.02 0.02 0 " rpy="${M_PI/2} 0 0" /> 
+      <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
         <sphere radius="${caster_radius}" />
       </geometry>
       <material name="black" />
     </visual>
     <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
         <sphere radius="${caster_radius}" />
       </geometry>
-      <origin xyz="0 0.02 0 " rpy="${M_PI/2} 0 0" /> 
-    </collision>      
+    </collision>
     <inertial>
       <mass value="${caster_mass}" />
-      <origin xyz="0 0 0" />        
-      <inertia ixx="0.001" ixy="0.0" ixz="0.0"
-               iyy="0.001" iyz="0.0" 
-               izz="0.001" />
-      </inertial>
+      <origin xyz="0 0 0" />
+      <!--The 3x3 rotational inertia matrix. -->
+      <xacro:sphere_inertia  m="${caster_mass}" r="${caster_radius}" />
+    </inertial>
   </link>
 
-  <!-- Wheel definitions -->
-  <xacro:wheel fb="front" lr="right" parent="base_link" 
-    mass="${wheel_mass}" radius="${wheel_radius}" width="${wheel_width}" reflect="1" 
-    transX="${base_x_origin_to_wheel_origin}" 
-    transY="${base_y_origin_to_wheel_origin}"
-    transZ="${base_z_origin_to_wheel_origin}" 
-    flipY="1" />
-  <xacro:wheel fb="front" lr="left" parent="base_link" 
-    mass="${wheel_mass}" radius="${wheel_radius}" width="${wheel_width}" reflect="-1" 
-    transX="${base_x_origin_to_wheel_origin}" 
-    transY="${base_y_origin_to_wheel_origin}"
-    transZ="${base_z_origin_to_wheel_origin}" 
-    flipY="1" />
+  <!--gazebo reference="caster_link">
+      <mu1 value="1.0"/>
+      <mu2 value="1.0"/>
+      <kp  value="10000000.0" />
+      <kd  value="1.0" />
+      <fdir1 value="1 0 0"/>
+      <material>Gazebo/Grey</material>
+      <turnGravityOff>false</turnGravityOff>
+    </gazebo-->
 
+  <!-- Wheel definitions -->
+  <xacro:wheel fb="front" lr="right" parent="base_link"
+    mass="${wheel_mass}" radius="${wheel_radius}" width="${wheel_width}" reflect="1"
+    transX="${base_x_origin_to_wheel_origin}"
+    transY="${base_y_origin_to_wheel_origin}"
+    transZ="${base_z_origin_to_wheel_origin}"
+    flipY="1" />
+  <xacro:wheel fb="front" lr="left" parent="base_link"
+    mass="${wheel_mass}" radius="${wheel_radius}" width="${wheel_width}" reflect="-1"
+    transX="${base_x_origin_to_wheel_origin}"
+    transY="${base_y_origin_to_wheel_origin}"
+    transZ="${base_z_origin_to_wheel_origin}"
+    flipY="1" />
+    
 </robot>
