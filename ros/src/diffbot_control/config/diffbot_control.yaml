@@ -24,7 +24,7 @@ diffbot:
     twist_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.03]
 
     # Top level frame (link) of the robot description
-    base_frame_id: base_link
+    base_frame_id: base_footprint
 
     # Velocity and acceleration limits for the robot
     #linear:
