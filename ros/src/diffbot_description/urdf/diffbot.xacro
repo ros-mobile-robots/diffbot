@@ -4,9 +4,9 @@
   <!-- Properties -->
   <!--All units in m-kg-s-radians unit system -->
   <!-- Constants for robot dimensions -->
-  <xacro:property name="M_PI" value="3.1415926535897931" />
-  <xacro:property name="M_PI_2" value="1.570796327" />
-  <xacro:property name="DEG_TO_RAD" value="0.017453293" />
+  <!--xacro:property name="pi" value="3.1415926535897931" /-->
+  <xacro:property name="pi_2" value="1.570796327" />
+  <xacro:property name="deg_to_rad" value="0.017453293" />
 
   <!-- Main body height, length width and mass -->
   <!-- Main body box base -->
@@ -28,7 +28,6 @@
               izz="${m*2/5*r*r}" />
   </xacro:macro>
 
-
   <!-- Wheel properties -->
   <!-- Wheel radius, width and mass -->
   <xacro:property name="wheel_radius" value="0.04" />
@@ -40,23 +39,32 @@
   <xacro:property name="base_z_origin_to_wheel_origin" value="0.0" />
 
   <!-- Caster wheel radius, width and mass -->
-  <xacro:property name="caster_height" value="0.04" />
-  <xacro:property name="caster_radius" value="0.025" />
-  <xacro:property name="caster_mass" value="1.0" /> <!-- in kg-->
+  <xacro:property name="caster_wheel_width" value="0.01" />
+  <xacro:property name="caster_wheel_radius" value="0.015" />
+  <xacro:property name="caster_wheel_mass" value="1.0" /> <!-- in kg-->
 
-
+  <!-- Caster wheel base size, width and mass -->
+  <xacro:property name="caster_wheel_dx" value="${-caster_base_size/2.0}" />
+  <xacro:property name="caster_wheel_dy" value="-1" />
+  <xacro:property name="caster_wheel_dz" value="${-caster_base_size}" />
+  <!--xacro:property name="front_caster_wheel_base_dx" value="0.341346" /-->
+  <xacro:property name="caster_base_size" value="0.02" />
+  <xacro:property name="back_caster_wheel_base_dx" value="-0.270154" />
+  <xacro:property name="caster_wheel_base_dy" value="0.203" />
+  <xacro:property name="caster_wheel_base_dz" value="${-base_height/2.0}" />
 
   <!-- Hokuyo Laser scanner -->
   <xacro:property name="hokuyo_size" value="0.05" />
 
 
-  <xacro:include filename="$(find diffbot_description)/urdf/wheel.urdf.xacro" />
-
   <!-- Import all Gazebo-customization elements, including Gazebo colors -->
-  <xacro:include filename="$(find diffbot_description)/urdf/diffbot.gazebo" />
+  <xacro:include filename="$(find diffbot_description)/urdf/common_properties.urdf.xacro" />
+  <xacro:include filename="$(find diffbot_description)/urdf/wheel.urdf.xacro" />
+  <xacro:include filename="$(find diffbot_description)/urdf/caster_wheel.urdf.xacro" />
+  <xacro:include filename="$(find diffbot_description)/urdf/diffbot_colors.gazebo.xacro" />
+  <xacro:include filename="$(find diffbot_description)/urdf/diffbot.gazebo.xacro" />
   <!-- Import RViz colors -->
   <xacro:include filename="$(find diffbot_description)/urdf/materials.xacro" />
-
 
 
   <!-- Base-Footprint -->
@@ -101,46 +109,7 @@
     </collision>
   </link>
 
-  <!-- Joint between base_link and back caster wheel -->
-  <joint name="caster_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="caster_link"/>
-    <origin xyz="-0.12 0.0 -0.02" rpy="0 0 0"/>
-  </joint>
-
-  <!-- Caster back  -->
-  <link name="caster_link">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <sphere radius="${caster_radius}" />
-      </geometry>
-      <material name="black" />
-    </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <sphere radius="${caster_radius}" />
-      </geometry>
-    </collision>
-    <inertial>
-      <mass value="${caster_mass}" />
-      <origin xyz="0 0 0" />
-      <!--The 3x3 rotational inertia matrix. -->
-      <xacro:sphere_inertia  m="${caster_mass}" r="${caster_radius}" />
-    </inertial>
-  </link>
-
-  <!--gazebo reference="caster_link">
-      <mu1 value="50.0"/>
-      <mu2 value="25.0"/>
-      <kp  value="10000.0" />
-      <kd  value="1.0" />
-      <fdir1 value="1 0 0"/>
-      <material>Gazebo/Grey</material>
-      <turnGravityOff>false</turnGravityOff>
-    </gazebo-->
-
+  
   <!-- Wheel definitions -->
   <xacro:wheel fb="front" lr="right" parent="base_link"
     mass="${wheel_mass}" radius="${wheel_radius}" width="${wheel_width}" reflect="1"
@@ -154,5 +123,9 @@
     transY="${base_y_origin_to_wheel_origin}"
     transZ="${base_z_origin_to_wheel_origin}"
     flipY="1" />
+
+    <!-- Caster back  -->
+    <!-- Joint between base_link and back caster wheel -->
+    <xacro:caster_wheel locationprefix="back" locationright="0" wheel_base_dx="${-base_length/2.0*0.9}" />
 
 </robot>
