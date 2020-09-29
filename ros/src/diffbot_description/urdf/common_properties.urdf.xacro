@@ -51,6 +51,20 @@
   </xacro:property>
 
   <!-- #################### inertials with origin #################### -->
+  <!-- Macro for calculating inertia of box, see https://en.wikipedia.org/wiki/List_of_moments_of_inertia -->
+  <xacro:macro name="box_inertia" params="m l w h">
+    <inertia  ixx="${m/12*(w*w + h*h)}" ixy = "0" ixz = "0"
+              iyy="${m/12*(l*l + h*h)}" iyz = "0"
+              izz="${m/12*(l*l + w*w)}" />
+  </xacro:macro>
+
+  <xacro:macro name="sphere_inertia" params="m r">
+    <inertia  ixx="${m*2/5*r*r}" ixy = "0" ixz = "0"
+              iyy="${m*2/5*r*r}" iyz = "0"
+              izz="${m*2/5*r*r}" />
+  </xacro:macro>
+  
+
   <!-- see https://secure.wikimedia.org/wikipedia/en/wiki/List_of_moment_of_inertia_tensors -->
   <xacro:macro name="sphere_inertial" params="radius mass *origin">
     <inertial>
