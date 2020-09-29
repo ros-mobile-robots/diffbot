@@ -13,10 +13,9 @@
         </joint>
         <link name="${locationprefix}_caster_rotation_link">
             <inertial>
-            <!-- <origin xyz="0 0 -0.042500000044" rpy="${0.5 * pi} ${24 * deg_to_rad} ${1.5 * pi}" /> -->
-                <origin xyz="0 0 0" rpy="${24 * deg_to_rad} 0 ${0.5 * pi} " />
-                <mass value="0.3097539019" />
-                <xacro:box_inertia  m="${base_mass}" l="${base_length}" w="${base_width}" h="${base_height}" />
+                <origin xyz="0 0 ${-caster_base_size/2.0}" rpy="0 0 0" />
+                <mass value="${caster_base_mass}" />
+                <xacro:box_inertia  m="${caster_base_mass}" l="${caster_base_size}" w="${caster_base_size}" h="${caster_base_size}" />
             </inertial>
             <visual>
                 <origin xyz="0 0 ${-caster_base_size/2.0}" rpy="0 0 0" />
@@ -47,7 +46,7 @@
 
         <link name="${locationprefix}_caster_wheel_link">
             <xacro:cylinder_inertial mass="${caster_wheel_mass}" radius="${caster_wheel_radius}" length="${caster_wheel_width}">
-            <origin xyz="0 0 0" rpy="${0.5 * pi} 0 0" />
+                <origin xyz="0 0 0" rpy="${pi_2} 0 0" />
             </xacro:cylinder_inertial>
             <visual>
                 <origin xyz="0 0 0" rpy="${flipY*pi_2} 0 0" />
