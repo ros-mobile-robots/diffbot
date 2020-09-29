@@ -1,0 +1,72 @@
+<?xml version="1.0"?>
+<robot name="caster_wheel" xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <!--fb : front, back ; lr: left, right -->
+    <xacro:macro name="caster_wheel" params="locationprefix locationright wheel_base_dx
+        flipY:=${1}">
+        <!-- caster hub -->
+        <joint name="${locationprefix}_caster_rotation_joint" type="continuous">
+            <origin xyz="${wheel_base_dx} ${-caster_wheel_base_dy * locationright} ${caster_wheel_base_dz}" rpy="0 0 0" />
+            <parent link="base_link" />
+            <child link="${locationprefix}_caster_rotation_link" />
+            <axis xyz="0 0 1" />
+            <dynamics damping="0.01" friction="0.0"/>
+        </joint>
+        <link name="${locationprefix}_caster_rotation_link">
+            <inertial>
+            <!-- <origin xyz="0 0 -0.042500000044" rpy="${0.5 * pi} ${24 * deg_to_rad} ${1.5 * pi}" /> -->
+                <origin xyz="0 0 0" rpy="${24 * deg_to_rad} 0 ${0.5 * pi} " />
+                <mass value="0.3097539019" />
+                <xacro:box_inertia  m="${base_mass}" l="${base_length}" w="${base_width}" h="${base_height}" />
+            </inertial>
+            <visual>
+                <origin xyz="0 0 ${-caster_base_size/2.0}" rpy="0 0 0" />
+                <geometry>
+                    <!--mesh filename="package://mir_description/meshes/visual/caster_wheel_base.stl" /-->
+                    <box size="${caster_base_size} ${caster_base_size} ${caster_base_size}" />
+                </geometry>
+                <xacro:insert_block name="material_silver" />
+            </visual>
+            <collision>
+                <origin xyz="0 0 ${-caster_base_size/2.0}" rpy="0 0 0" />
+                <geometry>
+                    <!--mesh filename="package://mir_description/meshes/collision/caster_wheel_base.stl" /-->
+                    <box size="${caster_base_size} ${caster_base_size} ${caster_base_size}" />
+                </geometry>
+            </collision>
+        </link>
+        <gazebo reference="${locationprefix}_caster_rotation_link">
+            <material>Gazebo/Grey</material>
+        </gazebo>
+        <!-- caster wheel -->
+        <joint name="${locationprefix}_caster_wheel_joint" type="continuous">
+            <origin xyz="${caster_wheel_dx} ${-caster_wheel_dy * locationright} ${caster_wheel_dz}" rpy="0 0 0" />
+            <parent link="${locationprefix}_caster_rotation_link" />
+            <child link="${locationprefix}_caster_wheel_link" />
+            <axis xyz="0 1 0" />
+        </joint>
+
+        <link name="${locationprefix}_caster_wheel_link">
+            <xacro:cylinder_inertial mass="${caster_wheel_mass}" radius="${caster_wheel_radius}" length="${caster_wheel_width}">
+            <origin xyz="0 0 0" rpy="${0.5 * pi} 0 0" />
+            </xacro:cylinder_inertial>
+            <visual>
+                <origin xyz="0 0 0" rpy="${flipY*pi_2} 0 0" />
+                <geometry>
+                    <!--mesh filename="package://mir_description/meshes/visual/wheel.stl" -->
+                    <cylinder length="${caster_wheel_width}" radius="${caster_wheel_radius}" />
+                </geometry>
+                <xacro:insert_block name="material_dark_grey" />
+            </visual>
+            <collision>
+                <origin xyz="0 0 0" rpy="${flipY*pi_2} 0 0" />
+                <geometry>
+                    <!--mesh filename="package://mir_description/meshes/visual/wheel.stl" -->
+                    <cylinder length="${caster_wheel_width}" radius="${caster_wheel_radius}" />
+                </geometry>
+            </collision>
+        </link>
+        <gazebo reference="${locationprefix}_caster_wheel_link">
+            <material>Gazebo/DarkGrey</material>
+        </gazebo>
+    </xacro:macro>
+</robot>
