@@ -20,14 +20,14 @@
       flipY:=${1}"> 
     <link name="${fb}_${lr}_wheel">
       <visual>
-        <origin xyz="0 0 0" rpy="${flipY*M_PI/2} 0 0 " /> 
+        <origin xyz="0 0 0" rpy="${flipY*pi_2} 0 0 " /> 
         <geometry>
           <cylinder length="${width}" radius="${radius}" />
         </geometry>
         <material name="black" />
       </visual>
       <collision>
-        <origin xyz="0 0 0" rpy="${flipY*M_PI/2} 0 0 " />
+        <origin xyz="0 0 0" rpy="${flipY*pi_2} 0 0 " />
         <geometry>
           <cylinder length="${width}" radius="${radius}" />
         </geometry>
