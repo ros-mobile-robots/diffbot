@@ -2,7 +2,17 @@ diffbot:
   # Publish all joint states -----------------------------------
   joint_state_controller:
     type: joint_state_controller/JointStateController
-    publish_rate: 50 
+    publish_rate: 50
+    extra_joints:
+      - name: back_caster_rotation_joint
+        position: 0.01
+        velocity: 0.0
+        effort: 0.0
+      - name: back_caster_wheel_joint
+        position: 0.01
+        velocity: 0.0
+        effort: 0.0
+
 
   mobile_base_controller:
     type: diff_drive_controller/DiffDriveController
