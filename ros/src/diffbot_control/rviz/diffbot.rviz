@@ -8,13 +8,9 @@ Panels:
         - /Status1
         - /Grid1
         - /RobotModel1
-        - /RobotModel1/Status1
         - /TF1
-        - /TF1/Status1
         - /TF1/Frames1
         - /TF1/Tree1
-        - /TF1/Tree1/base_footprint1
-        - /TF1/Tree1/base_footprint1/base_link1
       Splitter Ratio: 0.4171428680419922
     Tree Height: 409
   - Class: rviz/Selection
@@ -71,6 +67,16 @@ Visualization Manager:
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
+        back_caster_rotation_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        back_caster_wheel_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
         base_footprint:
           Alpha: 1
           Show Axes: false
@@ -81,7 +87,7 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        caster_link:
+        front_left_motor:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -91,7 +97,22 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
+        front_left_wheel_tire:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        front_right_motor:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
         front_right_wheel:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        front_right_wheel_tire:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -107,35 +128,51 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: true
+        back_caster_rotation_link:
+          Value: true
+        back_caster_wheel_link:
+          Value: true
         base_footprint:
           Value: true
         base_link:
           Value: true
-        caster_link:
+        front_left_motor:
           Value: true
         front_left_wheel:
           Value: true
+        front_left_wheel_tire:
+          Value: true
+        front_right_motor:
+          Value: true
         front_right_wheel:
+          Value: true
+        front_right_wheel_tire:
           Value: true
         odom:
           Value: true
       Marker Alpha: 1
-      Marker Scale: 1
+      Marker Scale: 0.20000000298023224
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
-        base_footprint:
-          base_link:
-            caster_link:
-              {}
-            front_left_wheel:
-              {}
-            front_right_wheel:
-              {}
         odom:
-          {}
+          base_footprint:
+            base_link:
+              back_caster_rotation_link:
+                back_caster_wheel_link:
+                  {}
+              front_left_motor:
+                {}
+              front_left_wheel:
+                front_left_wheel_tire:
+                  {}
+              front_right_motor:
+                {}
+              front_right_wheel:
+                front_right_wheel_tire:
+                  {}
       Update Interval: 0
       Value: true
   Enabled: true
@@ -166,7 +203,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 68.56909942626953
+      Distance: 0.11640740185976028
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -174,17 +211,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 2.9742627143859863
-        Y: 0.3554966151714325
-        Z: 0.8219618797302246
+        X: -0.19813214242458344
+        Y: 0.29987236857414246
+        Z: 0.13640615344047546
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.1353979855775833
+      Pitch: 0.3603978455066681
       Target Frame: <Fixed Frame>
-      Yaw: 1.570397138595581
+      Yaw: 2.130402088165283
     Saved: ~
 Window Geometry:
   Displays:
