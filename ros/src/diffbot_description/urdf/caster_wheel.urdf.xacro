@@ -3,6 +3,41 @@
     <!--fb : front, back ; lr: left, right -->
     <xacro:macro name="caster_wheel" params="locationprefix locationright wheel_base_dx
         flipY:=${1}">
+        <joint name="${locationprefix}_caster_base_joint" type="fixed">
+            <origin xyz="${wheel_base_dx} ${-caster_wheel_base_dy * locationright} ${caster_wheel_base_dz}" rpy="0 0 0" />
+            <parent link="base_link" />
+            <child link="${locationprefix}_caster_base_link" />
+            <axis xyz="0 0 1" />
+            <dynamics damping="0.01" friction="0.0"/>
+        </joint>
+        <link name="${locationprefix}_caster_base_link">
+            <inertial>
+                <origin xyz="0 0 ${-caster_base_size/2.0}" rpy="0 0 0" />
+                <mass value="${caster_base_mass}" />
+                <xacro:box_inertia  m="${caster_base_mass}" l="${caster_base_size}" w="${caster_base_size}" h="${caster_base_size}" />
+            </inertial>
+            <visual>
+                <origin xyz="0 0 ${-caster_base_size/2.0}" rpy="0 0 0" />
+                <geometry>
+                    <mesh filename="package://diffbot_description/meshes/caster_base.stl" />
+                    <box size="${caster_base_size} ${caster_base_size} ${caster_base_size}" />
+                </geometry>
+                <xacro:insert_block name="material_silver" />
+            </visual>
+            <collision>
+                <origin xyz="0 0 ${-caster_base_size/2.0}" rpy="0 0 0" />
+                <geometry>
+                    <!--mesh filename="package://mir_description/meshes/collision/caster_wheel_base.stl" /-->
+                    <box size="${caster_base_size} ${caster_base_size} ${caster_base_size}" />
+                </geometry>
+            </collision>
+        </link>
+        <gazebo reference="${locationprefix}_caster_base_link">
+            <material>Gazebo/Grey</material>
+        </gazebo>
+
+
+
         <!-- caster hub -->
         <joint name="${locationprefix}_caster_rotation_joint" type="continuous">
             <origin xyz="${wheel_base_dx} ${-caster_wheel_base_dy * locationright} ${caster_wheel_base_dz}" rpy="0 0 0" />
@@ -20,8 +55,8 @@
             <visual>
                 <origin xyz="0 0 ${-caster_base_size/2.0}" rpy="0 0 0" />
                 <geometry>
-                    <!--mesh filename="package://mir_description/meshes/visual/caster_wheel_base.stl" /-->
-                    <box size="${caster_base_size} ${caster_base_size} ${caster_base_size}" />
+                    <mesh filename="package://diffbot_description/meshes/caster_wheel_support.stl" />
+                    <!--box size="${caster_base_size} ${caster_base_size} ${caster_base_size}" /-->
                 </geometry>
                 <xacro:insert_block name="material_silver" />
             </visual>
@@ -49,17 +84,17 @@
                 <origin xyz="0 0 0" rpy="${pi_2} 0 0" />
             </xacro:cylinder_inertial>
             <visual>
-                <origin xyz="0 0 0" rpy="${flipY*pi_2} 0 0" />
+                <origin xyz="0 0 0" rpy="0 0 0" />
                 <geometry>
-                    <!--mesh filename="package://mir_description/meshes/visual/wheel.stl" -->
-                    <cylinder length="${caster_wheel_width}" radius="${caster_wheel_radius}" />
+                    <mesh filename="package://diffbot_description/meshes/caster_wheel.stl" />
+                    <!--cylinder length="${caster_wheel_width}" radius="${caster_wheel_radius}" /-->
                 </geometry>
                 <xacro:insert_block name="material_dark_grey" />
             </visual>
             <collision>
                 <origin xyz="0 0 0" rpy="${flipY*pi_2} 0 0" />
                 <geometry>
-                    <!--mesh filename="package://mir_description/meshes/visual/wheel.stl" -->
+                    <!--mesh filename="package://diffbot_description/meshes/wheel.stl" -->
                     <cylinder length="${caster_wheel_width}" radius="${caster_wheel_radius}" />
                 </geometry>
             </collision>

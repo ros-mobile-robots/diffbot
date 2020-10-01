@@ -6,6 +6,20 @@
               iyy="${m/2*(r*r)}" iyz = "0"
               izz="${m/12*(3*r*r+h*h)}" /> 
   </xacro:macro>
+
+  <!-- Transmission is important to link the joints and the controller -->
+  <xacro:macro name="transmission" params="joint">
+    <transmission name="${joint}_trans">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${joint}">
+        <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+      </joint>
+      <actuator name="${joint}_motor">
+        <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+  </xacro:macro>
   
   <!--fb : front, back ; lr: left, right -->
   <xacro:macro name="wheel" params="fb lr 
@@ -20,14 +34,15 @@
       flipY:=${1}"> 
     <link name="${fb}_${lr}_wheel">
       <visual>
-        <origin xyz="0 0 0" rpy="${flipY*pi_2} 0 0 " /> 
+        <origin xyz="0 0 0" rpy="${flipY*pi_2} 0 ${pi/2.0*(reflect - 1)}" /> 
         <geometry>
-          <cylinder length="${width}" radius="${radius}" />
+          <!--cylinder length="${width}" radius="${radius}" /-->
+          <mesh filename="package://diffbot_description/meshes/wheel_rim.stl" />
         </geometry>
-        <material name="black" />
+        <material name="yellow" />
       </visual>
       <collision>
-        <origin xyz="0 0 0" rpy="${flipY*pi_2} 0 0 " />
+        <origin xyz="0 0 0" rpy="${flipY*pi_2} 0 0" />
         <geometry>
           <cylinder length="${width}" radius="${radius}" />
         </geometry>
@@ -40,12 +55,7 @@
     </link>
 
     <gazebo reference="${fb}_${lr}_wheel">
-      <mu1 value="200.0"/>
-      <mu2 value="100.0"/>
-      <kp  value="10000000.0" />
-      <kd  value="1.0" />
-      <fdir1 value="1 0 0"/>
-      <material>Gazebo/Grey</material>
+      <material>Gazebo/Yellow</material>
       <turnGravityOff>false</turnGravityOff>
     </gazebo>
 
@@ -59,16 +69,62 @@
     </joint>
 
     <!-- Transmission is important to link the joints and the controller -->
-    <transmission name="${fb}_${lr}_wheel_joint_trans">
-      <type>transmission_interface/SimpleTransmission</type>
-      <joint name="${fb}_${lr}_wheel_joint">
-        <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
-      </joint>
-      <actuator name="${fb}_${lr}_wheel_joint_motor">
-        <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
-        <mechanicalReduction>1</mechanicalReduction>
-      </actuator>
-    </transmission>
+    <xacro:transmission joint="${fb}_${lr}_wheel_joint"/>
+
+
+    <!-- Wheel tire - same as wheel tire but without collision and inertia because this is kept in wheel, see above -->
+    <link name="${fb}_${lr}_wheel_tire">
+      <visual>
+        <origin xyz="0 0 0" rpy="${flipY*pi_2} 0 0 " /> 
+        <geometry>
+          <!--cylinder length="${width}" radius="${radius}" /-->
+          <mesh filename="package://diffbot_description/meshes/wheel_tire.stl" />
+        </geometry>
+        <material name="black" />
+      </visual>
+    </link>
+
+    <gazebo reference="${fb}_${lr}_wheel_tire">
+      <material>Gazebo/Black</material>
+      <turnGravityOff>false</turnGravityOff>
+    </gazebo>
+    
+
+    <joint name="${fb}_${lr}_wheel_tire_joint" type="fixed">
+      <parent link="${fb}_${lr}_wheel"/>
+      <child link="${fb}_${lr}_wheel_tire"/>
+      <origin xyz="0 0 0" rpy="0 0 ${pi/2.0*(reflect - 1)}" /> 
+      <axis xyz="0 1 0" rpy="0 0 0" />
+      <limit effort="100" velocity="100"/>
+      <joint_properties damping="0.0" friction="0.0"/>
+    </joint>
+
+
+    <!-- Motor -->
+    <link name="${fb}_${lr}_motor">
+      <visual>
+        <origin xyz="0 0 0" rpy="${flipY*pi} 0 0" /> 
+        <geometry>
+          <!--cylinder length="${width}" radius="${radius}" /-->
+          <mesh filename="package://diffbot_description/meshes/motor.stl" />
+        </geometry>
+        <material name="blue" />
+      </visual>
+    </link>
+
+    <joint name="${fb}_${lr}_motor_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child link="${fb}_${lr}_motor"/>
+      <origin xyz="${transX} ${reflect * (transY - wheel_width)} ${transZ}" rpy="${-pi/2.0*(reflect - 1)} 0 0" /> 
+      <axis xyz="0 1 0" rpy="0 0 ${pi/2.0*(reflect - 1)}" />
+      <limit effort="100" velocity="100"/>
+      <joint_properties damping="0.0" friction="0.0"/>
+    </joint>
+
+    <gazebo reference="${fb}_${lr}_motor">
+      <material>Gazebo/SkyBlue</material>
+      <turnGravityOff>false</turnGravityOff>
+    </gazebo>
    
   </xacro:macro>
 </robot>
