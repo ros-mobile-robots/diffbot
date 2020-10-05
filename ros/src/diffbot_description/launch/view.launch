@@ -6,9 +6,9 @@
     <!-- param name="use_gui" value="true"/ -->
     <!-- Starting Joint state publisher node which will publish the joint values -->
     <!-- node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" /-->
-    <node name="joint_state_publisher_gui" pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" />
+    <!--node name="joint_state_publisher_gui" pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" /-->
     <!-- Starting robot state publish which will publish tf -->
-    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+    <!--node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" /-->
     <!-- Launch visualization in rviz -->
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find diffbot_description)/urdf.rviz" required="true" />
+    <!--node name="rviz" pkg="rviz" type="rviz" args="-d $(find diffbot_description)/urdf.rviz" required="true" /-->
 </launch>
