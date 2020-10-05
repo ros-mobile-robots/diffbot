@@ -4,3 +4,6 @@ DiffBot is an autonomous differential drive robot with two wheels. Its main proc
 
 
 ![DiffBot RViz](docs/resources/rviz_diffbot_meshes.png)
+
+
+![DiffBot Gazebo](docs/resources/gazebo/diffbot.png)
