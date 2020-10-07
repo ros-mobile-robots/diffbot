@@ -1,7 +1,7 @@
 <launch>
     <arg name="model" />
     <!-- Parsing xacro and setting robot_description parameter -->
-    <param name="robot_description" command="$(find xacro)/xacro --inorder $(find diffbot_description)/urdf/diffbot.xacro" />
+    <param name="robot_description" command="$(find xacro)/xacro $(find diffbot_description)/urdf/diffbot.xacro" />
     <!-- Setting gui parameter to true for display joint slider -->
     <!-- param name="use_gui" value="true"/ -->
     <!-- Starting Joint state publisher node which will publish the joint values -->
