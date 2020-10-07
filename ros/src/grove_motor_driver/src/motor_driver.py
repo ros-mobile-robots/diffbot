@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from grove_i2c_motor_driver import motor_driver
+from grove_i2c_motor_driver import MotorDriver
 
 import rospy
 from std_msgs.msg import Float32
@@ -10,23 +10,23 @@ from geometry_msgs.msg import Twist
 
 def twist_callback(msg):
     if (msg.linear.x > 0.0):
-        print "Forward"
+        print("Forward")
         motor.MotorDirectionSet(0b1010)
         motor.MotorSpeedSetAB(100,100)
     elif (msg.linear.x < 0.0):
-        print "Back"
+        print("Back")
         motor.MotorDirectionSet(0b0101)
         motor.MotorSpeedSetAB(100,100)
     elif (-0.1 < msg.linear.x and msg.linear.x < 0.1):
-        print "Stop Delta"
+        print("Stop Delta")
         motor.MotorSpeedSetAB(0,0)
     else:
-        print "Stop"
+        print("Stop")
         motor.MotorSpeedSetAB(0,0)
     
 
 if __name__ == '__main__':
-    motor = motor_driver() # <1>
+    motor = MotorDriver() # <1>
 
     # Initialize the node
     rospy.init_node('motor_driver')

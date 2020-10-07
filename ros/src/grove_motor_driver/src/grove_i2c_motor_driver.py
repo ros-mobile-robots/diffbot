@@ -10,7 +10,9 @@
 # Released under the MIT license (http://choosealicense.com/licenses/mit/).
 # For more information see https://github.com/DexterInd/GrovePi/blob/master/LICENSE
 
-import time,sys
+import time
+import sys
+
 import RPi.GPIO as GPIO
 import smbus
 
@@ -21,7 +23,7 @@ if rev == 2 or rev == 3:
 else:
     bus = smbus.SMBus(0)
 
-class motor_driver:
+class MotorDriver:
 
 	MotorSpeedSet             = 0x82
 	PWMFrequenceSet           = 0x84
@@ -62,15 +64,17 @@ class motor_driver:
 		bus.write_i2c_block_data(self.I2CMotorDriverAdd, self.DirectionSet, [Direction,0])
 		time.sleep(.02)
 
+
 if __name__ == "__main__":
-	m= motor_driver()
+	m = MotorDriver()
 	try:
 	    while True:
-		    m.MotorSpeedSetAB(100,100)
+		    m.MotorSpeedSetAB(100, 100)
 		    m.MotorDirectionSet(0b1010)
 		    time.sleep(2)
-		    m.MotorSpeedSetAB(100,100)
+		    m.MotorSpeedSetAB(100, 100)
 		    m.MotorDirectionSet(0b0101)
 		    time.sleep(2)
+      
 	except KeyboardInterrupt:
 	    m.MotorSpeedSetAB(0,0)

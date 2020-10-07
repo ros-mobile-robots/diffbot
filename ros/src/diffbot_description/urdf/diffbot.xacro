@@ -40,8 +40,14 @@
   <xacro:property name="caster_wheel_base_dy" value="0.203" />
   <xacro:property name="caster_wheel_base_dz" value="0.002" />
 
-  <!-- Hokuyo Laser scanner -->
-  <xacro:property name="hokuyo_size" value="0.05" />
+  <!-- Sensors -->
+  <!-- Camera -->
+  <xacro:property name="camera_size" value="0.02" /> <!-- Size of square 'camera' box -->
+  <xacro:property name="camera_dx" value="${base_length/2.0*0.8}" />
+  <xacro:property name="camera_dy" value="0.0" />
+  <xacro:property name="camera_dz" value="${camera_size/2.0}" />
+  <!-- Laser scanner -->
+  <xacro:property name="lidar_size" value="0.05" />
 
 
   <!-- Import all Gazebo-customization elements, including Gazebo colors -->
@@ -50,6 +56,7 @@
   <xacro:include filename="$(find diffbot_description)/urdf/caster_wheel.urdf.xacro" />
   <xacro:include filename="$(find diffbot_description)/urdf/diffbot_colors.gazebo.xacro" />
   <xacro:include filename="$(find diffbot_description)/urdf/diffbot.gazebo.xacro" />
+  <xacro:include filename="$(find diffbot_description)/urdf/sensors.gazebo.xacro" />
   <!-- Import RViz colors -->
   <xacro:include filename="$(find diffbot_description)/urdf/materials.xacro" />
 
