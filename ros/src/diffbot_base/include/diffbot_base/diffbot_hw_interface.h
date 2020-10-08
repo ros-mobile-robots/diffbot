@@ -66,7 +66,7 @@ namespace diffbot_base
          * \param time The current time
          * \param period The time passed since the last call to \ref read
          */
-        virtual void read(const ros::Time& /*time*/, const ros::Duration& period) override;
+        virtual void read(const ros::Time& time, const ros::Duration& period) override;
 
         /** \brief Write commands to the robot hardware.
          * 
