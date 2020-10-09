@@ -24,7 +24,7 @@ namespace diffbot_base
          * \param nh - Node handle for topics.
          * \param urdf - optional pointer to a parsed robot model
          */
-        DiffBotHWInterface(const ros::NodeHandle &nh, urdf::Model *urdf_model = NULL);
+        DiffBotHWInterface(ros::NodeHandle &nh, urdf::Model *urdf_model = NULL);
 
         /** \brief Destructor */
         virtual ~DiffBotHWInterface() {}
@@ -48,7 +48,7 @@ namespace diffbot_base
          *
          * \returns True if initialization was successful
          */
-        virtual void init();
+        virtual bool init(ros::NodeHandle &root_nh, ros::NodeHandle &robot_hw_nh);
 
         /** \brief Read data from the robot hardware.
          *
@@ -138,4 +138,4 @@ namespace diffbot_base
 
 }  // namespace
 
-#endif // GENERIC_ROS_CONTROL_GENERIC_HW_INTERFACE_H
+#endif // DIFFBOT_HW_INTERFACE_H

@@ -1,8 +1,11 @@
 #include <diffbot_base/diffbot_hw_interface.h>
+
+// ROS parameter loading
+#include <rosparam_shortcuts/rosparam_shortcuts.h>
  
 namespace diffbot_base
 {
-    DiffBotHWInterface::DiffBotHWInterface(const ros::NodeHandle &nh, urdf::Model *urdf_model)
+    DiffBotHWInterface::DiffBotHWInterface(ros::NodeHandle &nh, urdf::Model *urdf_model)
         : name_("diffbot_hw_interface")
         , nh_(nh)
     { 
@@ -20,6 +23,8 @@ namespace diffbot_base
         std::size_t error = 0;
         error += !rosparam_shortcuts::get(name_, rpnh, "joints", joint_names_);
         rosparam_shortcuts::shutdownIfError(name_, error);
+
+        init(nh, nh);
     }
 
  
@@ -50,6 +55,18 @@ namespace diffbot_base
         registerInterface(&velocity_joint_interface_);
 
         return true;
+    }
+
+    void DiffBotHWInterface::read(const ros::Time& time, const ros::Duration& period)
+    {
+        ros::Duration elapsed_time = period;
+        // TODO read from robot hw
+    }
+
+    void DiffBotHWInterface::write(const ros::Time& time, const ros::Duration& period)
+    {
+        ros::Duration elapsed_time = period;
+        // TODO write to robot hw
     }
 
     void DiffBotHWInterface::loadURDF(const ros::NodeHandle &nh, std::string param_name)
@@ -83,16 +100,37 @@ namespace diffbot_base
             ROS_DEBUG_STREAM_NAMED(name_, "Received URDF from param server");
     }
 
-
-    DiffBotHWInterface::read(const ros::Time& time, const ros::Duration& period)
+    void DiffBotHWInterface::printState()
     {
-        ros::Duration elapsed_time = period;
-        // TODO read from robot hw
+        // WARNING: THIS IS NOT REALTIME SAFE
+        // FOR DEBUGGING ONLY, USE AT YOUR OWN ROBOT's RISK!
+        ROS_INFO_STREAM_THROTTLE(1, std::endl << printStateHelper());
     }
 
-    DiffBotHWInterface::write(const ros::Time& time, const ros::Duration& period)
+    std::string DiffBotHWInterface::printStateHelper()
     {
-        ros::Duration elapsed_time = period;
-        // TODO write to robot hw
+        std::stringstream ss;
+        std::cout.precision(15);
+
+        for (std::size_t i = 0; i < num_joints_; ++i)
+        {
+            ss << "j" << i << ": " << std::fixed << joint_positions_[i] << "\t ";
+            ss << std::fixed << joint_velocities_[i] << "\t ";
+            ss << std::fixed << joint_efforts_[i] << std::endl;
+        }
+        return ss.str();
     }
+
+    std::string DiffBotHWInterface::printCommandHelper()
+    {
+        std::stringstream ss;
+        std::cout.precision(15);
+        ss << "    position     velocity         effort  \n";
+        for (std::size_t i = 0; i < num_joints_; ++i)
+        {
+            ss << std::fixed << joint_velocity_commands_[i] << "\t ";
+        }
+        return ss.str();
+    }
+
 };
