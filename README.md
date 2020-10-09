@@ -12,7 +12,7 @@ roslaunch diffbot_control diffbot.launch
 
 ## RViz
 
-```
+```console
 roslaunch diffbot_description view_diffbot.launch
 ```
 
