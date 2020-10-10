@@ -32,6 +32,7 @@ namespace diffbot_base
     {
         ROS_INFO("Initializing DiffBot Hardware Interface ...");
         num_joints_ = joint_names_.size();
+        ROS_INFO("Number of joints: %d", num_joints_);
         for (unsigned int i = 0; i < num_joints_; i++)
         {
             // Create a JointStateHandle for each joint and register them with the 
@@ -62,17 +63,16 @@ namespace diffbot_base
 
     void DiffBotHWInterface::read(const ros::Time& time, const ros::Duration& period)
     {
-        ROS_INFO("Read");
+        ROS_INFO_THROTTLE(1, "Read");
         ros::Duration elapsed_time = period;
 
         // TODO read from robot hw
 
         // TODO fill joint_state_* members with read values
-        ROS_INFO("Number of joints: ", num_joints_);
         for (std::size_t i = 0; i < num_joints_; ++i)
         {
-            joint_positions_[i] = 0.0;
-            joint_velocities_[i] = 0.0 / period.toSec();
+            joint_positions_[i] += joint_velocity_commands_[i] * period.toSec();
+            joint_velocities_[i] = joint_velocity_commands_[i];//0.0 / period.toSec();
             joint_efforts_[i] = 0.0;
         }
 
@@ -81,7 +81,7 @@ namespace diffbot_base
 
     void DiffBotHWInterface::write(const ros::Time& time, const ros::Duration& period)
     {
-        ROS_INFO("Write");
+        ROS_INFO_THROTTLE(1, "Write");
         ros::Duration elapsed_time = period;
         // TODO write to robot hw
     }
