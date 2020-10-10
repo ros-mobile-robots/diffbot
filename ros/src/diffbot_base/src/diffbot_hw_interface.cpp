@@ -6,7 +6,7 @@
 namespace diffbot_base
 {
     DiffBotHWInterface::DiffBotHWInterface(ros::NodeHandle &nh, urdf::Model *urdf_model)
-        : name_("diffbot_hw_interface")
+        : name_("diffbot/hardware_interface")
         , nh_(nh)
     { 
         // Initialization of the robot's resources (joints, sensors, actuators) and
@@ -19,7 +19,7 @@ namespace diffbot_base
             urdf_model_ = urdf_model;
 
         // Load rosparams
-        ros::NodeHandle rpnh(nh_, "diffbot_hw_interface");
+        ros::NodeHandle rpnh(nh_, name_);
         std::size_t error = 0;
         error += !rosparam_shortcuts::get(name_, rpnh, "joints", joint_names_);
         rosparam_shortcuts::shutdownIfError(name_, error);
@@ -30,7 +30,9 @@ namespace diffbot_base
  
     bool DiffBotHWInterface::init(ros::NodeHandle &root_nh, ros::NodeHandle &robot_hw_nh)
     {
-        for (unsigned int i = 0; i < joint_names_.size(); i++)
+        ROS_INFO("Initializing DiffBot Hardware Interface ...");
+        num_joints_ = joint_names_.size();
+        for (unsigned int i = 0; i < num_joints_; i++)
         {
             // Create a JointStateHandle for each joint and register them with the 
             // JointStateInterface.
@@ -54,20 +56,32 @@ namespace diffbot_base
         // with this robot's hardware_interface::RobotHW.
         registerInterface(&velocity_joint_interface_);
 
+        ROS_INFO("... Done Initializing DiffBot Hardware Interface");
         return true;
     }
 
     void DiffBotHWInterface::read(const ros::Time& time, const ros::Duration& period)
     {
+        ROS_INFO("Read");
         ros::Duration elapsed_time = period;
 
-        printState();
-
         // TODO read from robot hw
+
+        // TODO fill joint_state_* members with read values
+        ROS_INFO("Number of joints: ", num_joints_);
+        for (std::size_t i = 0; i < num_joints_; ++i)
+        {
+            joint_positions_[i] = 0.0;
+            joint_velocities_[i] = 0.0 / period.toSec();
+            joint_efforts_[i] = 0.0;
+        }
+
+        printState();
     }
 
     void DiffBotHWInterface::write(const ros::Time& time, const ros::Duration& period)
     {
+        ROS_INFO("Write");
         ros::Duration elapsed_time = period;
         // TODO write to robot hw
     }
@@ -83,15 +97,15 @@ namespace diffbot_base
             std::string search_param_name;
             if (nh.searchParam(param_name, search_param_name))
             {
-            ROS_INFO_STREAM_NAMED(name_, "Waiting for model URDF on the ROS param server at location: " <<
-                                    nh.getNamespace() << search_param_name);
-            nh.getParam(search_param_name, urdf_string);
+                ROS_INFO_STREAM_NAMED(name_, "Waiting for model URDF on the ROS param server at location: " <<
+                                        nh.getNamespace() << search_param_name);
+                nh.getParam(search_param_name, urdf_string);
             }
             else
             {
-            ROS_INFO_STREAM_NAMED(name_, "Waiting for model URDF on the ROS param server at location: " <<
-                                    nh.getNamespace() << param_name);
-            nh.getParam(param_name, urdf_string);
+                ROS_INFO_STREAM_NAMED(name_, "Waiting for model URDF on the ROS param server at location: " <<
+                                        nh.getNamespace() << param_name);
+                nh.getParam(param_name, urdf_string);
             }
 
             usleep(100000);
