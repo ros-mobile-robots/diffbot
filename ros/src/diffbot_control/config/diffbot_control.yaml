@@ -1,4 +1,10 @@
 diffbot:
+  # Settings for ros_control hardware interface
+  hardware_interface:
+     joints:
+        - front_left_wheel_joint
+        - front_right_wheel_joint
+          
   # Publish all joint states -----------------------------------
   joint_state_controller:
     type: joint_state_controller/JointStateController
