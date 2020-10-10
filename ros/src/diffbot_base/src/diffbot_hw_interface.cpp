@@ -60,6 +60,9 @@ namespace diffbot_base
     void DiffBotHWInterface::read(const ros::Time& time, const ros::Duration& period)
     {
         ros::Duration elapsed_time = period;
+
+        printState();
+
         // TODO read from robot hw
     }
 
