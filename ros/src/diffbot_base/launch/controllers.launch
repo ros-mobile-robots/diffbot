@@ -2,6 +2,7 @@
     <!-- https://answers.ros.org/question/11271/call-a-service-at-startup-with-a-launch-file/ -->
     <!-- https://answers.ros.org/question/119316/using-controller-manager-and-getting-it-to-work/ -->
     <!-- http://wiki.ros.org/ros_control/Tutorials/Loading%20and%20starting%20controllers%20through%20service%20calls -->
+    <!-- https://answers.ros.org/question/12812/roslaunch-args-with-double-quote/ -->
     
     <node name="list_controllers" pkg="rosservice" type="rosservice"  
         args="call --wait /diffbot/controller_manager/list_controllers" output="screen" />
