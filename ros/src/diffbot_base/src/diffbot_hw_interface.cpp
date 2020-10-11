@@ -6,7 +6,7 @@
 namespace diffbot_base
 {
     DiffBotHWInterface::DiffBotHWInterface(ros::NodeHandle &nh, urdf::Model *urdf_model)
-        : name_("diffbot/hardware_interface")
+        : name_("hardware_interface")
         , nh_(nh)
     { 
         // Initialization of the robot's resources (joints, sensors, actuators) and
@@ -14,7 +14,7 @@ namespace diffbot_base
         // E.g. parse the URDF for joint names & interfaces, then initialize them
         // Check if the URDF model needs to be loaded
         if (urdf_model == NULL)
-            loadURDF(nh, "diffbot/robot_description");
+            loadURDF(nh, "robot_description");
         else
             urdf_model_ = urdf_model;
 
