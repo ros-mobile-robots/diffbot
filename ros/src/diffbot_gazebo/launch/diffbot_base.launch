@@ -1,0 +1,26 @@
+<launch>
+    <!-- Using this launch file requries diffbot_base/launch/diffbot.launch running before it -->
+
+    <include file="$(find diffbot_gazebo)/launch/diffbot.launch">
+        <!--arg name="model" value="$(arg model)" /-->
+    </include>
+
+    <!-- convert joint states to TF transforms for rviz, etc -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"
+        ns="diffbot" respawn="false" output="screen">
+        <remap from="/joint_states" to="/diffbot/joint_states" />
+        <!-- param name="publish_frequency" type="double" value="30.0" /-->
+    </node>
+
+    <!-- Load the controllers -->
+    <!-- This will use the controller manager that got started inside the difbot_base node -->
+    <!-- node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
+        output="screen" ns="diffbot" args="joint_state_controller
+                                            mobile_base_controller"/-->
+
+    <!-- Launching the controllers again is needed because gazebo_ros_control unloads them -->
+    <include file="$(find diffbot_base)/launch/controllers.launch">
+        <!--arg name="model" value="$(arg model)" /-->
+    </include>
+
+</launch>

@@ -1,0 +1,18 @@
+<launch>
+    <!-- https://answers.ros.org/question/11271/call-a-service-at-startup-with-a-launch-file/ -->
+    <!-- https://answers.ros.org/question/119316/using-controller-manager-and-getting-it-to-work/ -->
+    <!-- http://wiki.ros.org/ros_control/Tutorials/Loading%20and%20starting%20controllers%20through%20service%20calls -->
+    
+    <node name="list_controllers" pkg="rosservice" type="rosservice"  
+        args="call --wait /diffbot/controller_manager/list_controllers" output="screen" />
+    <!-- Load controllers -->
+    <node name="load_joint_state_controller" pkg="rosservice" type="rosservice" output="screen"
+        args="call --wait /diffbot/controller_manager/load_controller &quot;name: 'joint_state_controller'&quot;" />
+    <node pkg="rosservice" type="rosservice" name="load_mobile_base_controller" output="screen"
+        args="call --wait /diffbot/controller_manager/load_controller &quot;name: 'mobile_base_controller'&quot;" />
+    
+    <!-- Start controllers -->
+    <node name="start_controllers" pkg="rosservice" type="rosservice" output="screen"
+        args="call --wait /diffbot/controller_manager/switch_controller &quot;start_controllers: ['joint_state_controller', 'mobile_base_controller']&quot;" />
+
+</launch>
