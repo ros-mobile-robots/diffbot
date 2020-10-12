@@ -78,6 +78,11 @@ void loop() {
   // [ERROR]: Lost sync with device, restarting...
   // [INFO]: Requesting topics...
   delay(3);
+  // Note that https://www.arduino.cc/reference/en/language/functions/time/delay/:
+  // Certain things do go on while the delay() function is controlling the Atmega chip, 
+  // however, because the delay function does not disable interrupts. 
+  // Serial communication that appears at the RX pin is recorded, PWM (analogWrite) values and pin states are maintained, 
+  // and interrupts will work as they should.
   
   if (newLeft != positionLeft || newRight != positionRight) {
     //String str = "Left = " + String(newLeft) + ", Right = " + String(newRight);
