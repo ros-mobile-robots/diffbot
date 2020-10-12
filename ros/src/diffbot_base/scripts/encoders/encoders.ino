@@ -28,13 +28,11 @@ ros::NodeHandle  nh;
 
 // ROS Subscriber setup to reset both encoders to zero
 void resetCallback( const std_msgs::Empty& reset){
-  digitalWrite(13, HIGH-digitalRead(13));   // blink the led
+  //digitalWrite(13, HIGH-digitalRead(13));   // blink the led
   // reset both back to zero.
   encoderLeft.write(0);
   encoderRight.write(0);
-  if (Serial.available()) {
-    Serial.println("Reset both wheel encoders to zero");
-  }
+  nh.loginfo("Reset both wheel encoders to zero");
 }
 
 ros::Subscriber<std_msgs::Empty> sub_reset("/reset", resetCallback);
@@ -45,11 +43,10 @@ std_msgs::Int32 int_ticksRight;
 ros::Publisher pub_encoderLeft("/diffbot/ticks_left", &int_ticksLeft);
 ros::Publisher pub_encoderRight("/diffbot/ticks_right", &int_ticksRight);
 
-void setup() {
-  Serial.begin(115200);
-  Serial.println("DiffBot Wheel Encoders:");
-
+void setup() 
+{
   nh.initNode();
+  nh.loginfo("DiffBot Wheel Encoders:");
   nh.advertise(pub_encoderLeft);
   nh.advertise(pub_encoderRight);
   nh.subscribe(sub_reset);
@@ -68,23 +65,24 @@ void loop() {
   pub_encoderLeft.publish(&int_ticksLeft);
   pub_encoderRight.publish(&int_ticksRight);
   nh.spinOnce();
-  //delay(500);
+  // Use at least a delay of 3 ms
+  // Too low delay causes errors in rosserial similar to the following:
+  // [INFO]: wrong checksum for topic id and msg
+  // [INFO]: Wrong checksum for msg length, length 4, dropping message.
+  // [ERROR]: Mismatched protocol version in packet (b'\x00'): lost sync or rosserial_python is from different ros release than the rosserial client
+  // [INFO]: Protocol version of client is unrecognized, expected Rev 1 (rosserial 0.5+)
+  // [INFO]: wrong checksum for topic id and msg
+  // [WARN]: Last read step: message length
+  // [WARN]: Run loop error: Serial Port read failure: Returned short (expected 3 bytes, received 2 instead).
+  // [INFO]: Requesting topics...
+  // [ERROR]: Lost sync with device, restarting...
+  // [INFO]: Requesting topics...
+  delay(3);
   
   if (newLeft != positionLeft || newRight != positionRight) {
-    Serial.print("Left = ");
-    Serial.print(newLeft);
-    Serial.print(", Right = ");
-    Serial.print(newRight);
-    Serial.println();
+    //String str = "Left = " + String(newLeft) + ", Right = " + String(newRight);
+    //nh.loginfo(str);
     positionLeft = newLeft;
     positionRight = newRight;
-  }
-  // if a character is sent from the serial monitor,
-  // reset both back to zero.
-  if (Serial.available()) {
-    Serial.read();
-    Serial.println("Reset both wheel encoders to zero");
-    encoderLeft.write(0);
-    encoderRight.write(0);
   }
 }
