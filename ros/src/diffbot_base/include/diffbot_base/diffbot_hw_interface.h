@@ -14,6 +14,7 @@
 
 namespace diffbot_base
 {
+    const unsigned int NUM_JOINTS = 2;
 
     /// \brief Hardware interface for a robot
     class DiffBotHWInterface : public hardware_interface::RobotHW
@@ -126,15 +127,32 @@ namespace diffbot_base
         // The diff_drive_controller uses the hardware_interface::VelocityJointInterface
         // It provides semantic meaning to the wheel joints describing that 
         // they require velocity commands.
-        double joint_velocity_commands_[2];
+        double joint_velocity_commands_[NUM_JOINTS];
  
         // Data member arrays to store the state of the robot's resources (joints, sensors)
         // These values are filled in the read() method and are registered to the 
         // joint_state_interface_ of type hardware_interface::JointStateInterface.
-        double joint_positions_[2];
-        double joint_velocities_[2];
-        double joint_efforts_[2];
-    };  // class
+        double joint_positions_[NUM_JOINTS];
+        double joint_velocities_[NUM_JOINTS];
+        double joint_efforts_[NUM_JOINTS];
+
+        // Initialize publishers and subscribers
+        ros::Subscriber sub_left_wheel_ticks_;
+        ros::Subscriber sub_right_wheel_ticks_;
+        ros::Publisher pub_left_wheel_vel_;
+        ros::Publisher pub_right_wheel_vel_;
+
+        ros::ServiceServer srv_start_;
+        ros::ServiceServer srv_stop_;
+
+        pub_left_wheel_vel_ = nh.advertise<std_msgs::Float32>("diffbot/left_wheel_vel", 1);
+        pub_right_wheel_vel_ = nh.advertise<std_msgs::Float32>("diffbot/right_wheel_vel", 1);
+
+        sub_left_encoder_ticks_ = nh.subscribe("diffbot/ticks_left", 1, &DiffBotHWInterface::leftEncoderTicksCallback, this);
+        sub_right_encoder_ticks_ = nh.subscribe("diffbot/ticks_right", 1, &DiffBotHWInterface::rightEncoderTicksCallback, this);
+
+        double encoder_ticks_[NUM_JOINTS];
+    };  // class DiffBotHWInterface
 
 }  // namespace
 
