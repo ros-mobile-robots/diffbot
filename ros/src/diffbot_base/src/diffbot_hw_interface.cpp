@@ -150,4 +150,16 @@ namespace diffbot_base
         return ss.str();
     }
 
+
+    /// Process updates from encoders
+    void DiffBotHWInterface::leftEncoderTicksCallback(const std_msgs::Int32& msg) 
+    {
+        encoder_ticks_[0] = msg.data;
+    }
+
+    void DiffBotHWInterface::rightEncoderTicksCallback(const std_msgs::Int32& msg) 
+    {
+        encoder_ticks_[1] = msg.data;
+    }
+
 };
