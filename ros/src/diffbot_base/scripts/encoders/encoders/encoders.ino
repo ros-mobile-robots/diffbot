@@ -65,7 +65,7 @@ void loop() {
   pub_encoderLeft.publish(&int_ticksLeft);
   pub_encoderRight.publish(&int_ticksRight);
   nh.spinOnce();
-  // Use at least a delay of 3 ms
+  // Use at least a delay of 3 ms on the work pc and 5 ms on the Raspberry Pi
   // Too low delay causes errors in rosserial similar to the following:
   // [INFO]: wrong checksum for topic id and msg
   // [INFO]: Wrong checksum for msg length, length 4, dropping message.
@@ -77,7 +77,7 @@ void loop() {
   // [INFO]: Requesting topics...
   // [ERROR]: Lost sync with device, restarting...
   // [INFO]: Requesting topics...
-  delay(3);
+  delay(5);
   // Note that https://www.arduino.cc/reference/en/language/functions/time/delay/:
   // Certain things do go on while the delay() function is controlling the Atmega chip, 
   // however, because the delay function does not disable interrupts. 
