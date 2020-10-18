@@ -5,6 +5,7 @@
 // ROS
 #include <ros/ros.h>
 #include <urdf/model.h>
+#include <std_msgs/Int32.h>
 
 // ROS Controls
 #include <hardware_interface/robot_hw.h>
@@ -99,6 +100,9 @@ namespace diffbot_base
         /** \brief Get the URDF XML from the parameter server */
         virtual void loadURDF(const ros::NodeHandle& nh, std::string param_name);
 
+        void leftEncoderTicksCallback(const std_msgs::Int32& msg);
+        void rightEncoderTicksCallback(const std_msgs::Int32& msg);
+
         // Short name of this class
         std::string name_;
 
@@ -136,20 +140,16 @@ namespace diffbot_base
         double joint_velocities_[NUM_JOINTS];
         double joint_efforts_[NUM_JOINTS];
 
-        // Initialize publishers and subscribers
-        ros::Subscriber sub_left_wheel_ticks_;
-        ros::Subscriber sub_right_wheel_ticks_;
-        ros::Publisher pub_left_wheel_vel_;
-        ros::Publisher pub_right_wheel_vel_;
-
         ros::ServiceServer srv_start_;
         ros::ServiceServer srv_stop_;
 
-        pub_left_wheel_vel_ = nh.advertise<std_msgs::Float32>("diffbot/left_wheel_vel", 1);
-        pub_right_wheel_vel_ = nh.advertise<std_msgs::Float32>("diffbot/right_wheel_vel", 1);
+        // Declare publishers for the motor driver
+        ros::Publisher pub_left_wheel_vel_;
+        ros::Publisher pub_right_wheel_vel_;
 
-        sub_left_encoder_ticks_ = nh.subscribe("diffbot/ticks_left", 1, &DiffBotHWInterface::leftEncoderTicksCallback, this);
-        sub_right_encoder_ticks_ = nh.subscribe("diffbot/ticks_right", 1, &DiffBotHWInterface::rightEncoderTicksCallback, this);
+        // Declare subscribers for the wheel encoders
+        ros::Subscriber sub_left_encoder_ticks_;
+        ros::Subscriber sub_right_encoder_ticks_;
 
         double encoder_ticks_[NUM_JOINTS];
     };  // class DiffBotHWInterface

@@ -2,6 +2,8 @@
 
 // ROS parameter loading
 #include <rosparam_shortcuts/rosparam_shortcuts.h>
+
+#include <std_msgs/Float32.h>
  
 namespace diffbot_base
 {
@@ -24,6 +26,16 @@ namespace diffbot_base
         error += !rosparam_shortcuts::get(name_, rpnh, "joints", joint_names_);
         rosparam_shortcuts::shutdownIfError(name_, error);
 
+
+        // Setup publisher for the motor driver 
+        pub_left_wheel_vel_ = nh.advertise<std_msgs::Float32>("diffbot/left_wheel_vel", 1);
+        pub_right_wheel_vel_ = nh.advertise<std_msgs::Float32>("diffbot/right_wheel_vel", 1);
+
+        // Setup subscriber for the wheel encoders
+        sub_left_encoder_ticks_ = nh.subscribe("diffbot/ticks_left", 1, &DiffBotHWInterface::leftEncoderTicksCallback, this);
+        sub_right_encoder_ticks_ = nh.subscribe("diffbot/ticks_right", 1, &DiffBotHWInterface::rightEncoderTicksCallback, this);
+
+        // Initialize the hardware interface
         init(nh, nh);
     }
 
@@ -32,7 +44,7 @@ namespace diffbot_base
     {
         ROS_INFO("Initializing DiffBot Hardware Interface ...");
         num_joints_ = joint_names_.size();
-        ROS_INFO("Number of joints: %d", num_joints_);
+        ROS_INFO("Number of joints: %d", (int)num_joints_);
         for (unsigned int i = 0; i < num_joints_; i++)
         {
             // Create a JointStateHandle for each joint and register them with the 
@@ -152,12 +164,12 @@ namespace diffbot_base
 
 
     /// Process updates from encoders
-    void DiffBotHWInterface::leftEncoderTicksCallback(const std_msgs::Int32& msg) 
+    void DiffBotHWInterface::leftEncoderTicksCallback(const std_msgs::Int32& msg)
     {
         encoder_ticks_[0] = msg.data;
     }
 
-    void DiffBotHWInterface::rightEncoderTicksCallback(const std_msgs::Int32& msg) 
+    void DiffBotHWInterface::rightEncoderTicksCallback(const std_msgs::Int32& msg)
     {
         encoder_ticks_[1] = msg.data;
     }
