@@ -35,13 +35,13 @@ void resetCallback( const std_msgs::Empty& reset){
   nh.loginfo("Reset both wheel encoders to zero");
 }
 
-ros::Subscriber<std_msgs::Empty> sub_reset("/reset", resetCallback);
+ros::Subscriber<std_msgs::Empty> sub_reset("reset", resetCallback);
 
 // ROS Publisher setup to publish left and right encoder ticks
 std_msgs::Int32 int_ticksLeft;
 std_msgs::Int32 int_ticksRight;
-ros::Publisher pub_encoderLeft("/diffbot/ticks_left", &int_ticksLeft);
-ros::Publisher pub_encoderRight("/diffbot/ticks_right", &int_ticksRight);
+ros::Publisher pub_encoderLeft("ticks_left", &int_ticksLeft);
+ros::Publisher pub_encoderRight("ticks_right", &int_ticksRight);
 
 void setup() 
 {
