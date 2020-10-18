@@ -78,6 +78,8 @@ if __name__ == '__main__':
     sub_left = rospy.Subscriber('motor_left', Int32, motor_driver.left_motor_callback)
     sub_right = rospy.Subscriber('motor_right', Int32, motor_driver.right_motor_callback)
 
+    rospy.loginfo("Ready to receive motor commands")
+
     # Start everything
     # This will block until the node is killed
     # Callbacks run in their own thread and will still work
