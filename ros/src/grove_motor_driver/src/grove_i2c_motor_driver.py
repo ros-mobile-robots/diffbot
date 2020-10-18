@@ -23,7 +23,7 @@ if rev == 2 or rev == 3:
 else:
     bus = smbus.SMBus(0)
 
-class MotorDriver:
+class GroveMotorDriver:
 
 	MotorSpeedSet             = 0x82
 	PWMFrequenceSet           = 0x84
@@ -36,7 +36,7 @@ class MotorDriver:
 	Stepernu                  = 0x1c
 	I2CMotorDriverAdd         = 0x0f  #Set the address of the I2CMotorDriver
 
-	def __init__(self,address=0x0f):
+	def __init__(self, address=0x0f):
 		self.I2CMotorDriverAdd=address
 
 	#Maps speed from 0-100 to 0-255
