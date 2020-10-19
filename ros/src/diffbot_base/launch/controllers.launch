@@ -1,4 +1,8 @@
 <launch>
+    <!-- Don't use this launch file directly -->
+    <!-- This launch file is used by diffbot_gazebo/launch/diffbot_base.launch -->
+    <!-- It will launch loaded but uninitialized and stopped controllers -->
+    <!-- Launching the controllers again is needed because gazebo_ros_control unloads them -->
     <!-- https://answers.ros.org/question/11271/call-a-service-at-startup-with-a-launch-file/ -->
     <!-- https://answers.ros.org/question/119316/using-controller-manager-and-getting-it-to-work/ -->
     <!-- http://wiki.ros.org/ros_control/Tutorials/Loading%20and%20starting%20controllers%20through%20service%20calls -->
