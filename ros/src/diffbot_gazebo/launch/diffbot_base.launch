@@ -1,4 +1,5 @@
 <launch>
+    <!-- This launch file can be used to run the simulation and the real robot together -->
     <!-- Using this launch file requries diffbot_base/launch/diffbot.launch running before it -->
 
     <include file="$(find diffbot_gazebo)/launch/diffbot.launch">
