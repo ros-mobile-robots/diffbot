@@ -1,0 +1,22 @@
+<launch>
+
+    <!-- Including the following launch file from diffbot_base package will -->
+    <!-- Load the robot description onto the parameter server -->
+    <!-- Run the controller manager with DiffBot's hardware interface -->
+    <!-- Load the controller config onto the parameter server -->
+    <include file="$(find diffbot_base)/launch/diffbot.launch">
+        <!-- arg name="model" value="$(arg model)" /-->
+    </include>
+
+
+    <!-- Motors -->
+    <!-- -->
+    <node name="motor_driver" pkg="grove_motor_driver" type="motor_driver.py" respawn="false"
+        output="screen" ns="diffbot" />
+
+    <!-- Encoders -->
+    <!-- Run rosserial to connect with the Teensy 3.2 board connected to the motor encoders -->
+    <node name="rosserial_teensy" pkg="rosserial_python" type="serial_node.py" respawn="false"
+        output="screen" ns="diffbot" args="_port:=/dev/ttyACM0
+                                            _baud:=115200"/>
+</launch>
