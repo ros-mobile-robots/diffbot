@@ -100,8 +100,26 @@ namespace diffbot_base
         /** \brief Get the URDF XML from the parameter server */
         virtual void loadURDF(const ros::NodeHandle& nh, std::string param_name);
 
-        void leftEncoderTicksCallback(const std_msgs::Int32& msg);
-        void rightEncoderTicksCallback(const std_msgs::Int32& msg);
+        /** \brief Callback to receive the encoder ticks from Teensy MCU */
+        void leftEncoderTicksCallback(const std_msgs::Int32::ConstPtr& msg);
+        void rightEncoderTicksCallback(const std_msgs::Int32::ConstPtr& msg);
+
+        /** \brief Convert number of encoder ticks to angle in radians */
+        double ticksToAngle(const int &ticks) const;
+
+        /** \brief Normalize angle in the range of [0, 360) */
+        double normalizeAngle(double &angle) const;
+
+
+        // The following functions are currently unused
+        // DiffBot directly calculates normalized angles from encoder ticks
+        // The joint_commands from ros_control are mapped to percentage values for the motor driver
+        // The following comments are incorrect
+        /** \brief DiffBot reports travel distance in metres, need radians for ros_control RobotHW */
+        double linearToAngular(const double &distance) const;
+        /** \brief RobotHW provides velocity command in rad/s, DiffBot needs m/s. */
+        double angularToLinear(const double &angle) const;
+        
 
         // Short name of this class
         std::string name_;
@@ -126,6 +144,10 @@ namespace diffbot_base
         std::size_t num_joints_;
         urdf::Model *urdf_model_;
 
+        double wheel_radius_;
+        double wheel_diameter_;
+        double max_velocity_;
+
         // Data member array to store the controller commands which are sent to the 
         // robot's resources (joints, actuators)
         // The diff_drive_controller uses the hardware_interface::VelocityJointInterface
@@ -144,14 +166,14 @@ namespace diffbot_base
         ros::ServiceServer srv_stop_;
 
         // Declare publishers for the motor driver
-        ros::Publisher pub_left_wheel_vel_;
-        ros::Publisher pub_right_wheel_vel_;
+        ros::Publisher pub_left_motor_value_;
+        ros::Publisher pub_right_motor_value_;
 
         // Declare subscribers for the wheel encoders
         ros::Subscriber sub_left_encoder_ticks_;
         ros::Subscriber sub_right_encoder_ticks_;
 
-        double encoder_ticks_[NUM_JOINTS];
+        int encoder_ticks_[NUM_JOINTS];
     };  // class DiffBotHWInterface
 
 }  // namespace
