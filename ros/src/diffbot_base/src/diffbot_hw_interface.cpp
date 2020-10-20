@@ -69,6 +69,11 @@ namespace diffbot_base
             // register them with the JointVelocityInterface.
             hardware_interface::JointHandle joint_handle(joint_state_handle, &joint_velocity_commands_[i]);
             velocity_joint_interface_.registerHandle(joint_handle);
+
+            // Initialize joint states with zero values
+            joint_positions_[i] = 0.0;
+            joint_velocities_[i] = 0.0;
+            joint_efforts_[i] = 0.0; // unused with diff_drive_controller
         }
         // Register the JointStateInterface containing the read only joints
         // with this robot's hardware_interface::RobotHW.
@@ -87,13 +92,13 @@ namespace diffbot_base
         //ROS_INFO_THROTTLE(1, "Read");
         ros::Duration elapsed_time = period;
 
-        // TODO read from robot hw
-
-        // TODO fill joint_state_* members with read values
+        // Read from robot hw (motor encoders)
+        // Fill joint_state_* members with read values
         for (std::size_t i = 0; i < num_joints_; ++i)
         {
-            double wheel_angle = ticksToAngle(encoder_ticks_[0]);
-            double wheel_angle_delta = normalizeAngle(wheel_angle);
+            double wheel_angle = ticksToAngle(encoder_ticks_[i]);
+            //double wheel_angle_normalized = normalizeAngle(wheel_angle);
+            double wheel_angle_delta = wheel_angle - joint_positions_[i];
             
             joint_positions_[i] += wheel_angle_delta;
             joint_velocities_[i] = wheel_angle_delta / period.toSec();
@@ -214,7 +219,7 @@ namespace diffbot_base
         if (angle < 0)
             angle += 2.0*M_PI;
 
-        ROS_INFO_STREAM_THROTTLE(1, "Normalized Angle" << angle);
+        ROS_INFO_STREAM_THROTTLE(1, "Normalized angle: " << angle);
         return angle;
     }
 
