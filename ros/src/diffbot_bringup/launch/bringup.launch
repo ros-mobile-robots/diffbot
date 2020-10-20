@@ -1,4 +1,12 @@
 <launch>
+    <!-- The `minimal.launch` is used to load the DiffBot's robot descripton
+        and the controller configuration onto the ROS parameter server using the launch file from the 
+        `diffbot_base` package (https://fjp.at/projects/diffbot/ros-packages/base/). 
+        It will also setup the ROS controller manager (http://wiki.ros.org/controller_manager) with 
+        DiffBot's hardware interface https://fjp.at/projects/diffbot/ros-packages/base/#hardware-interface.
+        For the motor driver the node `motor_driver.py` from the `grove_motor_driver` package is started.
+        And for the encoders rosserial communicates with the Teensy microcontroller to publish the encoder ticks. 
+    -->
     <include file="$(find diffbot_bringup)/launch/minimal.launch">
         <!-- arg name="model" value="$(arg model)" /-->
     </include>
