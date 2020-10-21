@@ -5,6 +5,8 @@
 
 //#include <std_msgs/Float32.h>
 #include <std_msgs/Int32.h>
+
+#include <iomanip>
  
 namespace diffbot_base
 {
@@ -94,24 +96,35 @@ namespace diffbot_base
 
         // Read from robot hw (motor encoders)
         // Fill joint_state_* members with read values
+        double wheel_angles[2];
+        double wheel_angle_deltas[2];
         for (std::size_t i = 0; i < num_joints_; ++i)
         {
-            double wheel_angle = ticksToAngle(encoder_ticks_[i]);
+            wheel_angles[i] = ticksToAngle(encoder_ticks_[i]);
             //double wheel_angle_normalized = normalizeAngle(wheel_angle);
-            double wheel_angle_delta = wheel_angle - joint_positions_[i];
+            wheel_angle_deltas[i] = wheel_angles[i] - joint_positions_[i];
             
-            joint_positions_[i] += wheel_angle_delta;
-            joint_velocities_[i] = wheel_angle_delta / period.toSec();
+            joint_positions_[i] += wheel_angle_deltas[i];
+            joint_velocities_[i] = wheel_angle_deltas[i] / period.toSec();
             joint_efforts_[i] = 0.0; // unused with diff_drive_controller
         }
-
-        printState();
+        const int width = 10;
+        const char sep = ' ';
+        std::stringstream ss;
+        ss << std::left << std::setw(width) << std::setfill(sep) << "Read" << std::left << std::setw(width) << std::setfill(sep) << "ticks" << std::left << std::setw(width) << std::setfill(sep) << "angle" << std::left << std::setw(width) << std::setfill(sep) << "dangle" << std::setw(width) << std::setfill(sep) << "velocity" << std::endl;
+        ss << std::left << std::setw(width) << std::setfill(sep) << "j0:" << std::left << std::setw(width) << std::setfill(sep) << encoder_ticks_[0] << std::left << std::setw(width) << std::setfill(sep) << wheel_angles[0] << std::left << std::setw(width) << std::setfill(sep) << wheel_angle_deltas[0] << std::setw(width) << std::setfill(sep) << joint_velocities_[0] << std::endl;
+        ss << std::left << std::setw(width) << std::setfill(sep) << "j1:" << std::left << std::setw(width) << std::setfill(sep) << encoder_ticks_[1] << std::left << std::setw(width) << std::setfill(sep) << wheel_angles[1] << std::left << std::setw(width) << std::setfill(sep) << wheel_angle_deltas[1] << std::setw(width) << std::setfill(sep) << joint_velocities_[1];
+        ROS_INFO_STREAM_THROTTLE(1, std::endl << ss.str());
+        //ROS_INFO_STREAM_THROTTLE(1, "Encoder ticks:\t left: " << encoder_ticks_[0] << "\t right: " << encoder_ticks_[1]);
+        //ROS_INFO_STREAM_THROTTLE(1, "j angle:\t left: " << wheel_angles[0] << "\t right: " << wheel_angles[1]);
+        //ROS_INFO_STREAM_THROTTLE(1, "j ∆angle:\t left: " << wheel_angle_deltas[0] << "\t right: " << wheel_angle_deltas[1]);
+        //printState();
     }
 
     void DiffBotHWInterface::write(const ros::Time& time, const ros::Duration& period)
     {
         ros::Duration elapsed_time = period;
-        // TODO write to robot hw
+        // Write to robot hw
         // joint velocity commands from ros_control's RobotHW are in rad/s
         // Convert the velocity command to a percentage value for the motor
         std_msgs::Int32 left_motor;
@@ -119,9 +132,16 @@ namespace diffbot_base
         left_motor.data = joint_velocity_commands_[0] / max_velocity_ * 100.0;
         right_motor.data = joint_velocity_commands_[1] / max_velocity_ * 100.0;
 
-        ROS_INFO_STREAM_THROTTLE(1, "Write: left motor: " << left_motor.data << ", right motor: " << right_motor.data);
         pub_left_motor_value_.publish(left_motor);
         pub_right_motor_value_.publish(right_motor);
+
+        const int width = 10;
+        const char sep = ' ';
+        std::stringstream ss;
+        ss << std::left << std::setw(width) << std::setfill(sep) << "Write" << std::left << std::setw(width) << std::setfill(sep) << "velocity" << std::left << std::setw(width) << std::setfill(sep) << "percent" << std::endl;
+        ss << std::left << std::setw(width) << std::setfill(sep) << "j0:" << std::left << std::setw(width) << std::setfill(sep) << joint_velocity_commands_[0] << std::left << std::setw(width) << std::setfill(sep) << left_motor.data << std::endl;
+        ss << std::left << std::setw(width) << std::setfill(sep) << "j1:" << std::left << std::setw(width) << std::setfill(sep) << joint_velocity_commands_[1] << std::left << std::setw(width) << std::setfill(sep) << right_motor.data;
+        ROS_INFO_STREAM_THROTTLE(1, std::endl << ss.str());
     }
 
     void DiffBotHWInterface::loadURDF(const ros::NodeHandle &nh, std::string param_name)
@@ -193,13 +213,13 @@ namespace diffbot_base
     void DiffBotHWInterface::leftEncoderTicksCallback(const std_msgs::Int32::ConstPtr& msg)
     {
         encoder_ticks_[0] = msg->data;
-        ROS_INFO_STREAM_THROTTLE(1, "Left encoder ticks: " << msg->data);
+        ROS_DEBUG_STREAM_THROTTLE(1, "Left encoder ticks: " << msg->data);
     }
 
     void DiffBotHWInterface::rightEncoderTicksCallback(const std_msgs::Int32::ConstPtr& msg)
     {
         encoder_ticks_[1] = msg->data;
-        ROS_INFO_STREAM_THROTTLE(1, "Right encoder ticks: " << msg->data);
+        ROS_DEBUG_STREAM_THROTTLE(1, "Right encoder ticks: " << msg->data);
     }
 
 
@@ -207,7 +227,7 @@ namespace diffbot_base
     {
         // Convert number of encoder ticks to angle in radians
         double angle = (double)ticks * (2.0*M_PI / 542.0);
-        ROS_INFO_STREAM_THROTTLE(1, ticks << " ticks correspond to an angle of " << angle);
+        ROS_DEBUG_STREAM_THROTTLE(1, ticks << " ticks correspond to an angle of " << angle);
 	    return angle;
     }
 
@@ -219,7 +239,7 @@ namespace diffbot_base
         if (angle < 0)
             angle += 2.0*M_PI;
 
-        ROS_INFO_STREAM_THROTTLE(1, "Normalized angle: " << angle);
+        ROS_DEBUG_STREAM_THROTTLE(1, "Normalized angle: " << angle);
         return angle;
     }
 
