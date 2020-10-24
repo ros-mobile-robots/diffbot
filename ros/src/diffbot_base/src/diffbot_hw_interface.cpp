@@ -114,10 +114,7 @@ namespace diffbot_base
         ss << std::left << std::setw(width) << std::setfill(sep) << "Read" << std::left << std::setw(width) << std::setfill(sep) << "ticks" << std::left << std::setw(width) << std::setfill(sep) << "angle" << std::left << std::setw(width) << std::setfill(sep) << "dangle" << std::setw(width) << std::setfill(sep) << "velocity" << std::endl;
         ss << std::left << std::setw(width) << std::setfill(sep) << "j0:" << std::left << std::setw(width) << std::setfill(sep) << encoder_ticks_[0] << std::left << std::setw(width) << std::setfill(sep) << wheel_angles[0] << std::left << std::setw(width) << std::setfill(sep) << wheel_angle_deltas[0] << std::setw(width) << std::setfill(sep) << joint_velocities_[0] << std::endl;
         ss << std::left << std::setw(width) << std::setfill(sep) << "j1:" << std::left << std::setw(width) << std::setfill(sep) << encoder_ticks_[1] << std::left << std::setw(width) << std::setfill(sep) << wheel_angles[1] << std::left << std::setw(width) << std::setfill(sep) << wheel_angle_deltas[1] << std::setw(width) << std::setfill(sep) << joint_velocities_[1];
-        ROS_INFO_STREAM_THROTTLE(1, std::endl << ss.str());
-        //ROS_INFO_STREAM_THROTTLE(1, "Encoder ticks:\t left: " << encoder_ticks_[0] << "\t right: " << encoder_ticks_[1]);
-        //ROS_INFO_STREAM_THROTTLE(1, "j angle:\t left: " << wheel_angles[0] << "\t right: " << wheel_angles[1]);
-        //ROS_INFO_STREAM_THROTTLE(1, "j ∆angle:\t left: " << wheel_angle_deltas[0] << "\t right: " << wheel_angle_deltas[1]);
+        ROS_INFO_STREAM(std::endl << ss.str());
         //printState();
     }
 
@@ -127,13 +124,35 @@ namespace diffbot_base
         // Write to robot hw
         // joint velocity commands from ros_control's RobotHW are in rad/s
         // Convert the velocity command to a percentage value for the motor
+        // This maps the velocity to a percentage value which is used to apply
+        // a percentage of the highest possible battery voltage to each motor.
         std_msgs::Int32 left_motor;
         std_msgs::Int32 right_motor;
         left_motor.data = joint_velocity_commands_[0] / max_velocity_ * 100.0;
         right_motor.data = joint_velocity_commands_[1] / max_velocity_ * 100.0;
 
+        // Calibrate motor commands to deal with different gear friction in the
+        // left and right motors and possible differences in the wheels.
+        // Add calibration offsets to motor output in low regions
+        // To tune these offset values command the robot to drive in a straight line and
+        // adjust if it isn't going straight.
+        // int left_offset = 10;
+        // int right_offset = 5;
+        // int threshold = 55;
+        // if (0 < left_motor.data && left_motor.data < threshold)
+        // {
+        //     // the second part of the multiplication lets the offset decrease with growing motor values
+        //     left_motor.data += left_offset * (threshold - left_motor.data) / threshold;
+        // }
+        // if (0 < right_motor.data && right_motor.data < threshold)
+        // {
+        //     // the second part of the multiplication lets the offset decrease with growing motor values
+        //     right_motor.data += right_offset * (threshold - right_motor.data) / threshold;
+        // }
+
         pub_left_motor_value_.publish(left_motor);
         pub_right_motor_value_.publish(right_motor);
+
 
         const int width = 10;
         const char sep = ' ';
@@ -141,7 +160,7 @@ namespace diffbot_base
         ss << std::left << std::setw(width) << std::setfill(sep) << "Write" << std::left << std::setw(width) << std::setfill(sep) << "velocity" << std::left << std::setw(width) << std::setfill(sep) << "percent" << std::endl;
         ss << std::left << std::setw(width) << std::setfill(sep) << "j0:" << std::left << std::setw(width) << std::setfill(sep) << joint_velocity_commands_[0] << std::left << std::setw(width) << std::setfill(sep) << left_motor.data << std::endl;
         ss << std::left << std::setw(width) << std::setfill(sep) << "j1:" << std::left << std::setw(width) << std::setfill(sep) << joint_velocity_commands_[1] << std::left << std::setw(width) << std::setfill(sep) << right_motor.data;
-        ROS_INFO_STREAM_THROTTLE(1, std::endl << ss.str());
+        ROS_INFO_STREAM(std::endl << ss.str());
     }
 
     void DiffBotHWInterface::loadURDF(const ros::NodeHandle &nh, std::string param_name)
