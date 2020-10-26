@@ -48,8 +48,6 @@ namespace diffbot_base
         setpoint_ = setpoint;
         process_value_ = measured_value;
 
-        // Feed forward term
-
         // Compute error terms
         double error = setpoint_ - process_value_;
         double delta_error = error - last_error_;
@@ -65,12 +63,12 @@ namespace diffbot_base
         // Compute derivative term
         derivative_ = delta_error / dt;
 
-        // Compute final output
+        // Compute final output including feed forward term
         output = kF * setpoint + kP_ * proportional_ + kI_ * integral_ + kD_ * derivative_;
         //output = clamp(output, output_min_, output_max_)
 
         // Keep track of state
-        last_error = error;
+        last_error_ = error;
 
         return output
     }
