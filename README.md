@@ -1,6 +1,16 @@
 # DiffBot
 
-DiffBot is an autonomous differential drive robot with two wheels. Its main processing unit is a Raspberry Pi 4 B running Ubuntu Mate 20.04 and the ROS 1 (ROS Noetic) middleware. Formatted documentation can be found at: https://fjp.at/projects/diffbot/
+DiffBot is an autonomous differential drive robot with two wheels. Its main processing unit is a Raspberry Pi 4 B running Ubuntu Mate 20.04 and the ROS 1 (ROS Noetic) middleware. This respository contains ROS driver and configurations for DiffBot. The formatted documentation can be found at: https://fjp.at/projects/diffbot/
+
+## Package Overview
+
+`diffbot_base`: ROS Control hardware interface including the controller manager control loop for the real DiffBot hardware
+`diffbot_bringup`: Launch files to bring up the drivers for the real DiffBot robot
+`diffbot_control`: Configurations for the `diff_drive_controller` of ROS Control used in Gazebo simulation and the real robot
+`diffbot_description`: URDF description of DiffBot
+`diffbot_driver`: A reverse ROS bridge for the DiffBot robot (TODO: move driver packages to this ROS package)
+`diffbot_gazebo`: Simulation specific launch and configuration files for DiffBot
+`diffbot_navigation`: move_base launch and configuration files (TODO: tbd)
 
 ## DiffBot Control in Gazebo
 
