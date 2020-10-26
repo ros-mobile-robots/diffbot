@@ -17,7 +17,7 @@ sudo apt -y install ros-noetic-desktop-full
 
 sudo rosdep init
 rosdep update
-echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
+echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
 source ~/.bashrc
 sudo apt -y install python-rosinstall python-rosinstall-generator python-wstool build-essential
 
