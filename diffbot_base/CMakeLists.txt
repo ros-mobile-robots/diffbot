@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   diff_drive_controller
   hardware_interface
   controller_manager
+  control_toolbox
   urdf
   roscpp
   sensor_msgs
