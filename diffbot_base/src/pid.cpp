@@ -1,6 +1,8 @@
 
 #include <diffbot_base/pid.h>
 
+#include <stdexcept>
+
 namespace diffbot_base
 {
 
@@ -46,10 +48,9 @@ namespace diffbot_base
         }
 
         setpoint_ = setpoint;
-        process_value_ = measured_value;
 
         // Compute error terms
-        double error = setpoint_ - process_value_;
+        double error = setpoint_ - measured_value;
         double delta_error = error - last_error_;
 
         // Compute the proportional term
@@ -64,13 +65,13 @@ namespace diffbot_base
         derivative_ = delta_error / dt;
 
         // Compute final output including feed forward term
-        output = kF * setpoint + kP_ * proportional_ + kI_ * integral_ + kD_ * derivative_;
+        double output = kF_ * setpoint + kP_ * proportional_ + kI_ * integral_ + kD_ * derivative_;
         //output = clamp(output, output_min_, output_max_)
 
         // Keep track of state
         last_error_ = error;
 
-        return output
+        return output;
     }
 
 
@@ -88,7 +89,7 @@ namespace diffbot_base
     }
 
 
-    double PID::clamp(value, lower_limit, upper_limit)
+    double PID::clamp(const double& value, const double& lower_limit, const double& upper_limit)
     {
         if (value > upper_limit)
         {
@@ -96,10 +97,10 @@ namespace diffbot_base
         }
         else if (value < lower_limit)
         {
-            return lower
+            return lower_limit;
         }
 
-        return value
+        return value;
     }
 
 }

@@ -10,6 +10,7 @@ namespace diffbot_base
         double operator()(const double &measured_value, const double &setpoint, const double &dt);
         void setParameters(double kP, double kI, double kD);
         void setOutputLimits(double output_min, double output_max);
+        double clamp(const double& value, const double& lower_limit, const double& upper_limit);
 
     private:
         double kF_;
