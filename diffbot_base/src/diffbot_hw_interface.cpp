@@ -13,6 +13,7 @@ namespace diffbot_base
     DiffBotHWInterface::DiffBotHWInterface(ros::NodeHandle &nh, urdf::Model *urdf_model)
         : name_("hardware_interface")
         , nh_(nh)
+        , pid_{{1,1,1,100,0}, {1,1,1,100,0}}
     { 
         // Initialization of the robot's resources (joints, sensors, actuators) and
         // interfaces can be done here or inside init().
@@ -128,6 +129,9 @@ namespace diffbot_base
         // a percentage of the highest possible battery voltage to each motor.
         std_msgs::Int32 left_motor;
         std_msgs::Int32 right_motor;
+
+        pid_[0](joint_velocities_[0], joint_velocity_commands_[0], period);
+
         left_motor.data = joint_velocity_commands_[0] / max_velocity_ * 100.0;
         right_motor.data = joint_velocity_commands_[1] / max_velocity_ * 100.0;
 

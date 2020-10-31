@@ -11,7 +11,8 @@
 #include <hardware_interface/robot_hw.h>
 #include <hardware_interface/joint_state_interface.h>
 #include <hardware_interface/joint_command_interface.h>
-#include <control_toolbox/pid.h>
+
+#include <diffbot_base/pid.h>
 
 
 namespace diffbot_base
@@ -176,7 +177,7 @@ namespace diffbot_base
 
         int encoder_ticks_[NUM_JOINTS];
 
-        control_toolbox::Pid pid_;
+        PID pid_[NUM_JOINTS];
     };  // class DiffBotHWInterface
 
 }  // namespace
