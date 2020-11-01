@@ -13,7 +13,7 @@ namespace diffbot_base
     DiffBotHWInterface::DiffBotHWInterface(ros::NodeHandle &nh, urdf::Model *urdf_model)
         : name_("hardware_interface")
         , nh_(nh)
-        , pid_{{1,1,1,100,0}, {1,1,1,100,0}}
+        , pid_{{1,1,1,0,100}, {1,1,1,0,100}}
     { 
         // Initialization of the robot's resources (joints, sensors, actuators) and
         // interfaces can be done here or inside init().
@@ -77,6 +77,10 @@ namespace diffbot_base
             joint_positions_[i] = 0.0;
             joint_velocities_[i] = 0.0;
             joint_efforts_[i] = 0.0; // unused with diff_drive_controller
+
+            joint_velocity_commands_[i] = 0.0;
+
+            pid_[i].setOutputLimits(-max_velocity_, max_velocity_);
         }
         // Register the JointStateInterface containing the read only joints
         // with this robot's hardware_interface::RobotHW.
@@ -162,9 +166,26 @@ namespace diffbot_base
         const int width = 10;
         const char sep = ' ';
         std::stringstream ss;
-        ss << std::left << std::setw(width) << std::setfill(sep) << "Write" << std::left << std::setw(width) << std::setfill(sep) << "velocity" << std::left << std::setw(width) << std::setfill(sep) << "percent" << std::endl;
-        ss << std::left << std::setw(width) << std::setfill(sep) << "j0:" << std::left << std::setw(width) << std::setfill(sep) << joint_velocity_commands_[0] << std::left << std::setw(width) << std::setfill(sep) << left_motor.data << std::endl;
-        ss << std::left << std::setw(width) << std::setfill(sep) << "j1:" << std::left << std::setw(width) << std::setfill(sep) << joint_velocity_commands_[1] << std::left << std::setw(width) << std::setfill(sep) << right_motor.data;
+        // Header
+        ss << std::left << std::setw(width) << std::setfill(sep) << "Write"
+           << std::left << std::setw(width) << std::setfill(sep) << "velocity"
+           << std::left << std::setw(width) << std::setfill(sep) << "pid out"
+           << std::left << std::setw(width) << std::setfill(sep) << "error"
+           << std::left << std::setw(width) << std::setfill(sep) << "percent"
+           << std::endl;
+        // Joint 0
+        ss << std::left << std::setw(width) << std::setfill(sep) << "j0:" 
+           << std::left << std::setw(width) << std::setfill(sep) << joint_velocity_commands_[0]
+           << std::left << std::setw(width) << std::setfill(sep) << output_left
+           << std::left << std::setw(width) << std::setfill(sep) << pid_[0].getError()
+           << std::left << std::setw(width) << std::setfill(sep) << left_motor.data
+           << std::endl;
+        // Joint 1
+        ss << std::left << std::setw(width) << std::setfill(sep) << "j1:"
+           << std::left << std::setw(width) << std::setfill(sep) << joint_velocity_commands_[1]
+           << std::left << std::setw(width) << std::setfill(sep) << output_right
+           << std::left << std::setw(width) << std::setfill(sep) << pid_[1].getError()
+           << std::left << std::setw(width) << std::setfill(sep) << right_motor.data;
         ROS_INFO_STREAM(std::endl << ss.str());
     }
 
