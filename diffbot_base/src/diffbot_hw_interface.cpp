@@ -130,10 +130,11 @@ namespace diffbot_base
         std_msgs::Int32 left_motor;
         std_msgs::Int32 right_motor;
 
-        pid_[0](joint_velocities_[0], joint_velocity_commands_[0], period);
+        double output_left = pid_[0](joint_velocities_[0], joint_velocity_commands_[0], period);
+        double output_right = pid_[1](joint_velocities_[1], joint_velocity_commands_[1], period);
 
-        left_motor.data = joint_velocity_commands_[0] / max_velocity_ * 100.0;
-        right_motor.data = joint_velocity_commands_[1] / max_velocity_ * 100.0;
+        left_motor.data = output_left / max_velocity_ * 100.0;
+        right_motor.data = output_right / max_velocity_ * 100.0;
 
         // Calibrate motor commands to deal with different gear friction in the
         // left and right motors and possible differences in the wheels.

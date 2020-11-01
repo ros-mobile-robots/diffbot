@@ -1,8 +1,6 @@
 
 #include <diffbot_base/pid.h>
 
-#include <stdexcept>
-
 namespace diffbot_base
 {
 
