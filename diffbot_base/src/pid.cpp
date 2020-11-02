@@ -3,37 +3,32 @@
 
 namespace diffbot_base
 {
-
-    PID::PID(double kP, double kI, double kD, double output_min, double output_max)
-    : control_toolbox::Pid(kP, kI, kD)
+    PID::PID(double p, double i, double d, double i_max, double i_min, bool antiwindup, double out_max, double out_min)
+    : control_toolbox::Pid()
     {
-        init(0.0, kP, kI, kD, output_min, output_max);
-    }
-
-    PID::PID(double kF, double kP, double kI, double kD, double output_min, double output_max)
-    : control_toolbox::Pid(kP, kI, kD)
-    {
-        init(kF, kP, kI, kD, output_min, output_max);
-    }
-
-    void PID::init(double kF, double kP, double kI, double kD, double output_min, double output_max)
-    {
-        kF_ = kF;
-        kP_ = kP;
-        kI_ = kI;
-        kD_ = kD;
-
+        f_ = 0.0;
+        setGains(p, i, d, i_max, i_min, antiwindup);
         error_ = 0.0;
 
-        output_min_ = output_min;
-        output_max_ = output_max;
+        out_min_ = out_min;
+        out_max_ = out_max;
+    }
 
-        // Create node handle for dynamic reconfigure
-        // TODO use namespace from hardware interface
-        ros::NodeHandle nh("diffbot");
-        initDynamicReconfig(nh);
+    void PID::init(const ros::NodeHandle& nh, double f, double p, double i, double d, double i_max, double i_min, bool antiwindup, double out_max, double out_min)
+    {
+        f_ = f;
+        setGains(p, i, d, i_max, i_min, antiwindup);
+        error_ = 0.0;
 
-        ROS_INFO_STREAM("Initialize PID: F=" << kF_ << ", P=" << kP_ << ", I=" << kI_ << ", D=" << kD_ << ", out_min=" << output_min_ << ", out_max=" << output_max_);
+        out_min_ = out_min;
+        out_max_ = out_max;
+
+        ros::NodeHandle rnh(nh);
+        initDynamicReconfig(rnh);
+
+
+        Gains gains = getGains();
+        ROS_INFO_STREAM("Initialize PID: F=" << f << ", P=" << gains.p_gain_ << ", I=" << gains.i_gain_ << ", D=" << gains.d_gain_ << ", out_min=" << out_min_ << ", out_max=" << out_max_);
 
     }
 
@@ -49,26 +44,28 @@ namespace diffbot_base
  
 
         // Compute final output including feed forward term
-        output = kF_ * setpoint + output;
-        output = clamp(output, output_min_, output_max_);
+        output = f_ * setpoint + output;
+        output = clamp(output, out_min_, out_max_);
 
         return output;
     }
 
 
-    void PID::setParameters(double kP, double kI, double kD)
+    void PID::setGains(double f, double p, double i, double d, double i_max, double i_min, bool antiwindup)
     {
-        kP_ = kP;
-        kI_ = kI;
-        kD_ = kD;
-        ROS_INFO_STREAM("Update PID parameters: P=" << kP_ << ", kI=" << kI_ << ", kD=" << kD_);
+        f_ = f;
+        setGains(p, i, d, i_max, i_min, antiwindup);
+
+        Gains gains = getGains();
+        ROS_INFO_STREAM("Update PID Gains: F=" << f << ", P=" << gains.p_gain_ << ", I=" << gains.i_gain_ << ", D=" << gains.d_gain_ << ", out_min=" << out_min_ << ", out_max=" << out_max_);
+
     }
 
     void PID::setOutputLimits(double output_min, double output_max)
     {
-        output_min_ = output_min;
-        output_max_ = output_max;
-        ROS_INFO_STREAM("Update PID output limits: lower=" << output_min_ << ", upper=" << output_max_);
+        out_min_ = output_min;
+        out_max_ = output_max;
+        ROS_INFO_STREAM("Update PID output limits: lower=" << out_min_ << ", upper=" << out_max_);
     }
 
 

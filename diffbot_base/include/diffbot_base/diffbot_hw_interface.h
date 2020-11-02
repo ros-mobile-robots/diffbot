@@ -177,7 +177,7 @@ namespace diffbot_base
 
         int encoder_ticks_[NUM_JOINTS];
 
-        PID pid_[NUM_JOINTS];
+        PID pids_[NUM_JOINTS];
     };  // class DiffBotHWInterface
 
 }  // namespace

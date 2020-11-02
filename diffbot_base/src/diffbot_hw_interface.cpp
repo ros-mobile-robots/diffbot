@@ -13,7 +13,7 @@ namespace diffbot_base
     DiffBotHWInterface::DiffBotHWInterface(ros::NodeHandle &nh, urdf::Model *urdf_model)
         : name_("hardware_interface")
         , nh_(nh)
-        , pid_{{1,1,1,0,100}, {1,1,1,0,100}}
+        , pids_{{},{}}
     { 
         // Initialization of the robot's resources (joints, sensors, actuators) and
         // interfaces can be done here or inside init().
@@ -57,6 +57,7 @@ namespace diffbot_base
         ROS_INFO("Initializing DiffBot Hardware Interface ...");
         num_joints_ = joint_names_.size();
         ROS_INFO("Number of joints: %d", (int)num_joints_);
+        std::string motor_names = {"left_motor, right_motor"};
         for (unsigned int i = 0; i < num_joints_; i++)
         {
             // Create a JointStateHandle for each joint and register them with the 
@@ -80,7 +81,11 @@ namespace diffbot_base
 
             joint_velocity_commands_[i] = 0.0;
 
-            pid_[i].setOutputLimits(-max_velocity_, max_velocity_);
+            // Initialize the pid controllers for the motors using the robot namespace
+            ros::NodeHandle nh("pid/" + motor_names[i]);
+            // TODO implement builder pattern to initialize values otherwise it is hard to see which parameter is what.
+            pids_[i].init(nh, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, false, -max_velocity_, max_velocity_);
+            //pids_[i].setOutputLimits(-max_velocity_, max_velocity_);
         }
         // Register the JointStateInterface containing the read only joints
         // with this robot's hardware_interface::RobotHW.
@@ -134,8 +139,8 @@ namespace diffbot_base
         std_msgs::Int32 left_motor;
         std_msgs::Int32 right_motor;
 
-        double output_left = pid_[0](joint_velocities_[0], joint_velocity_commands_[0], period);
-        double output_right = pid_[1](joint_velocities_[1], joint_velocity_commands_[1], period);
+        double output_left = pids_[0](joint_velocities_[0], joint_velocity_commands_[0], period);
+        double output_right = pids_[1](joint_velocities_[1], joint_velocity_commands_[1], period);
 
         left_motor.data = output_left / max_velocity_ * 100.0;
         right_motor.data = output_right / max_velocity_ * 100.0;
@@ -177,14 +182,14 @@ namespace diffbot_base
         ss << std::left << std::setw(width) << std::setfill(sep) << "j0:" 
            << std::left << std::setw(width) << std::setfill(sep) << joint_velocity_commands_[0]
            << std::left << std::setw(width) << std::setfill(sep) << output_left
-           << std::left << std::setw(width) << std::setfill(sep) << pid_[0].getError()
+           << std::left << std::setw(width) << std::setfill(sep) << pids_[0].getError()
            << std::left << std::setw(width) << std::setfill(sep) << left_motor.data
            << std::endl;
         // Joint 1
         ss << std::left << std::setw(width) << std::setfill(sep) << "j1:"
            << std::left << std::setw(width) << std::setfill(sep) << joint_velocity_commands_[1]
            << std::left << std::setw(width) << std::setfill(sep) << output_right
-           << std::left << std::setw(width) << std::setfill(sep) << pid_[1].getError()
+           << std::left << std::setw(width) << std::setfill(sep) << pids_[1].getError()
            << std::left << std::setw(width) << std::setfill(sep) << right_motor.data;
         ROS_INFO_STREAM(std::endl << ss.str());
     }
