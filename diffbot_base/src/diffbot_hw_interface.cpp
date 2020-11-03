@@ -88,8 +88,6 @@ namespace diffbot_base
             pids_[i].init(nh, 0.0, 10.0, 1.0, 1.0, 0.0, 0.0, false, -max_velocity_, max_velocity_);
             pids_[i].setOutputLimits(-max_velocity_, max_velocity_);
         }
-        // Initialize the pid controllers for the motors using the robot namespace
-
 
         // Register the JointStateInterface containing the read only joints
         // with this robot's hardware_interface::RobotHW.
