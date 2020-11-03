@@ -13,7 +13,6 @@ namespace diffbot_base
     DiffBotHWInterface::DiffBotHWInterface(ros::NodeHandle &nh, urdf::Model *urdf_model)
         : name_("hardware_interface")
         , nh_(nh)
-        , pids_{{},{}}
     { 
         // Initialization of the robot's resources (joints, sensors, actuators) and
         // interfaces can be done here or inside init().
@@ -57,7 +56,7 @@ namespace diffbot_base
         ROS_INFO("Initializing DiffBot Hardware Interface ...");
         num_joints_ = joint_names_.size();
         ROS_INFO("Number of joints: %d", (int)num_joints_);
-        std::string motor_names = {"left_motor, right_motor"};
+        std::array<std::string, NUM_JOINTS> motor_names = {"left_motor", "right_motor"};
         for (unsigned int i = 0; i < num_joints_; i++)
         {
             // Create a JointStateHandle for each joint and register them with the 
@@ -82,11 +81,16 @@ namespace diffbot_base
             joint_velocity_commands_[i] = 0.0;
 
             // Initialize the pid controllers for the motors using the robot namespace
-            ros::NodeHandle nh("pid/" + motor_names[i]);
+            std::string pid_namespace = "pid/" + motor_names[i];
+            ROS_INFO_STREAM("pid namespace: " << pid_namespace);
+            ros::NodeHandle nh(root_nh, pid_namespace);
             // TODO implement builder pattern to initialize values otherwise it is hard to see which parameter is what.
-            pids_[i].init(nh, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, false, -max_velocity_, max_velocity_);
-            //pids_[i].setOutputLimits(-max_velocity_, max_velocity_);
+            pids_[i].init(nh, 0.0, 10.0, 1.0, 1.0, 0.0, 0.0, false, -max_velocity_, max_velocity_);
+            pids_[i].setOutputLimits(-max_velocity_, max_velocity_);
         }
+        // Initialize the pid controllers for the motors using the robot namespace
+
+
         // Register the JointStateInterface containing the read only joints
         // with this robot's hardware_interface::RobotHW.
         registerInterface(&joint_state_interface_);

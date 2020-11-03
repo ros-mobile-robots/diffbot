@@ -7,28 +7,27 @@ namespace diffbot_base
     : control_toolbox::Pid()
     {
         f_ = 0.0;
-        setGains(p, i, d, i_max, i_min, antiwindup);
+        initPid(p, i, d, i_max, i_min, antiwindup);
         error_ = 0.0;
 
         out_min_ = out_min;
         out_max_ = out_max;
     }
 
-    void PID::init(const ros::NodeHandle& nh, double f, double p, double i, double d, double i_max, double i_min, bool antiwindup, double out_max, double out_min)
+    void PID::init(ros::NodeHandle& nh, double f, double p, double i, double d, double i_max, double i_min, bool antiwindup, double out_max, double out_min)
     {
+        ROS_INFO("Initialize PID");
         f_ = f;
-        setGains(p, i, d, i_max, i_min, antiwindup);
+        initPid(p, i, d, i_max, i_min, antiwindup);
         error_ = 0.0;
 
         out_min_ = out_min;
         out_max_ = out_max;
 
-        ros::NodeHandle rnh(nh);
-        initDynamicReconfig(rnh);
-
+        initDynamicReconfig(nh);
 
         Gains gains = getGains();
-        ROS_INFO_STREAM("Initialize PID: F=" << f << ", P=" << gains.p_gain_ << ", I=" << gains.i_gain_ << ", D=" << gains.d_gain_ << ", out_min=" << out_min_ << ", out_max=" << out_max_);
+        ROS_INFO_STREAM("Initialized PID: F=" << f << ", P=" << gains.p_gain_ << ", I=" << gains.i_gain_ << ", D=" << gains.d_gain_ << ", out_min=" << out_min_ << ", out_max=" << out_max_);
 
     }
 

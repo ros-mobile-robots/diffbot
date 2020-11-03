@@ -33,7 +33,7 @@ namespace diffbot_base
          * @param out_min The min computed output.
          * @param out_max The max computed output.
          */
-        void init(const ros::NodeHandle& nh, double f, double p, double i, double d, double i_max, double i_min, bool antiwindup, double out_max, double out_min);
+        void init(ros::NodeHandle& nh, double f, double p, double i, double d, double i_max, double i_min, bool antiwindup, double out_max, double out_min);
 
         /**
          * @brief Compute PID output value from error using process value, set point and time period
