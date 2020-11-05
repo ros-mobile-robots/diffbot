@@ -37,14 +37,26 @@ namespace diffbot_base
         error_ = setpoint - measured_value;
         ROS_DEBUG_STREAM_THROTTLE(1, "Error: " << error_);
 
+        // Reset the i_error in case the p_error and the setpoint is zero
+        // Otherwise there will always be a constant i_error_ that won't vanish
+        if (0.0 == setpoint && 0.0 == error_)
+        {
+            // reset() will reset
+            // p_error_last_ = 0.0;
+            // p_error_ = 0.0;
+            // i_error_ = 0.0;
+            // d_error_ = 0.0;
+            // cmd_ = 0.0;
+            reset();
+        }
+
         // Use control_toolbox::Pid::computeCommand()
         double output = computeCommand(error_, dt);
         ROS_DEBUG_STREAM_THROTTLE(1, "PID computed command: " << output);
- 
 
         // Compute final output including feed forward term
         output = f_ * setpoint + output;
-        output = clamp(output, out_min_, out_max_);
+        //output = clamp(output, out_min_, out_max_);
 
         return output;
     }
@@ -60,10 +72,10 @@ namespace diffbot_base
 
     }
 
-    void PID::setOutputLimits(double output_min, double output_max)
+    void PID::setOutputLimits(double output_max, double output_min)
     {
-        out_min_ = output_min;
         out_max_ = output_max;
+        out_min_ = output_min;
         ROS_INFO_STREAM("Update PID output limits: lower=" << out_min_ << ", upper=" << out_max_);
     }
 
