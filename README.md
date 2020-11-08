@@ -8,7 +8,7 @@ DiffBot is an autonomous differential drive robot with two wheels. Its main proc
 
 ## Package Overview
 
-- `diffbot_base`: ROS Control hardware interface including the `controller_manager` control loop for the real robot
+- [`diffbot_base`](./diffbot_base): ROS Control hardware interface including `controller_manager` control loop for the real robot
 - `diffbot_bringup`: Launch files to bring up the drivers for the real DiffBot robot
 - `diffbot_control`: Configurations for the `diff_drive_controller` of ROS Control used in Gazebo simulation and the real robot
 - `diffbot_description`: URDF description of DiffBot including its sensors
