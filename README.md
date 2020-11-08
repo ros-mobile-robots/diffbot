@@ -2,6 +2,10 @@
 
 DiffBot is an autonomous differential drive robot with two wheels. Its main processing unit is a Raspberry Pi 4 B running Ubuntu Mate 20.04 and the ROS 1 (ROS Noetic) middleware. This respository contains ROS driver and configurations for DiffBot. The formatted documentation can be found at: https://fjp.at/projects/diffbot/
 
+| DiffBot | Lidar SLAMTEC RPLidar A2 | RViz |
+|:-------:|:-----------------:|:----:|
+|  [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/diffbot-front.png" width="700">](https://fjp.at/projects/diffbot/) | [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/rplidara2.png" width="700">](https://github.com/fjp/diffbot) | [<img src="https://github.com/fjp/diffbot/blob/master/docs/resources/rviz_diffbot_meshes.png?raw=true" width="700">](https://github.com/fjp/diffbot) |
+
 ## Package Overview
 
 - `diffbot_base`: ROS Control hardware interface including the controller manager control loop for the real robot
@@ -29,6 +33,10 @@ roslaunch diffbot_description view_diffbot.launch
 ![DiffBot RViz](docs/resources/rviz_diffbot_meshes.png)
 
 ## Part List
+
+| SBC RPi 4B | MCU Teensy 3.2 | IMU Bosch |
+|:-------:|:-----------------:|:----:|
+|  [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/sbc-rpi-4b.png" width="700">](https://fjp.at/projects/diffbot/) | [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/mcu-teensy32.png" width="700">](https://github.com/fjp/diffbot) | [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/imu.png" width="700">](https://github.com/fjp/diffbot) |
 
 | Part                    | Store |
 |:------------------------|:---------------------------------------------------------------------------:|
