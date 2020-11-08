@@ -16,6 +16,10 @@ DiffBot is an autonomous differential drive robot with two wheels. Its main proc
 - `diffbot_gazebo`: Simulation specific launch and configuration files for DiffBot
 - `diffbot_navigation`: move_base launch and configuration files (TODO: tbd)
 
+## Perception
+
+To allow object detection with the RPi Camera the Raspberry Pi 4 B will be upated with a Google Coral USB Accelerator. 
+
 ## DiffBot Control in Gazebo
 
 ```console
