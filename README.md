@@ -63,8 +63,8 @@ roslaunch diffbot_description view_diffbot.launch
 
 ## Acknowledgment
 
-- The configurable `diffbot_description` using yaml files (see [ROS Wiki on xacro](http://wiki.ros.org/xacro#YAML_support)) is part of [`mobile_robot_description`](https://github.com/pxalcantara/mobile_robot_description) from @pxalcantara.
-- Thanks to @NestorDP for help with the meshes (similar to [`littlebot`](https://github.com/NestorDP/littlebot)), see also [issue #1](https://github.com/fjp/diffbot/issues/1)
+- The configurable `diffbot_description` using yaml files (see [ROS Wiki on xacro](http://wiki.ros.org/xacro#YAML_support)) is part of [`mobile_robot_description`](https://github.com/pxalcantara/mobile_robot_description) from [@pxalcantara](https://github.com/pxalcantara).
+- Thanks to [@NestorDP](https://github.com/NestorDP) for help with the meshes (similar to [`littlebot`](https://github.com/NestorDP/littlebot)), see also [issue #1](https://github.com/fjp/diffbot/issues/1)
 - [`dfki-ric/mir_robot`](https://github.com/dfki-ric/mir_robot)
 - [`eborghi10/my_ROS_mobile_robot`](https://github.com/eborghi10/my_ROS_mobile_robot)
 - [`husky`](https://github.com/husky/husky)
