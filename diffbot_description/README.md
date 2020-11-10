@@ -1,3 +1,5 @@
+Version controlled source can is managed in this fork: [fjp/mobile_robot_description (diffbot branch)](https://github.com/fjp/mobile_robot_description/tree/diffbot)
+
 # mobile_robot_description
 ROS Package with a modular structure to create mobile robots with differential drive configuration. The purpose of this package is to provide xacro modules to make it easier to build the URDF description file of your differential robot. To active this purpose, this package has some modules that are inside the file ***common_macro.urdf.xacro*** that can be parametrized using YAML files, making it easier, fast, and more flexible to create your robot model.
 
