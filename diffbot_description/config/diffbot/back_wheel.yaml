@@ -1,0 +1,17 @@
+wheel:
+# Wheel mass in Kilograms
+  mass: 1.0         
+# Wheel radius in meters
+  radius: 0.053     
+# Wheel length in meters, considering is as a cylinder
+  length: 0.033     
+# Name of the mesh files. Leave it empty ('') to have a red wheel.  
+  mesh: ''     
+# Offset distance, in meters, from the outer face of the base to the center of the wheel.
+  x_offset: 0.250
+# Offset distance, in meters, from the outer face of the base to the inner face of the wheel. 
+# The outer face of the base is the reference so, if the wheels are inside the base the value must be
+# negative. If the wheels are outside, must be positive.
+  y_offset: -0.002
+# Offset distance, in meters, from the bottom face of the base to the center of the wheel.
+  z_offset: 0.01

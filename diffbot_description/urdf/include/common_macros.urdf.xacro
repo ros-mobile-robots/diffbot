@@ -1,0 +1,471 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+
+<xacro:macro name="set_environment" params="package_name:='mobile_robot_description' ">
+  <xacro:property name="package_name" value="${package_name}" scope="global"/>  
+</xacro:macro>
+
+<!-- ===================== Wheel xacro =========================================
+
+  Xacro to create a wheel link and the respective joint. For more detail information and usage, see:
+    https://github.com/pxalcantara/mobile_robot_description/wiki/Wheel-xacro
+
+  params:
+  - prefix [string]: used to diferentiate the link and joint name;
+  - reflect [1/-1]: value to set the side of the wheel;
+  - wheel_props [dictionary]: wheel properties;
+  - base_props [dictionary]: base link properties;
+  - mesh [string]: file name of the wheel mesh;
+    - DEFAULT Value -> Empty string
+-->
+  <xacro:macro name="wheel"
+               params="prefix reflect wheel_props base_props mesh:='' ">
+
+  <xacro:property name="pos_x_joint"
+     value="${(base_props['base']['x_size']/2) - wheel_props['wheel']['x_offset']}"/>
+  <xacro:property name="pos_y_joint"
+    value="${(base_props['base']['y_size']/2) + wheel_props['wheel']['y_offset'] + (wheel_props['wheel']['length']/2)}"/>
+  <xacro:property name="pos_z_joint" value="${wheel_props['wheel']['z_offset']}"/>
+
+    <link name="${prefix}_wheel">
+    <xacro:if value="${mesh != '' }" >
+      <visual>
+        <origin xyz="0.0 0 0" rpy="${pi/2} 0 ${pi/2.0*(reflect - 1)}"/>
+        <geometry>
+          <mesh filename="package://${package_name}/meshes/${robot_name}/${mesh}" />
+        </geometry>
+        <material name="dark_grey"/>
+      </visual>
+    </xacro:if>
+    <xacro:if value="${mesh == '' }" >
+      <visual>
+        <origin xyz="0.0 0 0" rpy="${pi/2} 0 0"/>
+         <geometry>
+         <cylinder radius="${wheel_props['wheel']['radius']}" length="${wheel_props['wheel']['length']}"/>
+        </geometry>
+        <material name="red"/>
+      </visual>
+    </xacro:if>
+      <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_props['wheel']['radius']}" length="${wheel_props['wheel']['length']}"/>
+        </geometry>
+      </collision>
+      <xacro:cylinder_inertia m="${wheel_props['wheel']['mass']}"
+                              r="${wheel_props['wheel']['radius']}"
+                              l="${wheel_props['wheel']['length']}"
+                              o_xyz="0.0 0.0 0.0"
+                              o_rpy="${pi/2.0} 0.0 0.0" >
+      </xacro:cylinder_inertia> 
+    </link>
+    
+
+    <joint name="${prefix}_wheel_joint" type="continuous">
+      <axis xyz="0 1 0" rpy="0 0 0" />
+      <parent link="base_link"/>
+      <child link="${prefix}_wheel"/>
+      <origin xyz="${pos_x_joint} ${reflect* pos_y_joint} ${pos_z_joint}" rpy="0 0 0"/>
+    </joint>
+
+    <transmission name="${prefix}_wheel_transmission">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}_wheel_joint">
+        <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}_motor">
+        <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+    
+  </xacro:macro>
+<!-- ======================================================================= -->
+
+<!-- Caster wheel link & joint macro -->
+  <!-- locationprefix locationright wheel_base_dx TODO remove -->
+  <xacro:macro name="caster_wheel" 
+                params="prefix reflect wheel_props locationright:=${0} ">
+    <!-- caster base (fixed) -->
+    <link name="${prefix}_caster_base_link">
+      <xacro:box_inertia  m="${wheel_props['base']['mass']}"
+                          x="${wheel_props['base']['size']['x']}"
+                          y="${wheel_props['base']['size']['y']}"
+                          z="${wheel_props['base']['size']['z']}"
+                          o_xyz="0.0 0.0 ${-wheel_props['base']['size']['z']/2.0}"
+                          o_rpy="0.0 0.0 0.0" />
+      <xacro:if value="${wheel_props['base']['mass'] != '' }" >
+        <visual>
+            <origin xyz="0 0 ${-wheel_props['base']['size']['z']/2.0}" rpy="0 0 0" />
+            <geometry>
+                <mesh filename="package://${package_name}/meshes/${robot_name}/${wheel_props['base']['mesh']}" />
+            </geometry>
+            <!-- xacro:insert_block name="material_silver" / TODO use this block? -->
+            <material name="silver"/>
+        </visual>
+      </xacro:if>
+      <xacro:if value="${wheel_props['base']['mass'] == '' }" >
+        <visual>
+          <origin xyz="0 0 ${-wheel_props['base']['size']['z']/2.0}" rpy="0 0 0" />
+          <geometry>
+            <box size="${wheel_props['base']['size']['x']} ${wheel_props['base']['size']['y']} ${wheel_props['base']['size']['z']}" />
+          </geometry>
+          <material name="red"/>
+        </visual>
+      </xacro:if>
+      <collision>
+        <origin xyz="0 0 ${-wheel_props['base']['size']['z']/2.0}" rpy="0 0 0" />
+        <geometry>
+          <box size="${wheel_props['base']['size']['x']} ${wheel_props['base']['size']['y']} ${wheel_props['base']['size']['z']}" />
+        </geometry>
+      </collision>
+    </link>
+    <joint name="${prefix}_caster_base_joint" type="fixed">
+      <origin xyz="${wheel_props['base']['dx']} ${-wheel_props['base']['dy'] * locationright} ${wheel_props['base']['dz']}" 
+              rpy="0 0 0" />
+      <parent link="base_link" />
+      <child link="${prefix}_caster_base_link" />
+      <axis xyz="0 0 1" />
+      <dynamics damping="0.01" friction="0.0"/>
+    </joint>
+    <gazebo reference="${prefix}_caster_base_link">
+      <material>Gazebo/Grey</material>
+    </gazebo>
+
+
+    <!-- caster hub -->
+    <link name="${prefix}_caster_rotation_link">
+      <xacro:box_inertia  m="${wheel_props['hub']['mass']}"
+                          x="${wheel_props['hub']['size']['x']}"
+                          y="${wheel_props['hub']['size']['y']}"
+                          z="${wheel_props['hub']['size']['z']}"
+                          o_xyz="0.0 0.0 ${-wheel_props['hub']['size']['z']/2.0}"
+                          o_rpy="0.0 0.0 0.0" />
+      <xacro:if value="${wheel_props['hub']['mesh'] != '' }" >
+        <visual>
+          <origin xyz="0 0 ${-wheel_props['hub']['size']['z']/2.0}" rpy="0 0 0" />
+          <geometry>
+            <mesh filename="package://${package_name}/meshes/${robot_name}/${wheel_props['hub']['mesh']}" />
+          </geometry>
+          <!-- xacro:insert_block name="material_silver" / TODO use this block? -->
+          <material name="silver"/>
+        </visual>
+      </xacro:if>
+      <xacro:if value="${wheel_props['hub']['mesh'] == '' }" >
+        <visual>
+          <origin xyz="0 0 ${-wheel_props['hub']['size']['z']/2.0}" rpy="0 0 0" />
+          <geometry>
+            <box size="${wheel_props['hub']['size']['x']} ${wheel_props['hub']['size']['y']} ${wheel_props['hub']['size']['z']}" />
+          </geometry>
+          <material name="red"/>
+        </visual>
+      </xacro:if>
+      <collision>
+        <origin xyz="0 0 ${-wheel_props['hub']['size']['z']/2.0}" rpy="0 0 0" />
+        <geometry>
+          <box size="${wheel_props['hub']['size']['x']} ${wheel_props['hub']['size']['y']} ${wheel_props['hub']['size']['z']}" />
+        </geometry>
+      </collision>
+    </link>
+    <joint name="${prefix}_caster_rotation_joint" type="continuous">
+      <origin xyz="${wheel_props['hub']['dx']} ${-wheel_props['hub']['dy'] * locationright} ${wheel_props['hub']['dz']}"
+              rpy="0 0 0" />
+      <parent link="base_link" />
+      <child link="${prefix}_caster_rotation_link" />
+      <axis xyz="0 0 1" />
+      <dynamics damping="0.01" friction="0.0"/>
+    </joint>
+    <gazebo reference="${prefix}_caster_rotation_link">
+      <material>Gazebo/Grey</material>
+    </gazebo>
+
+
+    <!-- caster wheel -->
+    <link name="${prefix}_caster_wheel_link">
+      <xacro:cylinder_inertia m="${wheel_props['wheel']['mass']}"
+                              r="${wheel_props['wheel']['radius']}"
+                              l="${wheel_props['wheel']['length']}">
+        <!-- TODO unused block error?: origin xyz="0 0 0" rpy="${pi/2} 0 0" /-->
+      </xacro:cylinder_inertia>
+      <xacro:if value="${wheel_props['wheel']['mesh'] != '' }" >
+        <visual>
+          <origin xyz="0 0 0" rpy="0 0 0" />
+          <geometry>
+            <mesh filename="package://${package_name}/meshes/${robot_name}/${wheel_props['wheel']['mesh']}" />
+          </geometry>
+          <!-- TODO use this?: xacro:insert_block name="material_dark_grey" /-->
+          <material name="dark_grey"/>
+        </visual>
+      </xacro:if>
+      <xacro:if value="${wheel_props['wheel']['mesh'] == '' }" >
+        <visual>
+          <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
+          <geometry>
+            <cylinder length="${wheel_props['wheel']['length']}" radius="${wheel_props['wheel']['radius']}" />
+          </geometry>
+          <material name="red"/>
+        </visual>
+      </xacro:if>
+      <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
+        <geometry>
+          <cylinder length="${wheel_props['wheel']['length']}" radius="${wheel_props['wheel']['radius']}" />
+        </geometry>
+      </collision>
+    </link>
+    <joint name="${prefix}_caster_wheel_joint" type="continuous">
+      <origin xyz="${wheel_props['wheel']['dx']} ${-wheel_props['wheel']['dy'] * locationright} ${wheel_props['wheel']['dz']}" 
+              rpy="0 0 0" />
+      <parent link="${prefix}_caster_rotation_link" />
+      <child link="${prefix}_caster_wheel_link" />
+      <axis xyz="0 1 0" />
+    </joint>
+    <gazebo reference="${prefix}_caster_wheel_link">
+      <material>Gazebo/DarkGrey</material>
+    </gazebo>
+  </xacro:macro>
+
+<!-- ===================== Motor xacro =========================================
+
+  Xacro to create a motor link and the respective joint. For more detail information and usage, see:
+    https://github.com/pxalcantara/mobile_robot_description/wiki/Motor-xacro
+
+  params:
+  - prefix [string]: used to diferentiate the link and joint name;
+  - reflect [1/-1]: value to set the side of the motor;
+  - motor_props [dictionary]: motor properties;
+  - base_props [dictionary]: base link properties;
+  - mesh [string]: file name of the motor mesh;
+    - DEFAULT Value -> Empty string
+-->
+  <xacro:macro name="motor"
+               params="prefix reflect motor_props base_props mesh:='' ">
+
+  <xacro:property name="pos_x_joint"
+     value="${(base_props['base']['x_size']/2) - motor_props['x_offset']}"/>
+  <xacro:property name="pos_y_joint"
+    value="${(base_props['base']['y_size']/2) + motor_props['y_offset'] + (motor_props['y_size']/2)}"/>
+  <xacro:property name="pos_z_joint" value="${motor_props['z_offset']}"/>
+
+    <link name="${prefix}_motor">
+    <xacro:if value="${mesh != '' }" >
+      <visual>
+        <origin xyz="0.0 0.0 0.0" rpy="0.0 0 ${pi/2.0*(reflect - 1)}"/>
+        <geometry>
+          <mesh filename="package://${package_name}/meshes/${robot_name}/${mesh}" />
+        </geometry>
+        <material name="blue"/>
+      </visual>
+    </xacro:if>
+    <xacro:if value="${mesh == '' }" >
+      <visual>
+        <origin xyz="0.0 0 0" rpy="${pi/2} 0 0"/>
+         <geometry>
+          <box size="${motor_props['x_size']} ${motor_props['y_size']} ${motor_props['z_size']}"/>
+        </geometry>
+        <material name="red"/>
+      </visual>
+    </xacro:if>
+      <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <box size="${motor_props['x_size']} ${motor_props['y_size']} ${motor_props['z_size']}"/>
+        </geometry>
+      </collision>
+      <xacro:box_inertia m="${motor_props['mass']}"
+                         x="${motor_props['x_size']}"
+                         y="${motor_props['y_size']}"
+                         z="${motor_props['z_size']}">
+      </xacro:box_inertia>
+    </link>
+
+    <joint name="${prefix}_motor_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="${prefix}_motor"/>
+      <origin xyz="${pos_x_joint} ${reflect* pos_y_joint} ${pos_z_joint}" rpy="0 ${-pi/2.0*(reflect - 1)} 0"/>
+      <axis xyz="0 1 0" rpy="0 0 0" />
+      <!--origin xyz="${transX} ${reflect * (transY - wheel_width)} ${transZ}" rpy="${-pi/2.0*(reflect - 1)} 0 0" /--> 
+      <!--axis xyz="0 1 0" rpy="0 0 ${pi/2.0*(reflect - 1)}" /-->
+    </joint>
+
+    <!--gazebo reference="${fb}_${lr}_motor">
+      <material>Gazebo/SkyBlue</material>
+      <turnGravityOff>false</turnGravityOff>
+    </gazebo-->
+  </xacro:macro>
+
+<!-- ===================== Base xacro ==========================================
+
+  Xacro to create the base link. For more detail information and usage, see:
+    https://github.com/pxalcantara/mobile_robot_description/wiki/Base-xacro
+
+  params:
+  - base_props [dictionary]: base link properties;
+  - mesh [string]: file name of the link mesh;
+    - DEFAULT Value -> Empty string  
+  - origin [block]: origin, position and orientation of the link;
+-->
+  <xacro:macro name="base"
+               params="base_prop mesh:='' *origin ">
+    <link name="base_link">
+    <xacro:box_inertia m="${base_prop['base']['mass']}" 
+                       x="${base_prop['base']['x_size']}" 
+                       y="${base_prop['base']['y_size']}"
+                       z="${base_prop['base']['z_size']}"> 
+    </xacro:box_inertia>
+    <xacro:if value="${mesh != '' }" >
+      <visual>
+        <xacro:insert_block name="origin" />
+        <geometry>
+          <!-- The folder path get a folder_name global parameter -->
+          <mesh filename="package://${package_name}/meshes/${robot_name}/${mesh}" />
+        </geometry>
+        <material name="white" />
+      </visual>
+    </xacro:if>
+    <xacro:if value="${mesh == '' }" >
+      <visual>
+        <xacro:insert_block name="origin" />
+        <geometry>
+          <box size="${base_prop['base']['x_size']} ${base_prop['base']['y_size']} ${base_prop['base']['z_size']}"/>
+        </geometry>
+        <material name="white" />
+      </visual>
+    </xacro:if>  
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+      <geometry>
+        <box size="${base_prop['base']['x_size']} ${base_prop['base']['y_size']} ${base_prop['base']['z_size']}"/>
+      </geometry>
+    </collision>
+    </link>
+  </xacro:macro>
+
+<!-- ===================== Footprint xacro ==========================================
+
+  Xacro to create the base link. For more detail information and usage, see:
+    https://github.com/pxalcantara/mobile_robot_description/wiki/Base-xacro
+
+  params:
+  - base_props [dictionary]: base link properties;
+  - mesh [string]: file name of the link mesh;
+    - DEFAULT Value -> Empty string  
+  - origin [block]: origin, position and orientation of the link;
+-->
+  <xacro:macro name="footprint"
+               params="wheel_props">
+    <!-- Base-Footprint -->
+    <!-- base_footprint is a fictitious link(frame) that is on the ground right below base_link origin -->
+    <link name="base_footprint" />
+
+    <!-- Joint to connect base_footprint with base_link -->
+    <joint name="base_footprint_joint" type="fixed">
+      <parent link="base_footprint"/>
+      <child link="base_link" />
+      <!-- origin xyz="0 0 ${wheel_radius - base_z_origin_to_wheel_origin}" rpy="0 0 0" /-->
+      <!-- origin xyz="0 0 ${wheel_props['wheel']['radius'] - wheel_props['wheel']['z_offset'] + 0.1}" rpy="0 0 0" /-->
+      <origin xyz="0 0 0" rpy="0 0 0" />
+    </joint>
+  </xacro:macro>
+<!-- ======================================================================= -->
+
+<!-- ======================= Intertial macros ===============================-->
+<!-- ===================== Cylinder intertia xacro =============================
+
+  Xacro with the intertial block of a cylinder. For more detail information and usage, see:
+    https://github.com/pxalcantara/mobile_robot_description/wiki/Inertia-xacro
+
+  params:
+  - m [float]: link mass;
+  - r [float]: cylinder radius;
+  - l [float]: cylinder lenght (height);
+-->
+  <xacro:macro name="cylinder_inertia" params="m r l o_xyz:='0.0 0.0 0.0' o_rpy:='0.0 0.0 0.0'">
+    <inertial>
+      <mass value="${m}"/>
+      <inertia ixx="${m*(3*r*r+l*l)/12}" ixy = "0" ixz = "0" 
+               iyy="${m*(3*r*r+l*l)/12}" iyz = "0" izz="${m*r*r/2}"/>
+      <origin xyz="${o_xyz}" rpy="${o_rpy}" />
+    </inertial>
+  </xacro:macro>
+
+<!-- ===================== Box intertia xacro ==================================
+
+  Xacro with the intertial block of a box. For more detail information and usage, see:
+    https://github.com/pxalcantara/mobile_robot_description/wiki/Inertia-xacro
+
+  params:
+  - m [float]: link mass;
+  - x [float]: link dimension on the X-axis;
+  - y [float]: link dimension on the Y-axis;
+  - z [float]: link dimension on the Z-axis;
+-->
+ <xacro:macro name="box_inertia" params="m x y z o_xyz:='0.0 0.0 0.0' o_rpy:='0.0 0.0 0.0'">
+    <inertial>
+      <mass value="${m}"/>
+      <inertia ixx="${m / 12.0 * (y*y + z*z)}" ixy="0.0" ixz="0.0"
+               iyy="${m / 12.0 * (x*x + z*z)}" iyz="0.0" 
+               izz="${m / 12.0 * (x*x + y*y)}"/>
+      <origin xyz="${o_xyz}" rpy="${o_rpy}" />
+    </inertial>
+  </xacro:macro>
+
+<!-- ===================== Sphere intertia xacro ===============================
+
+  Xacro with the intertial block of a sphere. For more detail information and usage, see:
+    https://github.com/pxalcantara/mobile_robot_description/wiki/Inertia-xacro
+
+  params:
+  - m [float]: link mass;
+  - r [float]: sphere radius;
+-->
+  <xacro:macro name="sphere_inertia" params="m r">
+    <inertial>
+      <mass value="${m}"/>
+      <inertia ixx="${2.0*m*(r*r)/5.0}" ixy="0.0" ixz="0.0" iyy="${2.0*m*(r*r)/5.0}" iyz="0.0" izz="${2.0*m*(r*r)/5.0}"/>
+    </inertial>
+  </xacro:macro>
+
+<!-- ===================== Default intertial xacro =============================
+
+  Xacro with a identity intertial block. For more detail information and usage, see:
+    https://github.com/pxalcantara/mobile_robot_description/wiki/Inertia-xacro
+
+  params:
+  - m [float]: link mass;
+-->
+  <xacro:macro name="default_inertial" params="mass">
+    <inertial>
+      <mass value="${mass}"/>
+      <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+    </inertial>
+  </xacro:macro>
+<!-- ========================================================================-->
+
+<!-- ===================== Material ============================================
+
+  RVIZ material RGBA definition.
+-->
+
+  <material name="blue">
+    <color rgba="0 0 0.8 1"/>
+  </material>
+  <material name="black">
+    <color rgba="0 0 0 1"/>
+  </material>
+  <material name="white">
+    <color rgba="1 1 1 1"/>
+  </material>
+  <material name="red">
+    <color rgba="0.8 0.0 0.0 1.0"/>
+  </material>
+  <material name="silver">
+    <color rgba="0.79 0.82 0.93 1"/>
+  </material>
+  <material name="dark_grey">
+    <color rgba="0.3 0.3 0.3 1"/>
+  </material>
+<!-- ========================================================================-->
+  
+</robot>

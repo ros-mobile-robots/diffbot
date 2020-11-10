@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- ros_control plugin -->
+  <gazebo>
+    <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+      <robotNamespace>/diffbot</robotNamespace>
+      <!--robotParam>/robot_description</robotParam-->
+      <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
+    </plugin>
+  </gazebo>
+
+  <!-- xacro to set the friction for the wheel. This patch was taken from the MIR
+  repository. 
+    https://github.com/dfki-ric/mir_robot/tree/noetic.
+    https://github.com/dfki-ric/mir_robot/blob/a216d7374c21e360c94034d360b07fd7a4d42842/mir_description/urdf/include/mir_100.gazebo.xacro#L29
+   -->
+  <xacro:macro name="set_wheel_friction" params="link friction">
+    <gazebo reference="${link}">
+      <mu1 value="${friction}"/>
+      <mu2 value="${friction}"/>
+      <kp value="10000000.0"/>
+      <kd value="1.0"/>
+      <minDepth>0.01</minDepth>
+    </gazebo>
+  </xacro:macro>
+
+  <xacro:macro name="set_all_wheel_frictions" >
+    <xacro:set_wheel_friction link="back_left_wheel" friction="200"/>
+    <xacro:set_wheel_friction link="front_left_wheel" friction="200"/>
+    <xacro:set_wheel_friction link="back_right_wheel" friction="200"/>
+    <xacro:set_wheel_friction link="front_right_wheel" friction="200"/>
+  </xacro:macro>
+
+</robot>
