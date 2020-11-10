@@ -18,7 +18,7 @@
 
     <!-- Load the URDF into the ROS Parameter Server -->
     <param name="diffbot/robot_description"
-        command="$(find xacro)/xacro '$(find diffbot_description)/urdf/diffbot.xacro'"/>
+        command="$(find xacro)/xacro '$(find diffbot_description)/urdf/diffbot.urdf.xacro'"/>
 
     <!-- Run a python script to the send a service call to gazebo_ros to spawn a URDF robot -->
     <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
