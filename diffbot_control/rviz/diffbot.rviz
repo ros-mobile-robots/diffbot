@@ -12,6 +12,7 @@ Panels:
         - /TF1/Frames1
         - /TF1/Tree1
         - /LaserScan1
+        - /LaserScan1/Autocompute Value Bounds1
       Splitter Ratio: 0.4171428680419922
     Tree Height: 670
   - Class: rviz/Selection
@@ -56,7 +57,7 @@ Visualization Manager:
         Z: 0
       Plane: XY
       Plane Cell Count: 10
-      Reference Frame: <Fixed Frame>
+      Reference Frame: odom
       Value: true
     - Alpha: 1
       Class: rviz/RobotModel
@@ -180,11 +181,11 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 0.014999999664723873
-        Min Value: 0.014999999664723873
+        Max Value: 13.290593147277832
+        Min Value: -2.3666298389434814
         Value: true
-      Axis: Z
-      Channel Name: x
+      Axis: X
+      Channel Name: z
       Class: rviz/LaserScan
       Color: 255; 255; 255
       Color Transformer: AxisColor
@@ -192,9 +193,9 @@ Visualization Manager:
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 3.193232536315918
+      Max Intensity: 0.03999999910593033
       Min Color: 0; 0; 0
-      Min Intensity: 2.819471836090088
+      Min Intensity: 0.03999999910593033
       Name: LaserScan
       Position Transformer: XYZ
       Queue Size: 10
@@ -235,7 +236,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 0.5979994535446167
+      Distance: 4.070229530334473
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -243,17 +244,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -0.19813214242458344
-        Y: 0.29987236857414246
-        Z: 0.13640615344047546
+        X: 0.2453313022851944
+        Y: 0.5734795331954956
+        Z: 1.540714144706726
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.2803979516029358
+      Pitch: 0.5453977584838867
       Target Frame: <Fixed Frame>
-      Yaw: 2.5604088306427
+      Yaw: 3.9604389667510986
     Saved: ~
 Window Geometry:
   Displays:
@@ -271,5 +272,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1301
-  X: 1980
-  Y: 27
+  X: 154
+  Y: 80
