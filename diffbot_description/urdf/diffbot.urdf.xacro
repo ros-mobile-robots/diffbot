@@ -20,6 +20,9 @@
   <xacro:property name="base_yaml" value="$(find ${package_name})/config/${robot_name}/base.yaml" />
   <xacro:property name="base_props" value="${load_yaml(base_yaml)}"/>
 
+  <xacro:property name="sensor_yaml" value="$(find ${package_name})/config/${robot_name}/sensors.yaml" />
+  <xacro:property name="sensor_prop" value="${load_yaml(sensor_yaml)}"/>
+
 
   <!-- Footprint link -->
   <xacro:footprint wheel_props="${front_wheel_props}" />
@@ -60,9 +63,11 @@
                       base_props="${base_props}"
                       mesh="${motor_props['mesh']}"> 
   </xacro:motor>
-       
 
   <!-- Sensors -->
+  <xacro:gpu_laser prefix="rplidar" parent_link="base_link"
+                   sensor_prop="${sensor_prop}"> 
+  </xacro:gpu_laser>
 
 
 </robot>

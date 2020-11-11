@@ -1,48 +1,64 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-<xacro:macro name="hokuyo_sensor" params=" *joint_origin parent_link "> 
+<xacro:macro name="gpu_laser" params="prefix parent_link sensor_prop "> 
 
-  <link name="hokuyo_link">
-      <collision>
-         <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <box size="0.06 0.06 0.087"/>
-        </geometry>
-      </collision>
+  <xacro:property name="mesh"
+     value="${sensor_prop['gpu_laser']['mesh']}"/>
+
+  <link name="${prefix}_gpu_laser_link">
+      <xacro:if value="${mesh != '' }" >
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="package://${package_name}/meshes/sensors/hokuyo.dae" />
+          <mesh filename="package://${package_name}/meshes/sensors/${mesh}" />
         </geometry>
+        <material name="dark_grey"/>
       </visual>
-      <inertial>
-        <mass value="1e-5" />
+    </xacro:if>
+    <xacro:if value="${mesh == '' }" >
+      <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
-        <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
-      </inertial>
+         <geometry>
+         <cylinder radius="${sensor_prop['gpu_laser']['radius']}" length="${sensor_prop['gpu_laser']['length']}"/>
+        </geometry>
+        <material name="red"/>
+      </visual>
+    </xacro:if>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="${sensor_prop['gpu_laser']['radius']}" length="${sensor_prop['gpu_laser']['length']}"/>
+        </geometry>
+      </collision>
+      <xacro:cylinder_inertia m="${sensor_prop['gpu_laser']['mass']}"
+                              r="${sensor_prop['gpu_laser']['radius']}"
+                              l="${sensor_prop['gpu_laser']['length']}"
+                              o_xyz="0 0 0"
+                              o_rpy="0 0 0" >
+      </xacro:cylinder_inertia> 
   </link>
 
-  <joint name="hokuyo_joint" type="fixed">
-    <axis xyz="0 1 0" />
-    <xacro:insert_block name="joint_origin" />
+  <joint name="${prefix}_gpu_laser_joint" type="fixed">
     <parent link="${parent_link}"/>
-    <child link="hokuyo_link"/>
+    <child link="${prefix}_gpu_laser_link"/>
+    <origin xyz="${sensor_prop['gpu_laser']['dx']} ${sensor_prop['gpu_laser']['dy']} ${sensor_prop['gpu_laser']['dz']}" rpy="0 0 0"/>
+    <axis xyz="0 1 0" />
   </joint>
 
   <!-- hokuyo gazebo references -->
-  <gazebo reference="hokuyo_link">
+  <gazebo reference="${prefix}_gpu_laser_link">
     <sensor type="gpu_ray" name="head_hokuyo_sensor">
       <pose>0 0 0 0 0 0</pose>
-      <visualize>false</visualize>
+      <visualize>true</visualize>
       <update_rate>40</update_rate>
       <ray>
         <scan>
           <horizontal>
             <samples>720</samples>
             <resolution>1</resolution>
-            <min_angle>-1.570796</min_angle>
-            <max_angle>1.570796</max_angle>
+            <min_angle>${sensor_prop['gpu_laser']['angular_range']['min']}</min_angle>
+            <max_angle>${sensor_prop['gpu_laser']['angular_range']['max']}</max_angle>
           </horizontal>
         </scan>
         <range>
@@ -62,11 +78,13 @@
       </ray>
       <plugin name="gazebo_ros_head_hokuyo_controller" filename="libgazebo_ros_gpu_laser.so">
         <topicName>/${robot_name}/scan</topicName>
-        <frameName>hokuyo_link</frameName>
+        <frameName>${prefix}_gpu_laser_link</frameName>
       </plugin>
     </sensor>
   </gazebo>
 
 </xacro:macro>
+
+
 
 </robot>
