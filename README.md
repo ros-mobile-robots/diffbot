@@ -22,7 +22,12 @@ DiffBot is an autonomous differential drive robot with two wheels. Its main proc
 
 ## Perception
 
-To allow object detection with the RPi Camera the Raspberry Pi 4 B will be upated with a Google Coral USB Accelerator. 
+To enable object detection or semantic segmentation with the RPi Camera the Raspberry Pi 4 B will be upated with a Google Coral USB Accelerator.
+Possible useful packages:
+
+- [MSeg](https://github.com/mseg-dataset/mseg-semantic)
+
+![Mseg Example](https://user-images.githubusercontent.com/62491525/83895683-094caa00-a721-11ea-8905-2183df60bc4f.gif)
 
 ## DiffBot Control in Gazebo
 
