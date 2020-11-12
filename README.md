@@ -4,7 +4,7 @@ DiffBot is an autonomous differential drive robot with two wheels. Its main proc
 
 | DiffBot | Lidar SLAMTEC RPLidar A2 | RViz |
 |:-------:|:-----------------:|:----:|
-|  [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/diffbot-front.png" width="700">](https://fjp.at/projects/diffbot/) | [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/rplidara2.png" width="700">](https://github.com/fjp/diffbot) | [<img src="https://github.com/fjp/diffbot/blob/master/docs/resources/rviz_diffbot_meshes.png?raw=true" width="700">](https://github.com/fjp/diffbot) |
+|  [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/diffbot-front.png" width="700">](https://fjp.at/projects/diffbot/) | [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/rplidara2.png" width="700">](https://github.com/fjp/diffbot) | [<img src="https://github.com/fjp/diffbot/blob/master/docs/resources/control/diffbot-rplidar.png?raw=true" width="700">](https://github.com/fjp/diffbot) |
 
 ## Package Overview
 
