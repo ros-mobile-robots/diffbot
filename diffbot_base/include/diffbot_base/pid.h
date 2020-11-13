@@ -65,7 +65,7 @@ namespace diffbot_base
         void getParameters(double &f, double &p, double &i, double &d, double &i_max, double &i_min, bool &antiwindup);
 
         /**
-         * @brief Set the Gains object
+         * @brief Set the Parameters using the Gains object of control_toolbox::Pid
          * 
          * @param f The feed forward gain.
          * @param p The proportional gain.
@@ -75,7 +75,7 @@ namespace diffbot_base
          * @param i_min The min integral windup.
          * @param antiwindup Enable or disable antiwindup check.
          */
-        void setGains(double f, double p, double i, double d, double i_max, double i_min, bool antiwindup = false);
+        void setParameters(double f, double p, double i, double d, double i_max, double i_min, bool antiwindup = false);
 
         /**
          * @brief Set the Output Limits of the PID controller

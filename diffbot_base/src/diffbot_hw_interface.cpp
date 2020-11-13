@@ -81,12 +81,14 @@ namespace diffbot_base
             joint_velocity_commands_[i] = 0.0;
 
             // Initialize the pid controllers for the motors using the robot namespace
+            ROS_INFO_STREAM("Init PID: " << i);
             std::string pid_namespace = "pid/" + motor_names[i];
             ROS_INFO_STREAM("pid namespace: " << pid_namespace);
             ros::NodeHandle nh(root_nh, pid_namespace);
             // TODO implement builder pattern to initialize values otherwise it is hard to see which parameter is what.
             pids_[i].init(nh, 0.9, 0.35, 0.001, 0.0001, 3.0, -3.0, false, max_velocity_, -max_velocity_);
             pids_[i].setOutputLimits(-max_velocity_, max_velocity_);
+            ROS_INFO_STREAM("Initialized PID" << i);
         }
 
         // Register the JointStateInterface containing the read only joints

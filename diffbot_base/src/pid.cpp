@@ -75,7 +75,7 @@ namespace diffbot_base
         getGains(p, i, d, i_max, i_min, antiwindup);
     }
 
-    void PID::setGains(double f, double p, double i, double d, double i_max, double i_min, bool antiwindup)
+    void PID::setParameters(double f, double p, double i, double d, double i_max, double i_min, bool antiwindup)
     {
         f_ = f;
         setGains(p, i, d, i_max, i_min, antiwindup);
@@ -110,7 +110,7 @@ namespace diffbot_base
 
     void PID::initDynamicReconfig(ros::NodeHandle &node)
     {
-        ROS_DEBUG_STREAM_NAMED("pid","Initializing dynamic reconfigure in namespace "
+        ROS_INFO_STREAM_NAMED("pid","Initializing dynamic reconfigure in namespace "
             << node.getNamespace());
 
         // Start dynamic reconfigure server
@@ -123,6 +123,7 @@ namespace diffbot_base
         // Set callback
         param_reconfig_callback_ = boost::bind(&PID::dynamicReconfigCallback, this, _1, _2);
         param_reconfig_server_->setCallback(param_reconfig_callback_);
+        ROS_INFO_NAMED("pid", "Initialized dynamic reconfigure");
     }
 
     void PID::updateDynamicReconfig()
@@ -157,7 +158,7 @@ namespace diffbot_base
         ROS_DEBUG_STREAM_NAMED("pid","Dynamics reconfigure callback recieved.");
 
         // Set the gains
-        setGains(config.f, config.p, config.i, config.d, config.i_clamp_max, config.i_clamp_min, config.antiwindup);
+        setParameters(config.f, config.p, config.i, config.d, config.i_clamp_max, config.i_clamp_min, config.antiwindup);
     }
 
 }
