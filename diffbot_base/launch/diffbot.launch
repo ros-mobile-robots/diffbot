@@ -2,7 +2,7 @@
 <launch>
 	<!-- Load the URDF model of DiffBot into the ROS Parameter Server -->
     <param name="diffbot/robot_description"
-        command="$(find xacro)/xacro '$(find diffbot_description)/urdf/diffbot.xacro'"/>
+        command="$(find xacro)/xacro '$(find diffbot_description)/urdf/diffbot.urdf.xacro'"/>
 
     <!-- Run the diffbot_base -->
     <!-- This will create the DiffBot hardware interface and instantiate a new controller manager with it -->
