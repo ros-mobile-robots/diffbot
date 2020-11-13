@@ -81,14 +81,12 @@ namespace diffbot_base
             joint_velocity_commands_[i] = 0.0;
 
             // Initialize the pid controllers for the motors using the robot namespace
-            ROS_INFO_STREAM("Init PID: " << i);
             std::string pid_namespace = "pid/" + motor_names[i];
             ROS_INFO_STREAM("pid namespace: " << pid_namespace);
             ros::NodeHandle nh(root_nh, pid_namespace);
             // TODO implement builder pattern to initialize values otherwise it is hard to see which parameter is what.
             pids_[i].init(nh, 0.9, 0.35, 0.001, 0.0001, 3.0, -3.0, false, max_velocity_, -max_velocity_);
             pids_[i].setOutputLimits(-max_velocity_, max_velocity_);
-            ROS_INFO_STREAM("Initialized PID" << i);
         }
 
         // Register the JointStateInterface containing the read only joints
@@ -143,11 +141,15 @@ namespace diffbot_base
         std_msgs::Int32 left_motor;
         std_msgs::Int32 right_motor;
 
-        double output_left = pids_[0](joint_velocities_[0], joint_velocity_commands_[0], period);
-        double output_right = pids_[1](joint_velocities_[1], joint_velocity_commands_[1], period);
+        double pid_outputs[NUM_JOINTS];
+        double motor_cmds[NUM_JOINTS] ;
+        pid_outputs[0] = pids_[0](joint_velocities_[0], joint_velocity_commands_[0], period);
+        pid_outputs[1] = pids_[1](joint_velocities_[1], joint_velocity_commands_[1], period);
 
-        left_motor.data = output_left / max_velocity_ * 100.0;
-        right_motor.data = output_right / max_velocity_ * 100.0;
+        motor_cmds[0] = pid_outputs[0] / max_velocity_ * 100.0;
+        motor_cmds[1] = pid_outputs[1] / max_velocity_ * 100.0;
+        left_motor.data = motor_cmds[0];
+        right_motor.data = motor_cmds[1];
 
         // Calibrate motor commands to deal with different gear friction in the
         // left and right motors and possible differences in the wheels.
@@ -178,23 +180,27 @@ namespace diffbot_base
         // Header
         ss << std::left << std::setw(width) << std::setfill(sep) << "Write"
            << std::left << std::setw(width) << std::setfill(sep) << "velocity"
+           << std::left << std::setw(width) << std::setfill(sep) << "p_error"
+           << std::left << std::setw(width) << std::setfill(sep) << "i_error"
+           << std::left << std::setw(width) << std::setfill(sep) << "d_error"
            << std::left << std::setw(width) << std::setfill(sep) << "pid out"
-           << std::left << std::setw(width) << std::setfill(sep) << "error"
            << std::left << std::setw(width) << std::setfill(sep) << "percent"
            << std::endl;
-        // Joint 0
-        ss << std::left << std::setw(width) << std::setfill(sep) << "j0:" 
-           << std::left << std::setw(width) << std::setfill(sep) << joint_velocity_commands_[0]
-           << std::left << std::setw(width) << std::setfill(sep) << output_left
-           << std::left << std::setw(width) << std::setfill(sep) << pids_[0].getError()
-           << std::left << std::setw(width) << std::setfill(sep) << left_motor.data
-           << std::endl;
-        // Joint 1
-        ss << std::left << std::setw(width) << std::setfill(sep) << "j1:"
-           << std::left << std::setw(width) << std::setfill(sep) << joint_velocity_commands_[1]
-           << std::left << std::setw(width) << std::setfill(sep) << output_right
-           << std::left << std::setw(width) << std::setfill(sep) << pids_[1].getError()
-           << std::left << std::setw(width) << std::setfill(sep) << right_motor.data;
+        double p_error, i_error, d_error;
+        for (int i = 0; i < NUM_JOINTS; ++i)
+        {
+            pids_[i].getCurrentPIDErrors(&p_error, &i_error, &d_error);
+            
+            // Joint i
+            ss << std::left << std::setw(width) << std::setfill(sep) << "j" << i << ":"
+               << std::left << std::setw(width) << std::setfill(sep) << joint_velocity_commands_[i]
+               << std::left << std::setw(width) << std::setfill(sep) << p_error
+               << std::left << std::setw(width) << std::setfill(sep) << i_error
+               << std::left << std::setw(width) << std::setfill(sep) << d_error
+               << std::left << std::setw(width) << std::setfill(sep) << pid_outputs[i]
+               << std::left << std::setw(width) << std::setfill(sep) << motor_cmds[i]
+               << std::endl;
+        }
         ROS_INFO_STREAM(std::endl << ss.str());
     }
 
