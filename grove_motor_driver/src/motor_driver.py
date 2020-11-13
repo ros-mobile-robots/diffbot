@@ -61,8 +61,11 @@ class MotorDriver:
 
     def update_motors(self):
         direction = self.motor['left']['dir']<<2 | self.motor['right']['dir']
+        left = self.motor['left']['val']
+        right = self.motor['right']['val']
         self.motor_driver.MotorDirectionSet(direction)
-        self.motor_driver.MotorSpeedSetAB(self.motor['right']['val'], self.motor['left']['val'])
+        self.motor_driver.MotorSpeedSetAB(right, left)
+        rospy.logdebug(f"Direction {direction:b}, left: {left}, right: {right}")
 
     def stop_motors(self):
         self.motor_driver.MotorSpeedSetAB(0, 0)
