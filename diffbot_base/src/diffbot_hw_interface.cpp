@@ -192,7 +192,8 @@ namespace diffbot_base
             pids_[i].getCurrentPIDErrors(&p_error, &i_error, &d_error);
             
             // Joint i
-            ss << std::left << std::setw(width) << std::setfill(sep) << "j" << i << ":"
+            std::string j = "j" + std::to_string(i) + ":";
+            ss << std::left << std::setw(width) << std::setfill(sep) << j
                << std::left << std::setw(width) << std::setfill(sep) << joint_velocity_commands_[i]
                << std::left << std::setw(width) << std::setfill(sep) << p_error
                << std::left << std::setw(width) << std::setfill(sep) << i_error
