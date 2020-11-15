@@ -134,6 +134,7 @@ namespace diffbot_base
 
         // Get starting values
         diffbot_base::ParametersConfig config;
+        config.f = f_;
 
         // Get starting values
         getGains(config.p, config.i, config.d, config.i_clamp_max, config.i_clamp_min, config.antiwindup);
