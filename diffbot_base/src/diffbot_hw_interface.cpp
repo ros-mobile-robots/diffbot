@@ -39,12 +39,12 @@ namespace diffbot_base
         max_velocity_ = linearToAngular(max_velocity_);
 
         // Setup publisher for the motor driver 
-        pub_left_motor_value_ = nh_.advertise<std_msgs::Int32>("motor_left", 1);
-        pub_right_motor_value_ = nh_.advertise<std_msgs::Int32>("motor_right", 1);
+        pub_left_motor_value_ = nh_.advertise<std_msgs::Int32>("motor_left", 10);
+        pub_right_motor_value_ = nh_.advertise<std_msgs::Int32>("motor_right", 10);
 
         // Setup subscriber for the wheel encoders
-        sub_left_encoder_ticks_ = nh_.subscribe("ticks_left", 1, &DiffBotHWInterface::leftEncoderTicksCallback, this);
-        sub_right_encoder_ticks_ = nh_.subscribe("ticks_right", 1, &DiffBotHWInterface::rightEncoderTicksCallback, this);
+        sub_left_encoder_ticks_ = nh_.subscribe("ticks_left", 10, &DiffBotHWInterface::leftEncoderTicksCallback, this);
+        sub_right_encoder_ticks_ = nh_.subscribe("ticks_right", 10, &DiffBotHWInterface::rightEncoderTicksCallback, this);
 
         // Initialize the hardware interface
         init(nh_, nh_);

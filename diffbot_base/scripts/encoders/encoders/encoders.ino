@@ -47,9 +47,9 @@ void setup()
 {
   nh.initNode();
   nh.loginfo("DiffBot Wheel Encoders:");
-  nh.advertise(pub_encoderLeft);
-  nh.advertise(pub_encoderRight);
-  nh.subscribe(sub_reset);
+  nh.advertise(pub_encoderLeft, 10);
+  nh.advertise(pub_encoderRight, 10);
+  nh.subscribe(sub_reset, 10);
 }
 
 long positionLeft  = -999;

@@ -78,8 +78,8 @@ if __name__ == '__main__':
     motor_driver = MotorDriver(address=0x0f)
 
     # Topics for the motors
-    sub_left = rospy.Subscriber('motor_left', Int32, motor_driver.left_motor_callback)
-    sub_right = rospy.Subscriber('motor_right', Int32, motor_driver.right_motor_callback)
+    sub_left = rospy.Subscriber('motor_left', Int32, motor_driver.left_motor_callback, queue_size=10)
+    sub_right = rospy.Subscriber('motor_right', Int32, motor_driver.right_motor_callback, queue_size=10)
 
     rospy.loginfo("Ready to receive motor commands")
 
