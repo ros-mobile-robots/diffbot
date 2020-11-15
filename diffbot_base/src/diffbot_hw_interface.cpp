@@ -85,7 +85,7 @@ namespace diffbot_base
             ROS_INFO_STREAM("pid namespace: " << pid_namespace);
             ros::NodeHandle nh(root_nh, pid_namespace);
             // TODO implement builder pattern to initialize values otherwise it is hard to see which parameter is what.
-            pids_[i].init(nh, 0.9, 0.35, 0.001, 0.0001, 3.0, -3.0, false, max_velocity_, -max_velocity_);
+            pids_[i].init(nh, 0.8, 0.35, 0.5, 0.01, 3.5, -3.5, false, max_velocity_, -max_velocity_);
             pids_[i].setOutputLimits(-max_velocity_, max_velocity_);
         }
 
