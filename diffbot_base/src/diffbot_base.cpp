@@ -24,7 +24,7 @@ int main(int argc, char **argv)
     
     // Setup for the control loop.
     ros::Time prev_time = ros::Time::now();
-    ros::Rate rate(10.0); // 10 Hz rate
+    ros::Rate rate(100.0); // 10 Hz rate
     
     // Blocks until shutdown signal recieved
     while (ros::ok())
