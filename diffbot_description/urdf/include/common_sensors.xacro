@@ -38,6 +38,9 @@
                               o_rpy="0 0 0" >
       </xacro:cylinder_inertia> 
   </link>
+  <gazebo reference="${prefix}_gpu_laser_link">
+    <material>Gazebo/Grey</material>
+  </gazebo>
 
   <joint name="${prefix}_gpu_laser_joint" type="fixed">
     <parent link="${parent_link}"/>

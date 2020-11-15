@@ -60,6 +60,9 @@
                               o_rpy="${pi/2.0} 0.0 0.0" >
       </xacro:cylinder_inertia> 
     </link>
+    <gazebo reference="${prefix}_wheel">
+      <material>Gazebo/Grey</material>
+    </gazebo>
     
 
     <joint name="${prefix}_wheel_joint" type="continuous">
@@ -289,10 +292,10 @@
       <!--axis xyz="0 1 0" rpy="0 0 ${pi/2.0*(reflect - 1)}" /-->
     </joint>
 
-    <!--gazebo reference="${fb}_${lr}_motor">
+    <gazebo reference="${prefix}_motor">
       <material>Gazebo/SkyBlue</material>
       <turnGravityOff>false</turnGravityOff>
-    </gazebo-->
+    </gazebo>
   </xacro:macro>
 
 <!-- ===================== Base xacro ==========================================
