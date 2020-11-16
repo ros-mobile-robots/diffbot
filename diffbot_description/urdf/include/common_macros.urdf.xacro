@@ -368,7 +368,7 @@
       <child link="base_link" />
       <!-- origin xyz="0 0 ${wheel_radius - base_z_origin_to_wheel_origin}" rpy="0 0 0" /-->
       <!-- origin xyz="0 0 ${wheel_props['wheel']['radius'] - wheel_props['wheel']['z_offset'] + 0.1}" rpy="0 0 0" /-->
-      <origin xyz="0 0 0" rpy="0 0 0" />
+      <origin xyz="0 0 ${wheel_props['wheel']['radius'] - wheel_props['wheel']['z_offset']}" rpy="0 0 0" />
     </joint>
   </xacro:macro>
 <!-- ======================================================================= -->
