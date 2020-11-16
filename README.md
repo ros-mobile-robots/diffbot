@@ -6,19 +6,33 @@ DiffBot is an autonomous differential drive robot with two wheels. Its main proc
 |:-------:|:-----------------:|
 |  [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/diffbot-front.png" width="700">](https://fjp.at/projects/diffbot/) | [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/rplidara2.png" width="700">](https://github.com/fjp/diffbot) |
 
-| RViz and Gazebo Simulation |
-|:--------------------------:|
-| [<img src="https://github.com/fjp/diffbot/blob/master/docs/resources/control/diffbot-rplidar.png?raw=true" width="700">](https://github.com/fjp/diffbot) |
-
 ## Package Overview
 
 - [`diffbot_base`](./diffbot_base): ROS Control hardware interface including `controller_manager` control loop for the real robot
-- `diffbot_bringup`: Launch files to bring up the drivers for the real DiffBot robot
-- `diffbot_control`: Configurations for the `diff_drive_controller` of ROS Control used in Gazebo simulation and the real robot
-- `diffbot_description`: URDF description of DiffBot including its sensors
+- [`diffbot_bringup`](./diffbot_bringup): Launch files to bring up the drivers for the real DiffBot robot
+- [`diffbot_control`](./diffbot_control): Configurations for the `diff_drive_controller` of ROS Control used in Gazebo simulation and the real robot
+- [`diffbot_description`](./diffbot_description): URDF description of DiffBot including its sensors
 - `diffbot_driver`: A reverse ROS bridge for the DiffBot robot (TODO: move driver packages to this ROS package)
-- `diffbot_gazebo`: Simulation specific launch and configuration files for DiffBot
-- `diffbot_navigation`: move_base launch and configuration files (TODO: tbd)
+- [`diffbot_gazebo`](./diffbot_gazebo): Simulation specific launch and configuration files for DiffBot
+- [`diffbot_navigation`](./diffbot_navigation): `move_base` launch and configuration files
+
+## Gazebo Simulation
+
+Control the robot inside Gazebo and view what it sees in RViz using the following launch file:
+
+```console
+roslaunch diffbot_control diffbot.launch world_name:='$(find diffbot_gazebo)/worlds/corridor.world'
+```
+
+[<img src="https://github.com/fjp/diffbot/blob/master/docs/resources/control/diffbot-rplidar.png?raw=true" width="700">](https://github.com/fjp/diffbot)
+
+To navigate the robot in the simulation run this command:
+
+```console
+roslaunch diffbot_navigation diffbot.launch world_name:='$(find diffbot_gazebo)/worlds/corridor.world'
+```
+
+
 
 ## Perception
 
