@@ -1,8 +1,10 @@
 <launch>
     <arg name="rvizconfig" default="$(find diffbot_control)/rviz/diffbot.rviz" />
+    <arg name="world_name" default="$(find diffbot_gazebo)/worlds/corridor.world"/>
 
     <include file="$(find diffbot_gazebo)/launch/diffbot.launch">
         <!--arg name="model" value="$(arg model)" /-->
+        <arg name="world_name" value="$(arg world_name)"/>
     </include>
 
     <include file="$(find diffbot_control)/launch/diffbot_control.launch">
@@ -12,5 +14,5 @@
     
 
     <!-- Launch visualization in rviz -->
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find diffbot_control)/rviz/diffbot.rviz" required="true" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" />
 </launch>
