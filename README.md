@@ -24,6 +24,9 @@ Control the robot inside Gazebo and view what it sees in RViz using the followin
 roslaunch diffbot_control diffbot.launch world_name:='$(find diffbot_gazebo)/worlds/corridor.world'
 ```
 
+To run the [turtlebot3_world](https://github.com/ROBOTIS-GIT/turtlebot3_simulations/tree/master/turtlebot3_gazebo/models/turtlebot3_world) 
+make sure to download it to your `~/.gazebo/models/` folder, because the `turtlebot3_world.world` file references the `turtlebot3_world` model.
+
 | `corridor.world` | `turtlebot3_world.world` | 
 |:-------------------------------------:|:--------------------------------:|
 | ![corridor-world](https://github.com/fjp/diffbot/blob/master/docs/resources/control/diffbot-rplidar.png) | ![turtlebot3-world](https://github.com/fjp/diffbot/blob/master/docs/resources/control/diffbot-turtlebot3-world.png) |
