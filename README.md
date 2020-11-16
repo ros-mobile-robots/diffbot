@@ -21,10 +21,18 @@ DiffBot is an autonomous differential drive robot with two wheels. Its main proc
 Control the robot inside Gazebo and view what it sees in RViz using the following launch file:
 
 ```console
-roslaunch diffbot_control diffbot.launch world_name:=`$(find diffbot_gazebo)/worlds/corridor.world`
+roslaunch diffbot_control diffbot.launch world_name:='$(find diffbot_gazebo)/worlds/corridor.world'
 ```
 
 [<img src="https://github.com/fjp/diffbot/blob/master/docs/resources/control/diffbot-rplidar.png?raw=true" width="700">](https://github.com/fjp/diffbot)
+
+To navigate the robot in the simulation run this command:
+
+```console
+roslaunch diffbot_navigation diffbot.launch world_name:='$(find diffbot_gazebo)/worlds/corridor.world'
+```
+
+
 
 ## Perception
 
