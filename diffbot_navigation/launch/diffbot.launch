@@ -5,6 +5,7 @@
   <arg name="rvizconfig" default="$(find diffbot_navigation)/rviz/diffbot_navigation.rviz" />
   <arg name="move_forward_only" default="false"/>
   <arg name="local_planner" default="dwb" doc="Local planner can be either dwa, base, teb or pose"/>
+  <arg name="world_name" default="$(find diffbot_gazebo)/worlds/corridor.world"/>
 
   <!-- DiffBot Remote Steering TODO -->
   <!--include file="$(find diffbot_bringup)/launch/diffbot_remote.launch">
@@ -13,6 +14,7 @@
 
   <include file="$(find diffbot_gazebo)/launch/diffbot.launch">
     <!--arg name="model" value="$(arg model)" /-->
+    <arg name="world_name" value="$(arg world_name)" />
   </include>
 
   <include file="$(find diffbot_control)/launch/diffbot_control.launch">
