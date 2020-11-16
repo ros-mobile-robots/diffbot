@@ -16,7 +16,7 @@ DiffBot is an autonomous differential drive robot with two wheels. Its main proc
 - [`diffbot_gazebo`](./diffbot_gazebo): Simulation specific launch and configuration files for DiffBot
 - [`diffbot_navigation`](./diffbot_navigation): `move_base` launch and configuration files
 
-## Gazebo Simulation
+## Gazebo Simulation with ROS Control
 
 Control the robot inside Gazebo and view what it sees in RViz using the following launch file:
 
@@ -24,7 +24,12 @@ Control the robot inside Gazebo and view what it sees in RViz using the followin
 roslaunch diffbot_control diffbot.launch world_name:='$(find diffbot_gazebo)/worlds/corridor.world'
 ```
 
-[<img src="https://github.com/fjp/diffbot/blob/master/docs/resources/control/diffbot-rplidar.png?raw=true" width="700">](https://github.com/fjp/diffbot)
+To run the [turtlebot3_world](https://github.com/ROBOTIS-GIT/turtlebot3_simulations/tree/master/turtlebot3_gazebo/models/turtlebot3_world) 
+make sure to download it to your `~/.gazebo/models/` folder, because the `turtlebot3_world.world` file references the `turtlebot3_world` model.
+
+| `corridor.world` | `turtlebot3_world.world` | 
+|:-------------------------------------:|:--------------------------------:|
+| ![corridor-world](https://github.com/fjp/diffbot/blob/master/docs/resources/control/diffbot-rplidar.png) | ![turtlebot3-world](https://github.com/fjp/diffbot/blob/master/docs/resources/control/diffbot-turtlebot3-world.png) |
 
 To navigate the robot in the simulation run this command:
 
