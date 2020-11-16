@@ -34,7 +34,7 @@ make sure to download it to your `~/.gazebo/models/` folder, because the `turtle
 To navigate the robot in the simulation run this command:
 
 ```console
-roslaunch diffbot_navigation diffbot.launch world_name:='$(find diffbot_gazebo)/worlds/corridor.world'
+roslaunch diffbot_navigation diffbot.launch world_name:='$(find diffbot_gazebo)/worlds/turtlebot3_world.world'
 ```
 
 
