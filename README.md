@@ -14,7 +14,8 @@ DiffBot is an autonomous differential drive robot with two wheels. Its main proc
 - [`diffbot_description`](./diffbot_description): URDF description of DiffBot including its sensors
 - `diffbot_driver`: A reverse ROS bridge for the DiffBot robot (TODO: move driver packages to this ROS package)
 - [`diffbot_gazebo`](./diffbot_gazebo): Simulation specific launch and configuration files for DiffBot
-- [`diffbot_navigation`](./diffbot_navigation): `move_base` launch and configuration files
+- [`diffbot_navigation`](./diffbot_navigation): Navigation based on `move_base` launch and configuration files
+- [`diffbot_slam`](./diffbot_slam): Simultaneous localization and mapping using different implementations to create a map of the environment
 
 ## Usage
 
@@ -127,6 +128,7 @@ Possible useful packages:
 - [`dfki-ric/mir_robot`](https://github.com/dfki-ric/mir_robot)
 - [`eborghi10/my_ROS_mobile_robot`](https://github.com/eborghi10/my_ROS_mobile_robot)
 - [`husky`](https://github.com/husky/husky)
+- [turtlebot3](https://github.com/ROBOTIS-GIT/turtlebot3)
 
 
 ## Contributions
