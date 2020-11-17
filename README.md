@@ -127,7 +127,7 @@ Your contributions are more than welcome. These can be in the form of raising is
 
 ## License
 
-GNU GPLv3
+Licensed under GNU GPLv3, see [LICENSE](./LICENSE)
 
 Feel free to reuse or modify this work but please cite it in case you do so:
 
