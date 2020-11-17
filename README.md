@@ -65,15 +65,19 @@ roslaunch diffbot_description view_diffbot.launch
 
 Contributions to these tasks are welcome, see also the [contribution section](./README.md#contributions) below.
 
-### Drivers and Odometry
+### Drivers, Odometry and Hardware Interface
 
 - Add `diffbot_driver` package for ultrasonic ranger, imu and motor driver node code.
+- Include the [`rplidar_ros`](https://github.com/Slamtec/rplidar_ros) package repository as git submodule.
 - Make use of the imu odometry data to improve the encoder odometry using [`robot_pose_ekf`](http://wiki.ros.org/robot_pose_ekf).
+- The current implementation of the ROS Control `hardware_interface::RobotHW` uses a high level PID controller. This is working but also
+test a low level PID on the Teensy 3.2 mcu using the [Arduino library of the Grove i2c motor driver](https://github.com/Seeed-Studio/Grove_I2C_Motor_Driver_v1_3). 
+Also replace `Wire.h` with the improved [`i2c_t3`](https://github.com/nox771/i2c_t3) library.
 
 ### Navigation
 
 - Test different global and local planners and add documentation
-- Add `diffbot_mbf` package using [`move_base_flex`](http://wiki.ros.org/move_base_flex) (improved version of [`move_base`](http://wiki.ros.org/move_base).
+- Add `diffbot_mbf` package using [`move_base_flex`](http://wiki.ros.org/move_base_flex), the improved version of [`move_base`](http://wiki.ros.org/move_base).
 
 ### Perception
 
@@ -83,6 +87,11 @@ Possible useful packages:
 - [MSeg](https://github.com/mseg-dataset/mseg-semantic)
 
 ![Mseg Example](https://user-images.githubusercontent.com/62491525/83895683-094caa00-a721-11ea-8905-2183df60bc4f.gif)
+
+### Teleoperation
+
+- Use the generic [`teleop_twist_joy`](http://wiki.ros.org/teleop_twist_joy) package to drive the real robot and in simulation.
+- Playstation controller
 
 
 ## Part List
