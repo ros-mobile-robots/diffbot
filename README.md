@@ -128,6 +128,7 @@ Possible useful packages:
 - [`dfki-ric/mir_robot`](https://github.com/dfki-ric/mir_robot)
 - [`eborghi10/my_ROS_mobile_robot`](https://github.com/eborghi10/my_ROS_mobile_robot)
 - [`husky`](https://github.com/husky/husky)
+- [turtlebot3](https://github.com/ROBOTIS-GIT/turtlebot3)
 
 
 ## Contributions
