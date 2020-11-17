@@ -1,0 +1,44 @@
+<launch>
+  <!-- Arguments -->
+  <!-- The lua scripts are required for cartographer, unused here -->
+  <arg name="configuration_basename" default="diffbot_lds_2d.lua"/>
+  <arg name="sensor_range" default="1.0"/>
+  <arg name="cmd_vel_topic" default="diffbot/mobile_base_controller/cmd_vel" />
+  <arg name="odom_topic" default="diffbot/mobile_base_controller/odom" />
+  <arg name="local_planner" default="dwb" doc="Local planner can be either dwa, base, teb or pose"/>
+
+  <!-- Diffbot and Gmapping -->
+  <include file="$(find diffbot_slam)/launch/diffbot_gmapping.launch">
+    <!-- arg name="model" value="$(arg model)" /-->
+  </include>
+
+  <!-- AMCL -->
+  <include file="$(find diffbot_navigation)/launch/amcl.launch"/>
+
+
+  <!-- move_base -->
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+    <param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS" />
+    <rosparam file="$(find diffbot_navigation)/config/move_base_params.yaml" command="load" />
+    <rosparam file="$(find diffbot_navigation)/config/dwa_local_planner_params.yaml" command="load" />
+    <!-- global costmap params -->
+    <rosparam file="$(find diffbot_navigation)/config/costmap_common_params.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find diffbot_navigation)/config/costmap_global_params.yaml" command="load" />
+    <!-- local costmap params -->
+    <rosparam file="$(find diffbot_navigation)/config/costmap_common_params.yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find diffbot_navigation)/config/costmap_local_params.yaml" command="load" />
+    <!-- remappings -->
+    <remap from="cmd_vel" to="$(arg cmd_vel_topic)"/>
+    <remap from="odom" to="$(arg odom_topic)"/>
+    <param name="DWAPlannerROS/min_vel_x" value="0.0" if="$(arg move_forward_only)" />
+  </node>
+
+  <!-- frontier_exploration -->
+  <node pkg="frontier_exploration" type="explore_client" name="explore_client" output="screen"/>
+  <node pkg="frontier_exploration" type="explore_server" name="explore_server" output="screen" >
+    <param name="frequency" type="double" value="1.0"/>
+    <param name="goal_aliasing" type="double" value="$(arg sensor_range)"/>
+    <rosparam file="$(find diffbot_navigation)/config/costmap_common_params_$(arg model).yaml" command="load" ns="explore_costmap" />
+    <rosparam file="$(find diffbot_slam)/config/frontier_exploration.yaml" command="load" ns="explore_costmap" />
+  </node>
+</launch>

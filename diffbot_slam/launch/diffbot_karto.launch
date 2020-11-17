@@ -1,0 +1,10 @@
+<launch>
+  <!-- Arguments -->
+  <!-- The lua scripts are required for cartographer, unused here -->
+  <arg name="configuration_basename" default="diffbot_lds_2d.lua"/>
+
+  <!-- slam_karto -->
+  <node pkg="slam_karto" type="slam_karto" name="slam_karto" output="screen">
+    <rosparam command="load" file="$(find diffbot_slam)/config/karto_mapper_params.yaml" />
+  </node>
+</launch>

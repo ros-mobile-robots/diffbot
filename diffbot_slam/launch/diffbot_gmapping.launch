@@ -1,0 +1,16 @@
+<launch>
+  <!-- Arguments -->
+  <!-- The lua scripts are required for cartographer, unused here -->
+  <arg name="configuration_basename" default="diffbot_lds_2d.lua"/>
+  <arg name="set_base_frame" default="base_footprint"/>
+  <arg name="set_odom_frame" default="/diffbot/mobile_base_controller"/>
+  <arg name="set_map_frame"  default="map"/>
+
+  <!-- Gmapping -->
+  <node pkg="gmapping" type="slam_gmapping" name="diffbot_slam_gmapping" output="screen">
+    <param name="base_frame" value="$(arg set_base_frame)"/>
+    <param name="odom_frame" value="$(arg set_odom_frame)"/>
+    <param name="map_frame"  value="$(arg set_map_frame)"/>
+    <rosparam command="load" file="$(find diffbot_slam)/config/gmapping_params.yaml" />
+  </node>
+</launch>
