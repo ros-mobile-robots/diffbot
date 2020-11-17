@@ -16,7 +16,11 @@ DiffBot is an autonomous differential drive robot with two wheels. Its main proc
 - [`diffbot_gazebo`](./diffbot_gazebo): Simulation specific launch and configuration files for DiffBot
 - [`diffbot_navigation`](./diffbot_navigation): `move_base` launch and configuration files
 
-## Gazebo Simulation with ROS Control
+## Usage
+
+The following sections describe how to run the robot simulation and how to make use of the real hardware using the available package launch files.
+
+### Gazebo Simulation with ROS Control
 
 Control the robot inside Gazebo and view what it sees in RViz using the following launch file:
 
@@ -40,7 +44,7 @@ roslaunch diffbot_navigation diffbot.launch world_name:='$(find diffbot_gazebo)/
 [![DiffBot navigation](https://github.com/fjp/diffbot/blob/master/docs/resources/navigation/diffbot-navigation-gazebo-turtlebot3-world-small.gif)](https://youtu.be/2SwFTrJ1Ofg)
 
 
-## DiffBot Control in Gazebo
+### DiffBot Control in Gazebo
 
 ```console
 roslaunch diffbot_control diffbot.launch
@@ -48,7 +52,9 @@ roslaunch diffbot_control diffbot.launch
 
 ![DiffBot Gazebo](docs/resources/gazebo/diffbot.png)
 
-## RViz
+### RViz
+
+View just the `diffbot_description` in RViz.
 
 ```console
 roslaunch diffbot_description view_diffbot.launch
@@ -59,9 +65,14 @@ roslaunch diffbot_description view_diffbot.launch
 
 Contributions to these tasks are welcome, see also the [contribution section](./README.md#contributions) below.
 
+### Drivers and Odometry
+
+- Add `diffbot_driver` package for ultrasonic ranger, imu and motor driver node code.
+- Make use of the imu odometry data to improve the encoder odometry using [`robot_pose_ekf`](http://wiki.ros.org/robot_pose_ekf).
+
 ### Navigation
 
-- Test different global and local planners
+- Test different global and local planners and add documentation
 - Add `diffbot_mbf` package using [`move_base_flex`](http://wiki.ros.org/move_base_flex) (improved version of [`move_base`](http://wiki.ros.org/move_base).
 
 ### Perception
@@ -72,7 +83,6 @@ Possible useful packages:
 - [MSeg](https://github.com/mseg-dataset/mseg-semantic)
 
 ![Mseg Example](https://user-images.githubusercontent.com/62491525/83895683-094caa00-a721-11ea-8905-2183df60bc4f.gif)
-
 
 
 ## Part List
@@ -115,3 +125,10 @@ Possible useful packages:
 Your contributions are more than welcome. These can be in the form of raising issues, creating PRs to correct or add documentation and of course solving existing issues or adding new features.
 
 
+## License
+
+GNU GPLv3
+
+Feel free to reuse or modify this work but please cite it in case you do so:
+
+> Franz Pucher, Diffbot, (2020), GitHub repository, https://github.com/fjp/diffbot
