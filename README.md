@@ -91,7 +91,7 @@ Possible useful packages:
 
 ### Teleoperation
 
-- Use the generic [`teleop_twist_keyboard`] and/or [`teleop_twist_joy`](http://wiki.ros.org/teleop_twist_joy) package to drive the real robot and in simulation.
+- Use the generic [`teleop_twist_keyboard`](http://wiki.ros.org/teleop_twist_keyboard) and/or [`teleop_twist_joy`](http://wiki.ros.org/teleop_twist_joy) package to drive the real robot and in simulation.
 - Playstation controller
 
 
