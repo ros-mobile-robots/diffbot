@@ -39,14 +39,6 @@ roslaunch diffbot_navigation diffbot.launch world_name:='$(find diffbot_gazebo)/
 
 [![DiffBot navigation](https://github.com/fjp/diffbot/blob/master/docs/resources/navigation/diffbot-navigation-gazebo-turtlebot3-world-small.gif)](https://youtu.be/2SwFTrJ1Ofg)
 
-## Perception
-
-To enable object detection or semantic segmentation with the RPi Camera the Raspberry Pi 4 B will be upated with a Google Coral USB Accelerator.
-Possible useful packages:
-
-- [MSeg](https://github.com/mseg-dataset/mseg-semantic)
-
-![Mseg Example](https://user-images.githubusercontent.com/62491525/83895683-094caa00-a721-11ea-8905-2183df60bc4f.gif)
 
 ## DiffBot Control in Gazebo
 
@@ -61,8 +53,27 @@ roslaunch diffbot_control diffbot.launch
 ```console
 roslaunch diffbot_description view_diffbot.launch
 ```
-
 ![DiffBot RViz](docs/resources/rviz_diffbot_meshes.png)
+
+## Future Work
+
+Contributions to these tasks are welcome, see also the [contribution section](./README.md#contributions) below.
+
+### Navigation
+
+- Test different global and local planners
+- Add `diffbot_mbf` package using [`move_base_flex`](http://wiki.ros.org/move_base_flex) (improved version of [`move_base`](http://wiki.ros.org/move_base).
+
+### Perception
+
+To enable object detection or semantic segmentation with the RPi Camera the Raspberry Pi 4 B will be upated with a Google Coral USB Accelerator.
+Possible useful packages:
+
+- [MSeg](https://github.com/mseg-dataset/mseg-semantic)
+
+![Mseg Example](https://user-images.githubusercontent.com/62491525/83895683-094caa00-a721-11ea-8905-2183df60bc4f.gif)
+
+
 
 ## Part List
 
