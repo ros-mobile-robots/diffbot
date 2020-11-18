@@ -60,8 +60,8 @@ and in a second terminal execute
 roslaunch diffbot_slam diffbot_slam.launch
 ```
 
-TODO: Video follows
-[![DiffBot slam](https://github.com/fjp/diffbot/blob/master/docs/resources/navigation/diffbot-navigation-gazebo-turtlebot3-world-small.gif)](https://youtu.be/2SwFTrJ1Ofg)
+TODO: Youtube video follows
+[![DiffBot slam](https://github.com/fjp/diffbot/blob/master/docs/resources/slam/diffbot-slam.gif)](https://youtu.be/2SwFTrJ1Ofg)
 
 ### DiffBot Control in Gazebo
 
