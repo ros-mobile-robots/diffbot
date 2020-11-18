@@ -36,6 +36,8 @@ make sure to download it to your `~/.gazebo/models/` folder, because the `turtle
 |:-------------------------------------:|:--------------------------------:|
 | ![corridor-world](https://github.com/fjp/diffbot/blob/master/docs/resources/control/diffbot-rplidar.png) | ![turtlebot3-world](https://github.com/fjp/diffbot/blob/master/docs/resources/control/diffbot-turtlebot3-world.png) |
 
+#### Navigation
+
 To navigate the robot in the simulation run this command:
 
 ```console
@@ -44,6 +46,22 @@ roslaunch diffbot_navigation diffbot.launch world_name:='$(find diffbot_gazebo)/
 
 [![DiffBot navigation](https://github.com/fjp/diffbot/blob/master/docs/resources/navigation/diffbot-navigation-gazebo-turtlebot3-world-small.gif)](https://youtu.be/2SwFTrJ1Ofg)
 
+#### SLAM
+
+To map a new environment using slam gmapping first run
+
+```console
+roslaunch diffbot_gazebo diffbot.launch world_name:='$(find diffbot_gazebo)/worlds/turtlebot3_world.world'
+```
+
+and in a second terminal execute
+
+```console
+roslaunch diffbot_slam diffbot_slam.launch
+```
+
+TODO: Video follows
+[![DiffBot slam](https://github.com/fjp/diffbot/blob/master/docs/resources/navigation/diffbot-navigation-gazebo-turtlebot3-world-small.gif)](https://youtu.be/2SwFTrJ1Ofg)
 
 ### DiffBot Control in Gazebo
 
