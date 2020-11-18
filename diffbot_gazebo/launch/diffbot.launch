@@ -1,27 +1,14 @@
- <launch>
-    <!-- these are the arguments you can pass this launch file, for example paused:=true -->
-    <arg name="paused" default="false"/>
-    <arg name="use_sim_time" default="true"/>
-    <arg name="gui" default="true"/>
-    <arg name="headless" default="false"/>
-    <arg name="debug" default="false"/>
+<launch>
+    <arg name="rvizconfig" default="$(find diffbot_control)/rviz/diffbot.rviz" />
     <arg name="world_name" default="$(find diffbot_gazebo)/worlds/corridor.world"/>
 
-    <!-- We resume the logic in empty_world.launch, changing only the name of the world to be launched -->
-    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <include file="$(find diffbot_gazebo)/launch/diffbot_view.launch">
+        <!--arg name="model" value="$(arg model)" /-->
         <arg name="world_name" value="$(arg world_name)"/>
-        <arg name="debug" value="$(arg debug)" />
-        <arg name="gui" value="$(arg gui)" />
-        <arg name="paused" value="$(arg paused)"/>
-        <arg name="use_sim_time" value="$(arg use_sim_time)"/>
-        <arg name="headless" value="$(arg headless)"/>
     </include>
 
-    <!-- Load the URDF into the ROS Parameter Server -->
-    <param name="diffbot/robot_description"
-        command="$(find xacro)/xacro '$(find diffbot_description)/urdf/diffbot.urdf.xacro'"/>
+    <include file="$(find diffbot_control)/launch/diffbot_control.launch">
+        <!-- arg name="model" value="$(arg model)" /-->
+    </include>
 
-    <!-- Run a python script to the send a service call to gazebo_ros to spawn a URDF robot -->
-    <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
-        args="-urdf -model diffbot -param /diffbot/robot_description -z 0.1"/>
 </launch>
