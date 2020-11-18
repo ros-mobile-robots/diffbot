@@ -8,12 +8,12 @@ project(diffbot_slam)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  cartographer_ros
+#  cartographer_ros
   diffbot_navigation
-  explore_lite
+#  explore_lite
   frontier_exploration
   gmapping
-  hector_slam
+#  hector_slam
 )
 
 ## System dependencies are found with CMake's conventions
