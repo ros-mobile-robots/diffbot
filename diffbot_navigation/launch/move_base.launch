@@ -2,14 +2,15 @@
   <!-- Arguments -->
   <arg name="cmd_vel_topic" default="/diffbot/mobile_base_controller/cmd_vel" />
   <arg name="odom_topic" default="/diffbot/mobile_base_controller/odom" />
+  <arg name="local_planner" default="dwa" doc="Local planner can be either dwa, dwb, base, teb or pose"/>
   <arg name="move_forward_only" default="false"/>
-  <arg name="local_planner" default="dwb" doc="Local planner can be either dwa, base, teb or pose"/>
 
   <!-- move_base -->
   <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
-    <param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS" />
+    <!-- base_local_planner parameter is set in the loaded parameter file depending on the local_planner argument -->
+    <!--param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS" /-->
+    <rosparam file="$(find mir_navigation)/config/$(arg local_planner)_local_planner_params.yaml" command="load" />
     <rosparam file="$(find diffbot_navigation)/config/move_base_params.yaml" command="load" />
-    <rosparam file="$(find diffbot_navigation)/config/dwa_local_planner_params.yaml" command="load" />
     <!-- global costmap params -->
     <rosparam file="$(find diffbot_navigation)/config/costmap_common_params.yaml" command="load" ns="global_costmap" />
     <rosparam file="$(find diffbot_navigation)/config/costmap_global_params.yaml" command="load" />
