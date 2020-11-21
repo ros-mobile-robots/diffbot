@@ -64,8 +64,7 @@ roslaunch diffbot_slam diffbot_slam.launch
 
 Then explore the world with the [`teleop_twist_keyboard`](http://wiki.ros.org/teleop_twist_keyboard) or with the already launched [`rqt_robot_steering`](https://wiki.ros.org/rqt_robot_steering) GUI plugin:
 
-TODO: Youtube video follows
-[![DiffBot slam](https://github.com/fjp/diffbot/blob/master/docs/resources/slam/diffbot-slam.gif)](https://youtu.be/2SwFTrJ1Ofg)
+[![DiffBot slam](https://github.com/fjp/diffbot/blob/master/docs/resources/slam/diffbot-slam.gif)](https://youtu.be/gLlo5V-BZu0)
 
 ### DiffBot Control in Gazebo
 
