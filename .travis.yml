@@ -24,7 +24,7 @@ env:
 #    - ROS_DISTRO="lunar" ROS_REPO=main # overrides the default
     - ROS_DISTRO="kinetic"
     - ROS_DISTRO="melodic"
-    - ROS_DISTRO="noetic" ROS_REPO=main # overrides the default
+    - ROS_DISTRO="noetic"
 
 # allow failures, e.g. for unsupported distros
 #matrix:
