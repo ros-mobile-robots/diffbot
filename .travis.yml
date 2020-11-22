@@ -1,15 +1,12 @@
-sudo: required
-
+language: generic
 services:
   - docker
 
 env:
   matrix:
-    - CI_ROS_DISTRO="melodic"
-    - CI_ROS_DISTRO="noetic"
+    - ROS_DISTRO="indigo"
 
 install:
-  - docker build -t diffbot_$CI_ROS_DISTRO -f Dockerfile-$CI_ROS_DISTRO .
-
+  - git clone --quiet --depth 1 https://github.com/ros-industrial/industrial_ci.git .industrial_ci -b master
 script:
-  - docker run diffbot_$CI_ROS_DISTRO /bin/bash -c "source devel/setup.bash && catkin_lint src/diffbot && catkin run_tests && catkin_test_results"
+  - .industrial_ci/travis.sh
