@@ -17,11 +17,6 @@
     <arg name="world_name" value="$(arg world_name)" />
   </include>
 
-  <include file="$(find diffbot_control)/launch/diffbot_control.launch">
-    <!-- arg name="model" value="$(arg model)" /-->
-  </include>
-
-
 
   <!-- Map server -->
   <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)"/>
