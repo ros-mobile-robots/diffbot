@@ -3,6 +3,9 @@
 
 language: generic # optional, just removes the language badge
 
+# Ubuntu version
+dist: focal 
+
 services:
   - docker
 
