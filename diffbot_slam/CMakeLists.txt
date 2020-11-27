@@ -11,8 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
 #  cartographer_ros
   diffbot_navigation
 #  explore_lite
-  frontier_exploration
-  gmapping
+#  frontier_exploration
+#  gmapping
 #  hector_slam
 )
 

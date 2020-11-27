@@ -49,18 +49,6 @@
   <!-- Use doc_depend for packages you need only for building documentation: -->
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>cartographer_ros</build_depend>
-  <build_depend>diffbot_navigation</build_depend>
-  <build_depend>explore_lite</build_depend>
-  <build_depend>frontier_exploration</build_depend>
-  <build_depend>gmapping</build_depend>
-  <build_depend>hector_slam</build_depend>
-  <build_export_depend>cartographer_ros</build_export_depend>
-  <build_export_depend>diffbot_navigation</build_export_depend>
-  <build_export_depend>explore_lite</build_export_depend>
-  <build_export_depend>frontier_exploration</build_export_depend>
-  <build_export_depend>gmapping</build_export_depend>
-  <build_export_depend>hector_slam</build_export_depend>
   <exec_depend>cartographer_ros</exec_depend>
   <exec_depend>diffbot_navigation</exec_depend>
   <exec_depend>explore_lite</exec_depend>
