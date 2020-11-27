@@ -54,7 +54,7 @@
   <exec_depend>explore_lite</exec_depend>
   <exec_depend>frontier_exploration</exec_depend>
   <exec_depend>gmapping</exec_depend>
-  <exec_depend>hector_slam</exec_depend>
+  <!--exec_depend>hector_slam</exec_depend-->
 
 
   <!-- The export tag contains other, unspecified, tags -->
