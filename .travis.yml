@@ -30,9 +30,11 @@ env:
     - ROS_DISTRO="noetic"
 
 # allow failures, e.g. for unsupported distros
-#matrix:
-#  allow_failures:
+matrix:
+  allow_failures:
 #    - env: ROS_DISTRO="lunar" ROS_REPO=main
+    - env: ROS_DISTRO="kinetic"
+    - env: ROS_DISTRO="melodic"
 
 # clone and run industrial_ci
 install:
