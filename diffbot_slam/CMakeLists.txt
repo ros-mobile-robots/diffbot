@@ -9,7 +9,7 @@ project(diffbot_slam)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
 #  cartographer_ros
-  diffbot_navigation
+#  diffbot_navigation
 #  explore_lite
 #  frontier_exploration
 #  gmapping
