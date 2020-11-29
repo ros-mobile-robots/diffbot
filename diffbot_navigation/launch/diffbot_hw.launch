@@ -1,0 +1,33 @@
+<launch>
+    <!-- Arguments -->
+  <arg name="map_file" default="$(find diffbot_navigation)/maps/office.yaml"/>
+  <arg name="open_rviz" default="true"/>
+  <arg name="rvizconfig" default="$(find diffbot_navigation)/rviz/diffbot_navigation.rviz" />
+  <arg name="move_forward_only" default="false"/>
+  <arg name="local_planner" default="dwa" doc="Local planner can be either dwa, base, teb or pose"/>
+
+  <!-- DiffBot Remote Steering TODO -->
+  <!--include file="$(find diffbot_bringup)/launch/diffbot_remote.launch">
+    <arg name="model" value="$(arg model)" />
+  </include-->
+
+
+  <!-- Map server -->
+  <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)"/>
+
+  <!-- AMCL -->
+  <include file="$(find diffbot_navigation)/launch/amcl.launch"/>
+
+  <!-- move_base -->
+  <include file="$(find diffbot_navigation)/launch/move_base.launch">
+    <arg name="local_planner" value="$(arg local_planner)" />
+    <arg name="move_forward_only" value="$(arg move_forward_only)"/>
+  </include>
+
+  <!-- Launch visualization in rviz -->
+  <group if="$(arg open_rviz)"> 
+    <node pkg="rviz" type="rviz" name="rviz" required="true"
+          args="-d $(arg rvizconfig)"/>
+  </group>
+
+</launch>
