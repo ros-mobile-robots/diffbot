@@ -16,7 +16,7 @@ DiffBot is an autonomous differential drive robot with two wheels. Its main proc
 - [`diffbot_navigation`](./diffbot_navigation): Navigation based on `move_base` launch and configuration files
 - [`diffbot_slam`](./diffbot_slam): Simultaneous localization and mapping using different implementations to create a map of the environment
 
-## Dependencies and Installation
+## Installation
 
 The packages are written for and tested with [ROS 1 Noetic](http://wiki.ros.org/noetic) on [Ubuntu 20.04 Focal Fossa](https://releases.ubuntu.com/20.04/).
 For the real robot [Ubuntu Mate 20.04](https://ubuntu-mate.org/download/arm64/focal/) for arm64 is installed on the [Raspberry Pi 4 B](https://www.raspberrypi.org/products/raspberry-pi-4-model-b/) with 4GB. The communication between the mobile robot and the work pc is done by configuring the [ROS Network](http://wiki.ros.org/ROS/NetworkSetup), see also the [documentation](./docs/ros-network-setup.md).
@@ -25,15 +25,15 @@ For the real robot [Ubuntu Mate 20.04](https://ubuntu-mate.org/download/arm64/fo
 
 The required Ubuntu packages are listed in the [documentation](./docs). Other ROS catkin packages such as [`rplidar_ros`](https://github.com/Slamtec/rplidar_ros) need to be cloned into the catkin workspace. It is planned to use [`vcstool`](https://github.com/dirk-thomas/vcstool) in the future to automate the dependency installtions.
 
-### Installation
+### How to Build
 
-To build the packages in this repository, clone it in the `src` folder of your ROS Noetic catkin workspace:
+To build the packages in this repository, clone it in the `src` folder of your ROS Noetic [catkin workspace](http://wiki.ros.org/catkin/Tutorials/create_a_workspace):
 
 ```console
 catkin_ws/src$ git clone https://github.com/fjp/diffbot.git
 ```
 
-After installing the required dependencies build the catkin workspace:
+After installing the required dependencies build the catkin workspace, either with [`catkin_make`](http://wiki.ros.org/catkin/commands/catkin_make):
 
 ```console
 catkin_ws$ catkin_make
@@ -43,7 +43,15 @@ or using [catkin-tools](https://catkin-tools.readthedocs.io/en/latest/):
 ```console
 catkin_ws$ catkin build
 ```
+Finally source the newly built packages with the `devel/setup.*` script, depending on your used shell:
 
+```console
+# For bash
+catkin_ws$ source devel/setup.bash
+
+# For zsh
+catkin_ws$ source devel/setup.zsh
+```
 
 ## Usage
 
