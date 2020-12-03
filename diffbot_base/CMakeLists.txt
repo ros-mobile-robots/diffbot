@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   urdf
   roscpp
   sensor_msgs
+  diffbot_msgs
   rosparam_shortcuts
 )
 
