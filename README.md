@@ -4,7 +4,15 @@ DiffBot is an autonomous differential drive robot with two wheels. Its main proc
 
 | DiffBot | Lidar SLAMTEC RPLidar A2 | 
 |:-------:|:-----------------:|
-|  [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/diffbot-front.png" width="700">](https://fjp.at/projects/diffbot/) | [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/rplidara2.png" width="700">](https://github.com/fjp/diffbot) |
+|  [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/diffbot-front.png" width="700">](https://youtu.be/IcYkQyzUqik) | [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/rplidara2.png" width="700">](https://fjp.at/projects/diffbot/) |
+
+## Demonstration
+
+### SLAM and Navigation
+
+| Real robot | Gazebo Simulation  | 
+|:-------:|:-----------------:|
+|  [<img src="https://img.youtube.com/vi/IcYkQyzUqik/hqdefault.jpg" width="300">](https://youtu.be/IcYkQyzUqik) | [<img src="https://img.youtube.com/vi/gLlo5V-BZu0/hqdefault.jpg" width="300">](https://youtu.be/gLlo5V-BZu0) [<img src="https://img.youtube.com/vi/2SwFTrJ1Ofg/hqdefault.jpg" width="300">](https://youtu.be/2SwFTrJ1Ofg) |
 
 ## Package Overview
 
