@@ -12,7 +12,7 @@ DiffBot is an autonomous differential drive robot with two wheels. Its main proc
 
 | Real robot | Gazebo Simulation  | 
 |:-------:|:-----------------:|
-|  [<img src="https://img.youtube.com/vi/IcYkQyzUqik/hqdefault.jpg" width="300">](https://youtu.be/IcYkQyzUqik) | [<img src="https://img.youtube.com/vi/gLlo5V-BZu0/hqdefault.jpg" width="300">](https://youtu.be/gLlo5V-BZu0) [<img src="https://img.youtube.com/vi/2SwFTrJ1Ofg/hqdefault.jpg" width="300">](https://youtu.be/2SwFTrJ1Ofg) |
+|  [<img src="https://img.youtube.com/vi/IcYkQyzUqik/hqdefault.jpg" width="250">](https://youtu.be/IcYkQyzUqik) | [<img src="https://img.youtube.com/vi/gLlo5V-BZu0/hqdefault.jpg" width="250">](https://youtu.be/gLlo5V-BZu0) [<img src="https://img.youtube.com/vi/2SwFTrJ1Ofg/hqdefault.jpg" width="250">](https://youtu.be/2SwFTrJ1Ofg) |
 
 ## Package Overview
 
