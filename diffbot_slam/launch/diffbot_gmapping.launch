@@ -5,6 +5,8 @@
   <arg name="set_base_frame" default="base_footprint"/>
   <arg name="set_odom_frame" default="odom"/>
   <arg name="set_map_frame"  default="map"/>
+  <!-- gmapping expects the laser scan on the scan topic 
+       but DiffBot provides this in the diffbot namespace -->
   <arg name="scan_topic"  default="diffbot/scan"/>
 
   <!-- Gmapping -->
