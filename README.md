@@ -104,7 +104,7 @@ roslaunch diffbot_gazebo diffbot.launch world_name:='$(find diffbot_gazebo)/worl
 and in a second terminal execute
 
 ```console
-roslaunch diffbot_slam diffbot_slam.launch
+roslaunch diffbot_slam diffbot_slam.launch slam_method:=gmapping
 ```
 
 Then explore the world with the [`teleop_twist_keyboard`](http://wiki.ros.org/teleop_twist_keyboard) or with the already launched [`rqt_robot_steering`](https://wiki.ros.org/rqt_robot_steering) GUI plugin:
