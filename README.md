@@ -21,6 +21,7 @@ DiffBot is an autonomous differential drive robot with two wheels. Its main proc
 - [`diffbot_control`](./diffbot_control): Configurations for the `diff_drive_controller` of ROS Control used in Gazebo simulation and the real robot
 - [`diffbot_description`](./diffbot_description): URDF description of DiffBot including its sensors
 - [`diffbot_gazebo`](./diffbot_gazebo): Simulation specific launch and configuration files for DiffBot
+- [`diffbot_msgs`](./diffbot_msgs): Message definitions specific to DiffBot, for example the message for encoder data.
 - [`diffbot_navigation`](./diffbot_navigation): Navigation based on `move_base` launch and configuration files
 - [`diffbot_slam`](./diffbot_slam): Simultaneous localization and mapping using different implementations to create a map of the environment
 
