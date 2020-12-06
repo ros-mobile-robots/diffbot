@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+
+<launch>
+  <node pkg="rviz" type="rviz" name="rviz" required="true"
+        args="-d $(find diffbot_mbf)/rviz/diffbot_mbf.rviz"/>
+</launch>

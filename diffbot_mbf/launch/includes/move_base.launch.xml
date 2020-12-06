@@ -1,0 +1,28 @@
+<launch>
+  <!-- Arguments -->
+  <arg name="cmd_vel_topic" default="/diffbot/mobile_base_controller/cmd_vel" />
+  <arg name="odom_topic" default="/diffbot/mobile_base_controller/odom" />
+  <arg name="local_planner" default="dwa" doc="Local planner can be either dwa, dwb, base, teb or pose"/>
+  <arg name="move_forward_only" default="false"/>
+
+  <!-- move_base -->
+  <node name="move_base_flex" pkg="mbf_costmap_nav" type="mbf_costmap_nav" required="true" output="screen">
+    <!-- base_local_planner parameter is set in the loaded parameter file depending on the local_planner argument -->
+    
+    <!--rosparam file="$(find diffbot_navigation)/config/$(arg local_planner)_local_planner_params.yaml" command="load" /-->
+    <rosparam file="$(find diffbot_mbf)/config/move_base.yaml" command="load" />
+    <!-- global costmap params -->
+    <rosparam file="$(find diffbot_navigation)/config/costmap_common_params.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find diffbot_navigation)/config/costmap_global_params.yaml" command="load" /> 
+    <!-- local costmap params -->
+    <rosparam file="$(find diffbot_navigation)/config/costmap_common_params.yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find diffbot_navigation)/config/costmap_local_params.yaml" command="load" />
+
+    <rosparam file="$(find diffbot_mbf)/config/dwa_local_planner_params.yaml" command="load" />
+    <!-- remappings -->
+    <remap from="cmd_vel" to="$(arg cmd_vel_topic)"/>
+    <remap from="odom" to="$(arg odom_topic)"/>
+  </node>
+
+  <node name="move_base_legacy_relay" pkg="mbf_costmap_nav" type="move_base_legacy_relay.py"/>
+</launch>
