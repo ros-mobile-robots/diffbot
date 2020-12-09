@@ -182,6 +182,7 @@ Possible useful packages:
 | Raspi Camera Module V2, 8 MP, 1080p | [Amazon.com](https://amzn.to/2Ib9fgG), [Amazon.de](https://amzn.to/2FdVDQF) |
 | Grove Motor Driver | [seeedstudio.com](https://www.seeedstudio.com/Grove-I2C-Motor-Driver-with-L298.html), [Amazon.de](https://amzn.to/36M8O6M) |
 | I2C Hub | [seeedstudio.com](https://www.seeedstudio.com/Grove-I2C-Hub.html), [Amazon.de](https://amzn.to/34CGEbz) |
+| Teensy 4.0 or 3.2 | [PJRC Teensy 4.0](https://www.pjrc.com/store/teensy40.html), [PJRC Teensy 3.2](https://www.pjrc.com/store/teensy32.html) |
 
 
 ## Additional (Optional) Equipment
