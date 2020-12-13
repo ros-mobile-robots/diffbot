@@ -44,3 +44,7 @@ logs
 
 # OS X
 .DS_Store
+
+
+# Custom
+docs/plots
