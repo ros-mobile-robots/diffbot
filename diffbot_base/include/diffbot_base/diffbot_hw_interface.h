@@ -5,7 +5,7 @@
 // ROS
 #include <ros/ros.h>
 #include <urdf/model.h>
-#include <std_msgs/Int32.h>
+#include <diffbot_msgs/Encoder.h>
 
 // ROS Controls
 #include <hardware_interface/robot_hw.h>
@@ -103,8 +103,7 @@ namespace diffbot_base
         virtual void loadURDF(const ros::NodeHandle& nh, std::string param_name);
 
         /** \brief Callback to receive the encoder ticks from Teensy MCU */
-        void leftEncoderTicksCallback(const std_msgs::Int32::ConstPtr& msg);
-        void rightEncoderTicksCallback(const std_msgs::Int32::ConstPtr& msg);
+        void encoderTicksCallback(const diffbot_msgs::Encoder::ConstPtr& msg);
 
         /** \brief Convert number of encoder ticks to angle in radians */
         double ticksToAngle(const int &ticks) const;

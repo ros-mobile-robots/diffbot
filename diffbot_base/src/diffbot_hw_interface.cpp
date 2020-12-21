@@ -43,8 +43,7 @@ namespace diffbot_base
         pub_right_motor_value_ = nh_.advertise<std_msgs::Int32>("motor_right", 10);
 
         // Setup subscriber for the wheel encoders
-        sub_left_encoder_ticks_ = nh_.subscribe("ticks_left", 10, &DiffBotHWInterface::leftEncoderTicksCallback, this);
-        sub_right_encoder_ticks_ = nh_.subscribe("ticks_right", 10, &DiffBotHWInterface::rightEncoderTicksCallback, this);
+        sub_left_encoder_ticks_ = nh_.subscribe("encoder_ticks", 10, &DiffBotHWInterface::encoderTicksCallback, this);
 
         // Initialize the hardware interface
         init(nh_, nh_);
@@ -271,16 +270,13 @@ namespace diffbot_base
 
 
     /// Process updates from encoders
-    void DiffBotHWInterface::leftEncoderTicksCallback(const std_msgs::Int32::ConstPtr& msg)
+    void DiffBotHWInterface::encoderTicksCallback(const diffbot_msgs::Encoder::ConstPtr& msg)
     {
-        encoder_ticks_[0] = msg->data;
-        ROS_DEBUG_STREAM_THROTTLE(1, "Left encoder ticks: " << msg->data);
-    }
-
-    void DiffBotHWInterface::rightEncoderTicksCallback(const std_msgs::Int32::ConstPtr& msg)
-    {
-        encoder_ticks_[1] = msg->data;
-        ROS_DEBUG_STREAM_THROTTLE(1, "Right encoder ticks: " << msg->data);
+        /// Update current encoder ticks in encoders array
+        encoder_ticks_[0] = msg->encoders[0];
+        encoder_ticks_[1] = msg->encoders[1];
+        ROS_DEBUG_STREAM_THROTTLE(1, "Left encoder ticks: " << encoder_ticks_[0]);
+        ROS_DEBUG_STREAM_THROTTLE(1, "Right encoder ticks: " << encoder_ticks_[1]);
     }
 
 
