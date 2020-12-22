@@ -2,8 +2,8 @@
 Changelog for package diffbot_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.1 (2020-12-22)
+------------------
 * Update README.md
 * add z_offset to diffbot base_footprint description for moving on the ground in rviz
 * add colors for gazebo

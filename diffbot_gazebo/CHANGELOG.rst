@@ -2,8 +2,8 @@
 Changelog for package diffbot_gazebo
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.1 (2020-12-22)
+------------------
 * add x y z starting position args to diffbot_gazebo/launch/diffbot_view.launch
 * update diffbot control and gazebo launch files: prepare for slam packages
 * Create README.md

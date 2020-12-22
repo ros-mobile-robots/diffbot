@@ -2,8 +2,8 @@
 Changelog for package diffbot_slam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.1 (2020-12-22)
+------------------
 * add cartographer config lua
 * add explaining comment to gmapping launch
 * add topic remap for diffbot laser scan

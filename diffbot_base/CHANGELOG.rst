@@ -2,8 +2,8 @@
 Changelog for package diffbot_base
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.1 (2020-12-22)
+------------------
 * update diffbot_base to use Encoder msg
 * set control loop rate to 10 Hz
 * add diffbot_msgs as dependency to diffbot_base

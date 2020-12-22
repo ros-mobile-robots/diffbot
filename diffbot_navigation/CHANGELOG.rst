@@ -2,8 +2,8 @@
 Changelog for package diffbot_navigation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.1 (2020-12-22)
+------------------
 * increase goal reached tolerance
 * include diffbot/laserscan in rviz
 * add navigation launch file for real robot
