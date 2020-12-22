@@ -48,3 +48,7 @@ logs
 
 # Custom
 docs/plots
+.vscode
+
+# intermediate documentation
+site
