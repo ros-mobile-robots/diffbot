@@ -14,7 +14,7 @@ DiffBot is an autonomous differential drive robot with two wheels. Its main proc
 |:-------:|:-----------------:|
 |  [<img src="https://img.youtube.com/vi/IcYkQyzUqik/hqdefault.jpg" width="250">](https://youtu.be/IcYkQyzUqik) | [<img src="https://img.youtube.com/vi/gLlo5V-BZu0/hqdefault.jpg" width="250">](https://youtu.be/gLlo5V-BZu0) [<img src="https://img.youtube.com/vi/2SwFTrJ1Ofg/hqdefault.jpg" width="250">](https://youtu.be/2SwFTrJ1Ofg) |
 
-## Package Overview
+## :package: Package Overview
 
 - [`diffbot_base`](./diffbot_base): ROS Control hardware interface including `controller_manager` control loop for the real robot
 - [`diffbot_bringup`](./diffbot_bringup): Launch files to bring up the hardware drivers (camera, lidar, imu, ultrasonic, ...) for the real DiffBot robot
@@ -34,7 +34,7 @@ For the real robot [Ubuntu Mate 20.04](https://ubuntu-mate.org/download/arm64/fo
 
 The required Ubuntu packages are listed in the [documentation](./docs). Other ROS catkin packages such as [`rplidar_ros`](https://github.com/Slamtec/rplidar_ros) need to be cloned into the catkin workspace. It is planned to use [`vcstool`](https://github.com/dirk-thomas/vcstool) in the future to automate the dependency installtions.
 
-### How to Build
+### :hammer: How to Build
 
 To build the packages in this repository, clone it in the `src` folder of your ROS Noetic [catkin workspace](http://wiki.ros.org/catkin/Tutorials/create_a_workspace):
 
@@ -128,7 +128,7 @@ roslaunch diffbot_description view_diffbot.launch
 ```
 ![DiffBot RViz](docs/resources/rviz_diffbot_meshes.png)
 
-## Future Work
+## :construction: Future Work
 
 Contributions to these tasks are welcome, see also the [contribution section](./README.md#contributions) below.
 
@@ -192,7 +192,7 @@ Possible useful packages:
 | PicoScope 3000 Series Oscilloscope 2CH | [Amazon.de](https://amzn.to/33I5tUb) |
 | VOLTCRAFT PPS-16005                    | [Amazon.de](https://amzn.to/3iKsI4a) |
 
-## Acknowledgment
+## :handshaking: Acknowledgment
 
 - [Lentin Joseph](https://lentinjoseph.com/) and the participants of [ROS Developer Learning Path](https://robocademy.com/2020/06/25/enroll-in-robot-operating-system-learning-path-by-lentin-joseph/)
 - The configurable `diffbot_description` using yaml files (see [ROS Wiki on xacro](http://wiki.ros.org/xacro#YAML_support)) is part of [`mobile_robot_description`](https://github.com/pxalcantara/mobile_robot_description) from [@pxalcantara](https://github.com/pxalcantara).
@@ -203,12 +203,12 @@ Possible useful packages:
 - [turtlebot3](https://github.com/ROBOTIS-GIT/turtlebot3)
 
 
-## Contributions
+## :wrench: Contributing
 
 Your contributions are more than welcome. These can be in the form of raising issues, creating PRs to correct or add documentation and of course solving existing issues or adding new features.
 
 
-## License
+## :pencil: License
 
 Licensed under GNU GPLv3, see [LICENSE](./LICENSE)
 
