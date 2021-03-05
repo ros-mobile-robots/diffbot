@@ -212,8 +212,4 @@ Your contributions are more than welcome. These can be in the form of raising is
 
 ## :pencil: License
 
-Licensed under GNU GPLv3, see [LICENSE](./LICENSE)
-
-Feel free to reuse or modify this work but please cite it in case you do so:
-
-> Franz Pucher, Diffbot, (2020), GitHub repository, https://github.com/fjp/diffbot
+TBD
