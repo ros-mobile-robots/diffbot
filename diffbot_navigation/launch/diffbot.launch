@@ -1,5 +1,7 @@
 <launch>
-    <!-- Arguments -->
+  <!-- Use this launch file for navigation simulation -->
+  <!--This launches gazebo itself. Don't launch gazebo explicitly before this  -->
+  <!-- Arguments -->
   <arg name="map_file" default="$(find diffbot_navigation)/maps/map.yaml"/>
   <arg name="open_rviz" default="true"/>
   <arg name="rvizconfig" default="$(find diffbot_navigation)/rviz/diffbot_navigation.rviz" />
