@@ -153,6 +153,31 @@ roslaunch diffbot_slam diffbot_slam.launch slam_method:=gmapping
 
 As you can see in the video, this should open up RViz and the [`rqt_robot_steering`](http://wiki.ros.org/rqt_robot_steering) plugin.
 
+Next, steer the robot around manually and save the map with the following command when you are done:
+
+```
+rosrun map_server map_saver -f office
+```
+
+Finally it is possible to use the created map for navigation, after running the following launch files:
+
+On the single board computer (e.g. Raspberry Pi) make sure that the following is launched:
+
+```
+roslaunch diffbot_bringup diffbot_bringup_with_laser.launch
+```
+
+Then on the work/remote pc run the `diffbot_hw.lauch` from the `diffbot_navigation` package:
+
+```
+roslaunch diffbot_navigation diffbot_hw.lauch
+```
+
+Among other essential navigation and map server nodes, this will also launch an instance of RViz on your work pc where you can use its tools to: 
+
+1. Localize the robot with the "2D Pose Estimate" tool (green arrow) in RViz
+2. Use the "2D Nav Goal" tool in RViz (red arrow) to send goals to the robot
+
 ## :construction: Future Work
 
 Contributions to these tasks are welcome, see also the [contribution section](./README.md#contributions) below.
