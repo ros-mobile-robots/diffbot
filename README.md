@@ -97,7 +97,7 @@ Navigate the robot in a known map from the running [`map_server`](http://wiki.ro
 
 #### SLAM
 
-To map a new environment using slam gmapping first run
+To map a new simulated environment using slam gmapping, first run
 
 ```console
 roslaunch diffbot_gazebo diffbot.launch world_name:='$(find diffbot_gazebo)/worlds/turtlebot3_world.world'
@@ -112,6 +112,7 @@ roslaunch diffbot_slam diffbot_slam.launch slam_method:=gmapping
 Then explore the world with the [`teleop_twist_keyboard`](http://wiki.ros.org/teleop_twist_keyboard) or with the already launched [`rqt_robot_steering`](https://wiki.ros.org/rqt_robot_steering) GUI plugin:
 
 [![DiffBot slam](https://github.com/fjp/diffbot/blob/master/docs/resources/slam/diffbot-slam.gif)](https://youtu.be/gLlo5V-BZu0)
+
 
 ### DiffBot Control in Gazebo
 
@@ -129,6 +130,28 @@ View just the `diffbot_description` in RViz.
 roslaunch diffbot_description view_diffbot.launch
 ```
 ![DiffBot RViz](docs/resources/rviz_diffbot_meshes.png)
+
+
+### Navigating and Mapping on the real Robot
+
+The following video shows how to map a new environment and navigate in it
+
+[<img src="https://img.youtube.com/vi/IcYkQyzUqik/hqdefault.jpg" width="250">](https://youtu.be/IcYkQyzUqik)
+
+First, brinup the robot hardware including its laser with the following launch file in the `diffbot_bringup` package.
+Make sure to run this on the real robot (e.g. connect to it via ssh):
+
+```
+roslaunch diffbot_bringup diffbot_bringup_with_laser.launch
+```
+
+then, in a new terminal on your remote/work pc (not the single board computer) run the slam gmapping with the same command as in the simulation:
+
+``` 
+roslaunch diffbot_slam diffbot_slam.launch slam_method:=gmapping
+```
+
+As you can see in the video, this should open up RViz and the [`rqt_robot_steering`](http://wiki.ros.org/rqt_robot_steering) plugin.
 
 ## :construction: Future Work
 
