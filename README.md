@@ -242,7 +242,7 @@ Possible useful packages:
 | PicoScope 3000 Series Oscilloscope 2CH | [Amazon.de](https://amzn.to/33I5tUb) |
 | VOLTCRAFT PPS-16005                    | [Amazon.de](https://amzn.to/3iKsI4a) |
 
-## :handshaking: Acknowledgment
+## :handshake: Acknowledgment
 
 - [Lentin Joseph](https://lentinjoseph.com/) and the participants of [ROS Developer Learning Path](https://robocademy.com/2020/06/25/enroll-in-robot-operating-system-learning-path-by-lentin-joseph/)
 - The configurable `diffbot_description` using yaml files (see [ROS Wiki on xacro](http://wiki.ros.org/xacro#YAML_support)) is part of [`mobile_robot_description`](https://github.com/pxalcantara/mobile_robot_description) from [@pxalcantara](https://github.com/pxalcantara).
