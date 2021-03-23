@@ -1,3 +1,17 @@
+## Update
+
+To improve this repository further, we will soon transfer it into a new organization [`ros-mobile-robots`](https://github.com/ros-mobile-robots).
+This way we can make sure it will stay organized when we add new features, please see the [future work section](#construction-future-work) 
+and open issues on what we plan to do.
+
+According to the [GitHub docs on transferring repositories](https://docs.github.com/en/github/administering-a-repository/transferring-a-repository), 
+all links to this repository will remain working, so no changes are required on your side.
+However, it is recommended to update your links when the move is finished.
+
+> All links to the previous repository location are automatically redirected to the new location. When you use `git clone`, `git fetch`, or `git push` on a transferred repository, these commands will redirect to the new repository location or URL. However, to avoid confusion, we strongly recommend updating any existing local clones to point to the new repository URL. You can do this by using git remote on the command line: `$ git remote set-url origin new_url`
+
+We look forward to improve this code base with you and want to thank you for the support.
+
 # DiffBot 
 
 ![travis ci](https://travis-ci.com/fjp/diffbot.svg?branch=master) ![CI](https://github.com/fjp/diffbot/workflows/CI/badge.svg?branch=noetic-devel) [![Documentation](https://github.com/fjp/diffbot/actions/workflows/mkdocs_action.yml/badge.svg)](https://github.com/fjp/diffbot/actions/workflows/mkdocs_action.yml)
@@ -181,6 +195,10 @@ Among other essential navigation and map server nodes, this will also launch an 
 ## :construction: Future Work
 
 Contributions to these tasks are welcome, see also the [contribution section](./README.md#contributions) below.
+
+### ROS 2
+
+- Migrate from ROS 1 to ROS 2
 
 ### Drivers, Odometry and Hardware Interface
 
