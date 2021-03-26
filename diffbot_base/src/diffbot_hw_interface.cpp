@@ -79,6 +79,10 @@ namespace diffbot_base
 
             joint_velocity_commands_[i] = 0.0;
 
+	    // Initialize encoder_ticks_ to zero because receiving meaningful
+	    // tick values from the microcontroller might take some time
+	    encoder_ticks_[i] = 0.0;
+
             // Initialize the pid controllers for the motors using the robot namespace
             std::string pid_namespace = "pid/" + motor_names[i];
             ROS_INFO_STREAM("pid namespace: " << pid_namespace);
