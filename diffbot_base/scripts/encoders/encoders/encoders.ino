@@ -46,15 +46,21 @@ ros::Publisher pub_encoders("encoder_ticks", &ticks);
 void setup() 
 {
   nh.initNode();
-  nh.loginfo("DiffBot Wheel Encoders:");
   nh.advertise(pub_encoders);
   nh.subscribe(sub_reset);
+
+  while (!nh.connected())
+  {
+    nh.spinOnce();
+  }
+  nh.loginfo("Initialize DiffBot Wheel Encoders");
+  delay(1);
 }
 
 long positionLeft  = -999;
 long positionRight = -999;
 
-void loop() {
+void loop() {  
   long newLeft, newRight;
   newLeft = encoderLeft.read();
   newRight = encoderRight.read();
