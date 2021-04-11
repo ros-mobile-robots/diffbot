@@ -2,8 +2,10 @@
   <!-- Minimal launch file to bringup the robot hardware -->
   <!-- This launch file will launch the package that communicates with the encoders
        before running the ROS Controls hardware_interface control loop.
-       Launching the nodes in this order will make sure that the hardware_interface
-       receives meaningful tick values from the wheel encoders. -->
+       Note: roslaunch launches local processes using popen and kills them using POSIX signals. 
+       roslaunch does not guarantee any particular order to the startup of nodes. 
+       In the ROS architecture there is no way to tell when a node is initialized.
+       See also http://wiki.ros.org/roslaunch/Architecture#Local_processes. -->
 
   <!-- Encoders -->
   <!-- Run rosserial to connect with the Teensy 3.2 board connected to the motor encoders -->
