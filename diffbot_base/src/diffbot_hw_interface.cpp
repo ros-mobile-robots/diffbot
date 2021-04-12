@@ -43,10 +43,13 @@ namespace diffbot_base
         pub_right_motor_value_ = nh_.advertise<std_msgs::Int32>("motor_right", 10);
 
         // Setup subscriber for the wheel encoders
-        sub_left_encoder_ticks_ = nh_.subscribe("encoder_ticks", 10, &DiffBotHWInterface::encoderTicksCallback, this);
+        sub_encoder_ticks_ = nh_.subscribe("encoder_ticks", 10, &DiffBotHWInterface::encoderTicksCallback, this);
 
         // Initialize the hardware interface
         init(nh_, nh_);
+
+        // Wait for encoder messages being published
+        isReceivingEncoderTicks(ros::Duration(10));
     }
 
  
@@ -101,6 +104,7 @@ namespace diffbot_base
         registerInterface(&velocity_joint_interface_);
 
         ROS_INFO("... Done Initializing DiffBot Hardware Interface");
+
         return true;
     }
 
@@ -206,6 +210,30 @@ namespace diffbot_base
                << std::endl;
         }
         ROS_INFO_STREAM(std::endl << ss.str());
+    }
+
+    bool DiffBotHWInterface::isReceivingEncoderTicks(const ros::Duration &timeout) const
+    {
+        ROS_INFO("Get number of encoder ticks publishers");
+
+        ros::Time start = ros::Time::now();
+        int num_publishers = sub_encoder_ticks_.getNumPublishers();
+        ROS_INFO("Waiting for encoder ticks being published...");
+        while ((num_publishers == 0) && (ros::Time::now() < start + timeout))
+        {
+            ros::Duration(0.1).sleep();
+            num_publishers = sub_encoder_ticks_.getNumPublishers();
+        }
+        if (num_publishers == 0)
+        {
+            ROS_ERROR("No encoder ticks publishers. Timeout reached.");
+        }
+        else
+        {
+            ROS_INFO_STREAM("Number of encoder ticks publishers: " << num_publishers);
+        }
+
+        return (num_publishers > 0);
     }
 
     void DiffBotHWInterface::loadURDF(const ros::NodeHandle &nh, std::string param_name)

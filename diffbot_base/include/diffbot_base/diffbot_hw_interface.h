@@ -90,6 +90,14 @@ namespace diffbot_base
          */
         virtual void write(const ros::Time& time, const ros::Duration& period);
 
+        /** \brief Check if encoder ticks are received.
+         * 
+         * This function blocks until the sub_encoder_ticks_ subscriber receives encoder ticks.
+         *
+         * \param timeout Minimum time to wait for receiving encoder ticks
+         */
+        bool isReceivingEncoderTicks(const ros::Duration &timeout=ros::Duration(1)) const;
+
         /** \brief Helper for debugging a joint's state */
         virtual void printState();
         std::string printStateHelper();
@@ -170,10 +178,11 @@ namespace diffbot_base
         ros::Publisher pub_left_motor_value_;
         ros::Publisher pub_right_motor_value_;
 
-        // Declare subscribers for the wheel encoders
-        ros::Subscriber sub_left_encoder_ticks_;
-        ros::Subscriber sub_right_encoder_ticks_;
+        // Declare subscriber for the wheel encoders
+        // This subscriber receives the encoder ticks in the custom diffbot_msgs/Encoder message
+        ros::Subscriber sub_encoder_ticks_;
 
+        // Array to store the received encoder tick values from the \ref sub_encoder_ticks_ subscriber
         int encoder_ticks_[NUM_JOINTS];
 
         PID pids_[NUM_JOINTS];
