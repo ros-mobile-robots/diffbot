@@ -251,6 +251,7 @@ Possible useful packages:
 | Grove Motor Driver | [seeedstudio.com](https://www.seeedstudio.com/Grove-I2C-Motor-Driver-with-L298.html), [Amazon.de](https://amzn.to/36M8O6M) |
 | I2C Hub | [seeedstudio.com](https://www.seeedstudio.com/Grove-I2C-Hub.html), [Amazon.de](https://amzn.to/34CGEbz) |
 | Teensy 4.0 or 3.2 | [PJRC Teensy 4.0](https://www.pjrc.com/store/teensy40.html), [PJRC Teensy 3.2](https://www.pjrc.com/store/teensy32.html) |
+| Hobby Motor with Encoder - Metal Gear (DG01D-E) | [Sparkfun](https://www.sparkfun.com/products/16413) |
 
 
 ## Additional (Optional) Equipment
@@ -259,6 +260,10 @@ Possible useful packages:
 |:---------------------------------------|:------------------------------------:|
 | PicoScope 3000 Series Oscilloscope 2CH | [Amazon.de](https://amzn.to/33I5tUb) |
 | VOLTCRAFT PPS-16005                    | [Amazon.de](https://amzn.to/3iKsI4a) |
+
+## Hardware Architecture and Wiring
+
+![Hardware Architecture and Wiring](https://raw.githubusercontent.com/fjp/diffbot/noetic-devel/docs/fritzing/diffbot_architecture.svg)
 
 ## :handshake: Acknowledgment
 
