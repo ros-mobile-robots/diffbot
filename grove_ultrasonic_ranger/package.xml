@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>grove_ultrasonic_ranger</name>
-  <version>0.0.1</version>
+  <version>0.0.2</version>
   <description>The grove_ultrasonic_ranger package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->

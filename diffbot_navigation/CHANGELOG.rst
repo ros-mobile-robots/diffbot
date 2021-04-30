@@ -2,8 +2,8 @@
 Changelog for package diffbot_navigation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.2 (2021-04-30)
+------------------
 * Update diffbot.launch
 * fix local costmap configuration issue
 * Contributors: Franz, Franz Pucher

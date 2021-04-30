@@ -2,8 +2,8 @@
 Changelog for package diffbot_bringup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.2 (2021-04-30)
+------------------
 * doc: update comment about node launch order
 * change node execution order in bringup launch file
 * Contributors: Franz Pucher

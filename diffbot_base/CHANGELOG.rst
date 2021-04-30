@@ -2,8 +2,8 @@
 Changelog for package diffbot_base
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.2 (2021-04-30)
+------------------
 * fix `#30 <https://github.com/fjp/diffbot/issues/30>`_: reset encoders after each new launch of hardware interface
 * call reset in encoders setup()
 * add method to check if encoder ticks are published
