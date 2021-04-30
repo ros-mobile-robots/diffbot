@@ -2,6 +2,9 @@
 Changelog for package diffbot_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.0.1 (2020-12-22)
 ------------------
 * Update README.md

@@ -2,6 +2,9 @@
 Changelog for package diffbot_control
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.0.1 (2020-12-22)
 ------------------
 * update diffbot control and gazebo launch files: prepare for slam packages

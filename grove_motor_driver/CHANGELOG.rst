@@ -2,6 +2,9 @@
 Changelog for package grove_motor_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.0.1 (2020-12-22)
 ------------------
 * use queue_size of 10

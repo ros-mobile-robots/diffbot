@@ -2,6 +2,19 @@
 Changelog for package diffbot_base
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* fix `#30 <https://github.com/fjp/diffbot/issues/30>`_: reset encoders after each new launch of hardware interface
+* call reset in encoders setup()
+* add method to check if encoder ticks are published
+* update logging in encoders.ino
+* initialize ``encoder_ticks_`` in hw interface
+  initialize values in ``encoder_ticks_`` member array of hardware interface
+  to zero because receiving meaningful tick values from the microcontroller
+  might take some time. Alleviates problems in `#30 <https://github.com/fjp/diffbot/issues/30>`_
+* fix zero time period at control loop start (`#30 <https://github.com/fjp/diffbot/issues/30>`_)
+* Contributors: Franz Pucher
+
 0.0.1 (2020-12-22)
 ------------------
 * update diffbot_base to use Encoder msg
