@@ -28,7 +28,8 @@ Encoder encoderRight(7, 8); // Default pins 7, 8
 ros::NodeHandle  nh;
 
 // ROS Subscriber setup to reset both encoders to zero
-void resetCallback( const std_msgs::Empty& reset){
+void resetCallback( const std_msgs::Empty& reset)
+{
   //digitalWrite(13, HIGH-digitalRead(13));   // blink the led
   // reset both back to zero.
   encoderLeft.write(0);
@@ -54,6 +55,8 @@ void setup()
     nh.spinOnce();
   }
   nh.loginfo("Initialize DiffBot Wheel Encoders");
+  std_msgs::Empty reset;
+  resetCallback(reset);
   delay(1);
 }
 
