@@ -96,7 +96,7 @@ namespace diffbot_base
          *
          * \param timeout Minimum time to wait for receiving encoder ticks
          */
-        bool isReceivingEncoderTicks(const ros::Duration &timeout=ros::Duration(1)) const;
+        bool isReceivingEncoderTicks(const ros::Duration &timeout=ros::Duration(1));
 
         /** \brief Helper for debugging a joint's state */
         virtual void printState();
@@ -178,6 +178,9 @@ namespace diffbot_base
         ros::Publisher pub_left_motor_value_;
         ros::Publisher pub_right_motor_value_;
 
+        // Declare publisher to reset the wheel encoders
+	// used during first launch of hardware interface to avoid large difference in encoder ticks from a previous run
+        ros::Publisher pub_reset_encoders_;
         // Declare subscriber for the wheel encoders
         // This subscriber receives the encoder ticks in the custom diffbot_msgs/Encoder message
         ros::Subscriber sub_encoder_ticks_;

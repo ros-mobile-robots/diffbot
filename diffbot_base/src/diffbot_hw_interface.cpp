@@ -5,6 +5,7 @@
 
 //#include <std_msgs/Float32.h>
 #include <std_msgs/Int32.h>
+#include <std_msgs/Empty.h>
 
 #include <iomanip>
  
@@ -42,6 +43,8 @@ namespace diffbot_base
         pub_left_motor_value_ = nh_.advertise<std_msgs::Int32>("motor_left", 10);
         pub_right_motor_value_ = nh_.advertise<std_msgs::Int32>("motor_right", 10);
 
+        // Setup publisher to reset wheel encoders (used during first launch of the hardware interface)
+        pub_reset_encoders_ = nh_.advertise<std_msgs::Empty>("reset", 10);
         // Setup subscriber for the wheel encoders
         sub_encoder_ticks_ = nh_.subscribe("encoder_ticks", 10, &DiffBotHWInterface::encoderTicksCallback, this);
 
@@ -212,7 +215,7 @@ namespace diffbot_base
         ROS_INFO_STREAM(std::endl << ss.str());
     }
 
-    bool DiffBotHWInterface::isReceivingEncoderTicks(const ros::Duration &timeout) const
+    bool DiffBotHWInterface::isReceivingEncoderTicks(const ros::Duration &timeout)
     {
         ROS_INFO("Get number of encoder ticks publishers");
 
@@ -232,6 +235,10 @@ namespace diffbot_base
         {
             ROS_INFO_STREAM("Number of encoder ticks publishers: " << num_publishers);
         }
+
+        ROS_INFO("Publish /reset to encoders");
+        std_msgs::Empty msg;
+        pub_reset_encoders_.publish(msg);
 
         return (num_publishers > 0);
     }
