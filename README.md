@@ -14,7 +14,8 @@ We look forward to improve this code base with you and want to thank you for the
 
 # DiffBot 
 
-![travis ci](https://travis-ci.com/fjp/diffbot.svg?branch=master) ![CI](https://github.com/fjp/diffbot/workflows/CI/badge.svg?branch=noetic-devel) [![Documentation](https://github.com/fjp/diffbot/actions/workflows/mkdocs_action.yml/badge.svg)](https://github.com/fjp/diffbot/actions/workflows/mkdocs_action.yml)
+![travis ci](https://travis-ci.com/fjp/diffbot.svg?branch=master) ![CI](https://github.com/fjp/diffbot/workflows/CI/badge.svg?branch=noetic-devel)
+[![Documentation CI](https://github.com/ros-mobile-robots/ros-mobile-robots.github.io/actions/workflows/ci.yml/badge.svg)](https://github.com/ros-mobile-robots/ros-mobile-robots.github.io/actions/workflows/ci.yml)
 
 DiffBot is an autonomous differential drive robot with two wheels. Its main processing unit is a Raspberry Pi 4 B running Ubuntu Mate 20.04 and the ROS 1 (ROS Noetic) middleware. This respository contains ROS driver packages, ROS Control Hardware Interface for the real robot and configurations for simulating DiffBot. The formatted documentation can be found at: https://fjp.at/diffbot.
 
