@@ -1,27 +1,13 @@
-## Update
-
-To improve this repository further, we will soon transfer it into a new organization [`ros-mobile-robots`](https://github.com/ros-mobile-robots).
-This way we can make sure it will stay organized when we add new features, please see the [future work section](#construction-future-work) 
-and open issues on what we plan to do.
-
-According to the [GitHub docs on transferring repositories](https://docs.github.com/en/github/administering-a-repository/transferring-a-repository), 
-all links to this repository will remain working, so no changes are required on your side.
-However, it is recommended to update your links when the move is finished.
-
-> All links to the previous repository location are automatically redirected to the new location. When you use `git clone`, `git fetch`, or `git push` on a transferred repository, these commands will redirect to the new repository location or URL. However, to avoid confusion, we strongly recommend updating any existing local clones to point to the new repository URL. You can do this by using git remote on the command line: `$ git remote set-url origin new_url`
-
-We look forward to improve this code base with you and want to thank you for the support.
-
 # DiffBot 
 
-![travis ci](https://travis-ci.com/fjp/diffbot.svg?branch=master) ![CI](https://github.com/fjp/diffbot/workflows/CI/badge.svg?branch=noetic-devel)
+![travis ci](https://travis-ci.com/fjp/diffbot.svg?branch=master) ![CI](https://github.com/ros-mobile-robots/diffbot/workflows/CI/badge.svg?branch=noetic-devel)
 [![Documentation CI](https://github.com/ros-mobile-robots/ros-mobile-robots.github.io/actions/workflows/ci.yml/badge.svg)](https://github.com/ros-mobile-robots/ros-mobile-robots.github.io/actions/workflows/ci.yml)
 
-DiffBot is an autonomous differential drive robot with two wheels. Its main processing unit is a Raspberry Pi 4 B running Ubuntu Mate 20.04 and the ROS 1 (ROS Noetic) middleware. This respository contains ROS driver packages, ROS Control Hardware Interface for the real robot and configurations for simulating DiffBot. The formatted documentation can be found at: https://fjp.at/diffbot.
+DiffBot is an autonomous differential drive robot with two wheels. Its main processing unit is a Raspberry Pi 4 B running Ubuntu Mate 20.04 and the ROS 1 (ROS Noetic) middleware. This respository contains ROS driver packages, ROS Control Hardware Interface for the real robot and configurations for simulating DiffBot. The formatted documentation can be found at: https://ros-mobile-robots.com.
 
 | DiffBot | Lidar SLAMTEC RPLidar A2 | 
 |:-------:|:-----------------:|
-|  [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/diffbot-front.png" width="700">](https://youtu.be/IcYkQyzUqik) | [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/rplidara2.png" width="700">](https://fjp.at/projects/diffbot/) |
+|  [<img src="https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/diffbot/diffbot-front.png" width="700">](https://youtu.be/IcYkQyzUqik) | [<img src="https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/diffbot/rplidara2.png" width="700">](https://fjp.at/projects/diffbot/) |
 
 ## Demonstration
 
@@ -96,7 +82,7 @@ make sure to download it to your `~/.gazebo/models/` folder, because the `turtle
 
 | `corridor.world` | `turtlebot3_world.world` | 
 |:-------------------------------------:|:--------------------------------:|
-| ![corridor-world](https://github.com/fjp/diffbot/blob/master/docs/resources/control/diffbot-rplidar.png) | ![turtlebot3-world](https://github.com/fjp/diffbot/blob/master/docs/resources/control/diffbot-turtlebot3-world.png) |
+| ![corridor-world](https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/control/diffbot-rplidar.png) | ![turtlebot3-world](https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/control/diffbot-turtlebot3-world.png) |
 
 #### Navigation
 
@@ -108,7 +94,7 @@ roslaunch diffbot_navigation diffbot.launch world_name:='$(find diffbot_gazebo)/
 
 Navigate the robot in a known map from the running [`map_server`](http://wiki.ros.org/map_server) using the [2D Nav Goal in RViz](http://wiki.ros.org/navigation/Tutorials/Using%20rviz%20with%20the%20Navigation%20Stack#A2D_Nav_Goal).
 
-[![DiffBot navigation](https://github.com/fjp/diffbot/blob/master/docs/resources/navigation/diffbot-navigation-gazebo-turtlebot3-world-small.gif)](https://youtu.be/2SwFTrJ1Ofg)
+[![DiffBot navigation](https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/navigation/diffbot-navigation-gazebo-turtlebot3-world-small.gif)](https://youtu.be/2SwFTrJ1Ofg)
 
 #### SLAM
 
@@ -126,7 +112,7 @@ roslaunch diffbot_slam diffbot_slam.launch slam_method:=gmapping
 
 Then explore the world with the [`teleop_twist_keyboard`](http://wiki.ros.org/teleop_twist_keyboard) or with the already launched [`rqt_robot_steering`](https://wiki.ros.org/rqt_robot_steering) GUI plugin:
 
-[![DiffBot slam](https://github.com/fjp/diffbot/blob/master/docs/resources/slam/diffbot-slam.gif)](https://youtu.be/gLlo5V-BZu0)
+[![DiffBot slam](https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/slam/diffbot-slam.gif)](https://youtu.be/gLlo5V-BZu0)
 
 
 ### DiffBot Control in Gazebo
@@ -135,7 +121,7 @@ Then explore the world with the [`teleop_twist_keyboard`](http://wiki.ros.org/te
 roslaunch diffbot_control diffbot.launch
 ```
 
-![DiffBot Gazebo](docs/resources/gazebo/diffbot.png)
+![DiffBot Gazebo](https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/gazebo/diffbot.png)
 
 ### RViz
 
@@ -144,7 +130,7 @@ View just the `diffbot_description` in RViz.
 ```console
 roslaunch diffbot_description view_diffbot.launch
 ```
-![DiffBot RViz](docs/resources/rviz_diffbot_meshes.png)
+![DiffBot RViz](https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/rviz_diffbot_meshes.png)
 
 
 ### Navigating and Mapping on the real Robot
@@ -239,7 +225,7 @@ Possible useful packages:
 
 | SBC RPi 4B | MCU Teensy 3.2 | IMU Bosch |
 |:-------:|:-----------------:|:----:|
-|  [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/sbc-rpi-4b.png" width="700">](https://fjp.at/projects/diffbot/) | [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/mcu-teensy32.png" width="700">](https://github.com/fjp/diffbot) | [<img src="https://raw.githubusercontent.com/fjp/diffbot/master/docs/resources/diffbot/imu.png" width="700">](https://github.com/fjp/diffbot) |
+|  [<img src="https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/diffbot/sbc-rpi-4b.png" width="700">](https://ros-mobile-robots.com/) | [<img src="https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/diffbot/mcu-teensy32.png" width="700">](https://github.com/ros-mobile-robots/diffbot) | [<img src="https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/diffbot/imu.png" width="700">](https://github.com/ros-mobile-robots/diffbot) |
 
 | Part                    | Store |
 |:------------------------|:---------------------------------------------------------------------------:|
@@ -264,7 +250,7 @@ Possible useful packages:
 
 ## Hardware Architecture and Wiring
 
-![Hardware Architecture and Wiring](https://raw.githubusercontent.com/fjp/diffbot/noetic-devel/docs/fritzing/diffbot_architecture.svg)
+![Hardware Architecture and Wiring](https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/fritzing/diffbot_architecture.svg)
 
 ## :handshake: Acknowledgment
 
