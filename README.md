@@ -254,6 +254,7 @@ Possible useful packages:
 
 ## :handshake: Acknowledgment
 
+- - [Louis Morandy-Rapiné](https://louisrapine.com/) for his great work on [REMO robot](https://github.com/ros-mobile-robots/remo_description) and designing it in [Fusion 360](https://www.autodesk.com/products/fusion-360/overview).
 - [Lentin Joseph](https://lentinjoseph.com/) and the participants of [ROS Developer Learning Path](https://robocademy.com/2020/06/25/enroll-in-robot-operating-system-learning-path-by-lentin-joseph/)
 - The configurable `diffbot_description` using yaml files (see [ROS Wiki on xacro](http://wiki.ros.org/xacro#YAML_support)) is part of [`mobile_robot_description`](https://github.com/pxalcantara/mobile_robot_description) from [@pxalcantara](https://github.com/pxalcantara).
 - Thanks to [@NestorDP](https://github.com/NestorDP) for help with the meshes (similar to [`littlebot`](https://github.com/NestorDP/littlebot)), see also [issue #1](https://github.com/fjp/diffbot/issues/1)
