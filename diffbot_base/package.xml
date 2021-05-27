@@ -13,7 +13,7 @@
   <!-- One license tag required, multiple allowed, one license per tag -->
   <!-- Commonly used license strings: -->
   <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
-  <license>GPLv3</license>
+  <license>BSDv3</license>
 
 
   <!-- Url tags are optional, but multiple are allowed, one per tag -->
@@ -82,6 +82,7 @@
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>diffbot_msgs</exec_depend>
   <exec_depend>rosparam_shortcuts</exec_depend>
+  <exec_depend>rosserial</exec_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
