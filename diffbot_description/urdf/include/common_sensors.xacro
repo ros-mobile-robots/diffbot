@@ -7,36 +7,35 @@
      value="${sensor_prop['gpu_laser']['mesh']}"/>
 
   <link name="${prefix}_gpu_laser_link">
-      <xacro:if value="${mesh != '' }" >
-      <visual>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
+    <xacro:if value="${mesh != '' }" >
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://${package_name}/meshes/sensors/${mesh}" />
+      </geometry>
+      <material name="dark_grey"/>
+    </visual>
+  </xacro:if>
+  <xacro:if value="${mesh == '' }" >
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="package://${package_name}/meshes/sensors/${mesh}" />
-        </geometry>
-        <material name="dark_grey"/>
-      </visual>
-    </xacro:if>
-    <xacro:if value="${mesh == '' }" >
-      <visual>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-         <geometry>
-         <cylinder radius="${sensor_prop['gpu_laser']['radius']}" length="${sensor_prop['gpu_laser']['length']}"/>
-        </geometry>
-        <material name="red"/>
-      </visual>
-    </xacro:if>
-      <collision>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <cylinder radius="${sensor_prop['gpu_laser']['radius']}" length="${sensor_prop['gpu_laser']['length']}"/>
-        </geometry>
-      </collision>
-      <xacro:cylinder_inertia m="${sensor_prop['gpu_laser']['mass']}"
-                              r="${sensor_prop['gpu_laser']['radius']}"
-                              l="${sensor_prop['gpu_laser']['length']}"
-                              o_xyz="0 0 0"
-                              o_rpy="0 0 0" >
-      </xacro:cylinder_inertia> 
+        <cylinder radius="${sensor_prop['gpu_laser']['radius']}" length="${sensor_prop['gpu_laser']['length']}"/>
+      </geometry>
+      <material name="red"/>
+    </visual>
+  </xacro:if>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${sensor_prop['gpu_laser']['radius']}" length="${sensor_prop['gpu_laser']['length']}"/>
+      </geometry>
+    </collision>
+    <xacro:cylinder_inertia m="${sensor_prop['gpu_laser']['mass']}"
+                            r="${sensor_prop['gpu_laser']['radius']}"
+                            l="${sensor_prop['gpu_laser']['length']}"
+                            o_xyz="0 0 0"
+                            o_rpy="0 0 0" />
   </link>
   <gazebo reference="${prefix}_gpu_laser_link">
     <material>Gazebo/Grey</material>
@@ -85,7 +84,171 @@
       </plugin>
     </sensor>
   </gazebo>
+</xacro:macro>
 
+
+
+<xacro:macro name="camera_sensor" params=" *joint_origin parent_link sensor_prop visualize mesh:='' ">
+  <link name="camera_link">
+    <xacro:if value="${mesh != '' }" >
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="package://${package_name}/meshes/sensors/${mesh}" scale="${sensor_prop['camera']['meshes']['scale']}" />
+        </geometry>
+        <material name="dark_grey"/>
+      </visual>
+    </xacro:if>
+    <xacro:if value="${mesh == '' }" >
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="${sensor_prop['camera']['radius']}" length="${sensor_prop['camera']['length']}"/>
+        </geometry>
+        <material name="red"/>
+      </visual>
+    </xacro:if>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.03" length="0.03"/>
+      </geometry>
+    </collision>
+    <xacro:cylinder_inertia m="${sensor_prop['camera']['mass']}"
+                            r="${sensor_prop['camera']['radius']}"
+                            l="${sensor_prop['camera']['length']}"
+                            o_xyz="0 0 0"
+                            o_rpy="0 0 0" />
+  </link>
+
+  <gazebo reference="camera_link">
+    <material>Gazebo/Red</material>
+  </gazebo>
+
+  <joint name="camera_joint" type="fixed">
+    <axis xyz="0 1 0" />
+    <xacro:insert_block name="joint_origin" />
+    <parent link="${parent_link}"/>
+    <child link="camera_link"/>
+  </joint>
+
+  <gazebo reference="camera_link">
+    <sensor type="camera" name="camera1">
+      <update_rate>60</update_rate>
+      <visualize>${visualize}</visualize>
+      <camera>
+        <horizontal_fov>1.92</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>B8G8R8</format>
+        </image>
+        <depth_camera>
+        </depth_camera>
+        <clip>
+          <near>0.02</near>
+          <far>300</far>
+        </clip>
+        <noise>
+          <type>gaussian</type>
+          <!-- Noise is sampled independently per pixel on each frame.
+                That pixel's noise value is added to each of its color
+                channels, which at that point lie in the range [0,1]. -->
+          <mean>0.0</mean>
+          <stddev>0.007</stddev>
+        </noise>
+      </camera>
+      <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+        <ros>
+          <!-- <namespace>/</namespace> -->
+
+          <!-- topics need to be prefixed with camera_name for remapping -->
+          <!-- <remapping>image_raw:=image_demo</remapping> -->
+        </ros>
+
+        <!-- omit camera_name to default to sensor name -->
+        <!-- <camera_name>mycamera</camera_name> -->
+
+        <!-- frame_name>omit so it defaults to link name</frame_name-->
+
+      </plugin>
+    </sensor>
+  </gazebo>
+</xacro:macro>
+
+<xacro:macro name="imu_sensor" params=" *joint_origin parent_link sensor_prop">
+
+  <xacro:property name="mesh"
+     value="${sensor_prop['imu']['mesh']}"/>
+
+  <link name="imu_link">
+    <xacro:if value="${mesh != '' }" >
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="package://${package_name}/meshes/sensors/${mesh}" scale="${sensor_prop['imu']['scale']}" />
+        </geometry>
+        <material name="dark_grey"/>
+      </visual>
+    </xacro:if>
+    <xacro:if value="${mesh == '' }" >
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="${sensor_prop['imu']['radius']}" length="${sensor_prop['imu']['length']}"/>
+        </geometry>
+        <material name="red"/>
+      </visual>
+    </xacro:if>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.01 0.01"/>
+      </geometry>
+    </collision>
+    <xacro:box_inertia m="${sensor_prop['imu']['mass']}"
+                       x="${sensor_prop['imu']['size']['x']}"
+                       y="${sensor_prop['imu']['size']['y']}"
+                       z="${sensor_prop['imu']['size']['y']}" />
+    <!-- Todo delete visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.01 0.01"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <mass value="1e-5" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+    </inertial-->
+  </link>
+
+  <gazebo reference="imu_link">
+    <material>Gazebo/Yellow</material>
+  </gazebo>
+
+  <joint name="imu_joint" type="fixed">
+    <axis xyz="0 1 0" />
+    <xacro:insert_block name="joint_origin" />
+    <parent link="${parent_link}"/>
+    <child link="imu_link"/>
+  </joint>
+
+  <gazebo reference="imu_link">
+    <sensor type="imu" name="my_imu">
+    <always_on>true</always_on>
+    <!-- Publish at 30 hz -->
+    <update_rate>30</update_rate>
+    <plugin name="my_imu_plugin" filename="libgazebo_ros_imu_sensor.so">
+      <ros>
+        <!-- Will publish to /imu/data -->
+        <namespace>/imu</namespace>
+        <argument>~/out:=data</argument>
+      </ros>
+      <!-- frame_name ommited, will be "my_link" -->
+    </plugin>
+    </sensor>
+  </gazebo>
 </xacro:macro>
 
 

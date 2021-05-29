@@ -4,6 +4,7 @@ y_size: 0.0225     # Motor dimension in y axis
 z_size: 0.0188     # Motor dimension in z axis
 mesh: 'motor.stl'  # Name of the mesh files. Leave it empty ('') to have a red wheel
 #mesh: ''
+scale: ''
 x_offset: 0.096
 y_offset: -0.0135
 z_offset: -0.017

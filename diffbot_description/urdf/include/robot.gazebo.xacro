@@ -2,13 +2,15 @@
 <robot xmlns:xacro="http://ros.org/wiki/xacro">
 
   <!-- ros_control plugin -->
-  <gazebo>
-    <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
-      <robotNamespace>/diffbot</robotNamespace>
-      <!--robotParam>/robot_description</robotParam-->
-      <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
-    </plugin>
-  </gazebo>
+  <xacro:macro name="gazebo_ros_control" params="robotNamespace robotSimType:=gazebo_ros_control/DefaultRobotHWSim"> 
+    <gazebo>
+      <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+        <robotNamespace>${robotNamespace}</robotNamespace>
+        <!--robotParam>/robot_description</robotParam-->
+        <robotSimType>${robotSimType}</robotSimType>
+      </plugin>
+    </gazebo>
+  </xacro:macro>
 
   <!-- xacro to set the friction for the wheel. This patch was taken from the MIR
   repository. 

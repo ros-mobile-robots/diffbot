@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+<!-- ===================== Addon xacro ==========================================
+
+  Xacro to create addons for the robot.
+
+  params:
+  - addon [string]: name of the addon (has to be the same as in the base_prop yaml);
+  - base_props [dictionary]: contains addon link properties;
+  - parent_link [string]: name of the parent link in the joint tag;
+  - origin [block]: origin, position and orientation of the link;
+-->
+  <xacro:macro name="addon"
+               params="addon base_prop parent_link *origin ">
+    <link name="${addon}_link">
+    <xacro:box_inertia m="${base_prop[addon]['mass']}"
+                       x="${base_prop[addon]['x_size']}"
+                       y="${base_prop[addon]['y_size']}"
+                       z="${base_prop[addon]['z_size']}"/>
+    <xacro:if value="${base_prop[addon]['mesh'] != '' }" >
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <!-- The folder path get a folder_name global parameter -->
+          <mesh filename="package://${package_name}/meshes/${robot_name}/${base_prop[addon]['mesh']}" scale="${base_prop[addon]['scale']}"/>
+        </geometry>
+        <material name="white" />
+      </visual>
+    </xacro:if>
+    <xacro:if value="${base_prop[addon]['mesh'] == '' }" >
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="${base_prop[addon]['x_size']} ${base_prop[addon]['y_size']} ${base_prop[addon]['z_size']}"/>
+        </geometry>
+        <material name="white" />
+      </visual>
+    </xacro:if>  
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${base_prop[addon]['x_size']} ${base_prop[addon]['y_size']} ${base_prop[addon]['z_size']}"/>
+      </geometry>
+    </collision>
+    </link>
+    <joint name="${addon}_joint" type="fixed">
+      <!--origin xyz="0 0 0" rpy="0 0 0" /-->
+      <xacro:insert_block name="origin" />
+      <parent link="${parent_link}" />
+      <child link="${addon}_link" />
+      <axis xyz="0 0 0" />
+    </joint>
+    <gazebo reference="${addon}">
+      <material>Gazebo/Black</material>
+    </gazebo>
+  </xacro:macro>
+</robot>

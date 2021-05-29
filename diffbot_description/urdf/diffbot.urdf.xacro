@@ -5,8 +5,9 @@
   <xacro:property name="robot_name" value="diffbot"/>
 
   <xacro:include filename="$(find ${package_name})/urdf/include/common_macros.urdf.xacro" />
+  <xacro:include filename="$(find ${package_name})/urdf/include/diffbot_caster_macro.urdf.xacro" />
   <xacro:include filename="$(find ${package_name})/urdf/include/common_sensors.xacro" />
-  <xacro:include filename="$(find ${package_name})/urdf/diffbot.gazebo.xacro" />
+  <xacro:include filename="$(find ${package_name})/urdf/include/robot.gazebo.xacro" />
 
   <xacro:property name="caster_wheel_yaml" value="$(find ${package_name})/config/${robot_name}/caster_wheel.yaml" />
   <xacro:property name="caster_wheel_props" value="${load_yaml(caster_wheel_yaml)}"/>
@@ -40,28 +41,24 @@
   <!-- Front Wheels -->
   <xacro:wheel prefix="front_right" reflect="-1" 
                       wheel_props="${front_wheel_props}"
-                      base_props="${base_props}"
-                      mesh="${front_wheel_props['wheel']['mesh']}"> 
+                      base_props="${base_props}" > 
   </xacro:wheel>
 
   <xacro:wheel prefix="front_left" reflect="1" 
                       wheel_props="${front_wheel_props}"
-                      base_props="${base_props}"
-                      mesh="${front_wheel_props['wheel']['mesh']}"> 
+                      base_props="${base_props}" > 
   </xacro:wheel>
 
 
   <!-- Motors -->
   <xacro:motor prefix="right" reflect="-1" 
                       motor_props="${motor_props}"
-                      base_props="${base_props}"
-                      mesh="${motor_props['mesh']}"> 
+                      base_props="${base_props}" > 
   </xacro:motor>
 
   <xacro:motor prefix="left" reflect="1" 
                       motor_props="${motor_props}"
-                      base_props="${base_props}"
-                      mesh="${motor_props['mesh']}"> 
+                      base_props="${base_props}" > 
   </xacro:motor>
 
   <!-- Sensors -->
@@ -69,5 +66,8 @@
                    sensor_prop="${sensor_prop}"> 
   </xacro:gpu_laser>
 
+  <!-- Gazebo -->
+  <xacro:gazebo_ros_control robotNamespace="/diffbot">
+  </xacro:gazebo_ros_control>
 
 </robot>
