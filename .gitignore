@@ -49,6 +49,7 @@ logs
 # Custom
 docs/plots
 .vscode
+.pio
 
 # intermediate documentation
 site
