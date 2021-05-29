@@ -309,11 +309,11 @@ namespace diffbot_base
 
 
     /// Process updates from encoders
-    void DiffBotHWInterface::encoderTicksCallback(const diffbot_msgs::Encoder::ConstPtr& msg)
+    void DiffBotHWInterface::encoderTicksCallback(const diffbot_msgs::Encoders::ConstPtr& msg_encoders)
     {
         /// Update current encoder ticks in encoders array
-        encoder_ticks_[0] = msg->encoders[0];
-        encoder_ticks_[1] = msg->encoders[1];
+        encoder_ticks_[0] = msg_encoders->ticks[0];
+        encoder_ticks_[1] = msg_encoders->ticks[1];
         ROS_DEBUG_STREAM_THROTTLE(1, "Left encoder ticks: " << encoder_ticks_[0]);
         ROS_DEBUG_STREAM_THROTTLE(1, "Right encoder ticks: " << encoder_ticks_[1]);
     }

@@ -48,7 +48,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate messages in the 'msg' folder
 add_message_files(
   FILES
-  Encoder.msg
+  Encoders.msg
 #  Message2.msg
 )
 
@@ -105,6 +105,7 @@ catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES diffbot_msgs
   CATKIN_DEPENDS message_runtime
+  std_msgs
 #  DEPENDS system_lib
 )
 

@@ -11,7 +11,7 @@
 
 #include <ros.h>
 //#include <std_msgs/Int32.h>
-#include <diffbot_msgs/Encoder.h>
+#include <diffbot_msgs/Encoders.h>
 #include <std_msgs/Empty.h>
 
 #include <Encoder.h>
@@ -41,8 +41,8 @@ ros::Subscriber<std_msgs::Empty> sub_reset("reset", resetCallback);
 
 // ROS Publisher setup to publish left and right encoder ticks
 // This uses the custom encoder ticks message that defines an array of two integers
-diffbot_msgs::Encoder ticks;
-ros::Publisher pub_encoders("encoder_ticks", &ticks);
+diffbot_msgs::Encoders encoder_ticks;
+ros::Publisher pub_encoders("encoder_ticks", &encoder_ticks);
 
 void setup() 
 {
@@ -68,9 +68,9 @@ void loop() {
   newLeft = encoderLeft.read();
   newRight = encoderRight.read();
 
-  ticks.encoders[0] = newLeft;
-  ticks.encoders[1] = newRight;
-  pub_encoders.publish(&ticks);
+  encoder_ticks.ticks[0] = newLeft;
+  encoder_ticks.ticks[1] = newRight;
+  pub_encoders.publish(&encoder_ticks);
   nh.spinOnce();
   // Use at least a delay of 3 ms on the work pc and 5 ms on the Raspberry Pi
   // Too low delay causes errors in rosserial similar to the following:
