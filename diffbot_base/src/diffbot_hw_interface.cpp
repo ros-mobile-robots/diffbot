@@ -32,6 +32,12 @@ namespace diffbot_base
         error += !rosparam_shortcuts::get(name_, rpnh, "joints", joint_names_);
         error += !rosparam_shortcuts::get(name_, nh_, "mobile_base_controller/wheel_radius", wheel_radius_);
         error += !rosparam_shortcuts::get(name_, nh_, "mobile_base_controller/linear/x/max_velocity", max_velocity_);
+        // Get additional parameters from the diffbot_base/config/base.yaml which is stored on the parameter server
+        error += !rosparam_shortcuts::get(name_, nh_, "encoder_resolution", encoder_resolution_);
+        error += !rosparam_shortcuts::get(name_, nh_, "gain", gain_);
+        error += !rosparam_shortcuts::get(name_, nh_, "trim", trim_);
+        error += !rosparam_shortcuts::get(name_, nh_, "motor_constant", motor_constant_);
+        error += !rosparam_shortcuts::get(name_, nh_, "pwm_limit", pwm_limit_);
         rosparam_shortcuts::shutdownIfError(name_, error);
 
         wheel_diameter_ = 2.0 * wheel_radius_;
@@ -39,9 +45,21 @@ namespace diffbot_base
         // ros_control RobotHW needs velocity in rad/s but in the config its given in m/s
         max_velocity_ = linearToAngular(max_velocity_);
 
+
+        ROS_INFO_STREAM("mobile_base_controller/wheel_radius: " << wheel_radius_);
+        ROS_INFO_STREAM("mobile_base_controller/linear/x/max_velocity: " << max_velocity_);
+        ROS_INFO_STREAM("encoder_resolution: " << encoder_resolution_);
+        ROS_INFO_STREAM("gain: " << gain_);
+        ROS_INFO_STREAM("trim: " << trim_);
+        ROS_INFO_STREAM("motor_constant: " << motor_constant_);
+        ROS_INFO_STREAM("pwm_limit: " << pwm_limit_);
+
         // Setup publisher for the motor driver 
         pub_left_motor_value_ = nh_.advertise<std_msgs::Int32>("motor_left", 10);
         pub_right_motor_value_ = nh_.advertise<std_msgs::Int32>("motor_right", 10);
+
+        //Setup publisher for angular wheel joint velocity commands
+        pub_wheel_cmd_velocities_ = nh_.advertise<diffbot_msgs::WheelCmd>("wheel_cmd_velocities", 10);
 
         // Setup publisher to reset wheel encoders (used during first launch of the hardware interface)
         pub_reset_encoders_ = nh_.advertise<std_msgs::Empty>("reset", 10);
@@ -85,9 +103,9 @@ namespace diffbot_base
 
             joint_velocity_commands_[i] = 0.0;
 
-	    // Initialize encoder_ticks_ to zero because receiving meaningful
-	    // tick values from the microcontroller might take some time
-	    encoder_ticks_[i] = 0.0;
+            // Initialize encoder_ticks_ to zero because receiving meaningful
+            // tick values from the microcontroller might take some time
+            encoder_ticks_[i] = 0.0;
 
             // Initialize the pid controllers for the motors using the robot namespace
             std::string pid_namespace = "pid/" + motor_names[i];
@@ -145,6 +163,28 @@ namespace diffbot_base
         ros::Duration elapsed_time = period;
         // Write to robot hw
         // joint velocity commands from ros_control's RobotHW are in rad/s
+
+        // adjusting k by gain and trim
+        double motor_constant_right_inv = (gain_ + trim_) / motor_constant_;
+        double motor_constant_left_inv = (gain_ - trim_) / motor_constant_;
+
+
+        joint_velocity_commands_[0] = joint_velocity_commands_[0] * motor_constant_left_inv;
+        joint_velocity_commands_[1] = joint_velocity_commands_[1] * motor_constant_right_inv;
+
+
+        // Publish the desired (commanded) angular wheel joint velocities
+        diffbot_msgs::WheelCmd joint_wheel_command;
+        for (int i = 0; i < NUM_JOINTS; ++i)
+        {
+            joint_wheel_command.velocities[i] = joint_velocity_commands_[i];
+        }
+
+        pub_wheel_cmd_velocities_.publish(joint_wheel_command);
+
+        // The following code provides another velocity commands interface
+        // With it a motor driver node can directly subscribe to the desired velocities.
+
         // Convert the velocity command to a percentage value for the motor
         // This maps the velocity to a percentage value which is used to apply
         // a percentage of the highest possible battery voltage to each motor.
@@ -322,7 +362,7 @@ namespace diffbot_base
     double DiffBotHWInterface::ticksToAngle(const int &ticks) const
     {
         // Convert number of encoder ticks to angle in radians
-        double angle = (double)ticks * (2.0*M_PI / 542.0);
+        double angle = (double)ticks * (2.0*M_PI / encoder_resolution_);
         ROS_DEBUG_STREAM_THROTTLE(1, ticks << " ticks correspond to an angle of " << angle);
 	    return angle;
     }

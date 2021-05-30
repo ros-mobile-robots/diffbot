@@ -1,0 +1,9 @@
+# Hardware related parameters
+# will be loaded onto the parameter server
+# See the diffbot.launch
+diffbot:
+  encoder_resolution: 542
+  gain: 1.0
+  trim: 0.0
+  motor_constant: 27.0
+  pwm_limit: 1.0

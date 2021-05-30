@@ -12,6 +12,10 @@
     <rosparam command="load" 
               file="$(find diffbot_control)/config/diffbot_control.yaml"/>
 
+    <!-- Load base config to the parameter server -->
+    <rosparam command="load" 
+              file="$(find diffbot_base)/config/base.yaml"/>
+
     <!-- Load the controllers -->
     <!-- This will use the controller manager that got started inside the difbot_base node -->
     <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"

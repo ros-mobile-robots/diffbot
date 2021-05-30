@@ -6,6 +6,7 @@
 #include <ros/ros.h>
 #include <urdf/model.h>
 #include <diffbot_msgs/Encoders.h>
+#include <diffbot_msgs/WheelCmd.h>
 
 // ROS Controls
 #include <hardware_interface/robot_hw.h>
@@ -157,6 +158,16 @@ namespace diffbot_base
         double wheel_diameter_;
         double max_velocity_;
 
+        // Hardware related parameters to hold values from the parameter server
+        // The parameters are defined in diffbot_base/config/base.yaml
+        double encoder_resolution_;
+        // Parameters for the gain trim model
+        double gain_;
+        double trim_;
+        // Assume the same motor constant for both motors
+        double motor_constant_;
+        double pwm_limit_;
+
         // Data member array to store the controller commands which are sent to the 
         // robot's resources (joints, actuators)
         // The diff_drive_controller uses the hardware_interface::VelocityJointInterface
@@ -177,6 +188,10 @@ namespace diffbot_base
         // Declare publishers for the motor driver
         ros::Publisher pub_left_motor_value_;
         ros::Publisher pub_right_motor_value_;
+
+
+        // Declare publishers for angular wheel joint velocities
+        ros::Publisher pub_wheel_cmd_velocities_;
 
         // Declare publisher to reset the wheel encoders
 	// used during first launch of hardware interface to avoid large difference in encoder ticks from a previous run
