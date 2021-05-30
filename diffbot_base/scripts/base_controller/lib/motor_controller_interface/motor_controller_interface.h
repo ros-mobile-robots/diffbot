@@ -1,3 +1,7 @@
+/*
+ * Author: Franz Pucher
+ */
+
 #ifndef MOTOR_CONTROLLER_INTF_H
 #define MOTOR_CONTROLLER_INTF_H
 
