@@ -177,7 +177,7 @@ namespace diffbot_base
         diffbot_msgs::WheelCmd joint_wheel_command;
         for (int i = 0; i < NUM_JOINTS; ++i)
         {
-            joint_wheel_command.velocities[i] = joint_velocity_commands_[i];
+            joint_wheel_command.velocities.push_back(joint_velocity_commands_[i]);
         }
 
         pub_wheel_cmd_velocities_.publish(joint_wheel_command);
