@@ -1,3 +1,10 @@
+/*
+ * Author: Franz Pucher
+ */
+
+#ifndef DIFFBOT_ENCODER_H
+#define DIFFBOT_ENCODER_H
+
 #include <Encoder.h>
 
 
@@ -54,3 +61,5 @@ namespace diffbot
         long prev_encoder_ticks_;
     };
 }
+
+#endif // DIFFBOT_ENCODER_H
