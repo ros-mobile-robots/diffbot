@@ -55,6 +55,14 @@ namespace diffbot
          */
         inline void write(int32_t p) { encoder.write(p); };
 
+        /** \brief Setter for encoder resolution
+         */
+        inline void resolution(int resolution) { encoder_resolution_ = resolution; };
+
+        /** \brief Getter for encoder resolution
+         */
+        inline int resolution() { return encoder_resolution_; };
+
     private:
         int encoder_resolution_;
         unsigned long prev_update_time_;
