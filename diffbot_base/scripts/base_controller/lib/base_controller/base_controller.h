@@ -30,26 +30,52 @@ namespace diffbot {
 
         struct PublishRate
         {
-            uint8_t imu_;
-            uint8_t command_;
-            uint8_t debug_;
+            double imu_;
+            double command_;
+            double debug_;
+
+            struct Period
+            {
+                double imu_;
+                double command_;
+                double debug_;
+
+                inline Period(double imu_frequency, double command_frequency, double debug_frequency)
+                    : imu_(1.0 / imu_frequency)
+                    , command_(1.0 / command_frequency)
+                    , debug_(1.0 / debug_frequency) {};
+            } period_;
+
+            inline Period& period() { return period_; };
+
+            inline PublishRate(double imu_frequency,
+                               double command_frequency,
+                               double debug_frequency)
+                : imu_(imu_frequency)
+                , command_(command_frequency)
+                , debug_(debug_frequency)
+                , period_(imu_frequency, command_frequency, debug_frequency) {};
         } publish_rate_;
+
+        inline int period(double frequency) { return 1 / frequency; };
+
+        inline PublishRate& publishRate() { return publish_rate_; };
 
         struct LastUpdateTime
         {
-            unsigned long& command;
-            unsigned long& control;
-            unsigned long& imu;
-            unsigned long& debug;
+            ros::Time command;
+            ros::Time control;
+            ros::Time imu;
+            ros::Time debug;
 
-            inline LastUpdateTime(unsigned long& command, 
-                                  unsigned long& control,
-                                  unsigned long& imu,
-                                  unsigned long& debug)
-                : command(command), control(control), imu(imu), debug(debug) {};
+            inline LastUpdateTime(ros::Time start)
+                : command(start.toSec(), start.toNsec())
+                , control(start.toSec(), start.toNsec())
+                , imu(start.toSec(), start.toNsec())
+                , debug(start.toSec(), start.toNsec()) {};
         } last_update_time_;
 
-        inline LastUpdateTime& last_update_time() { return last_update_time_; };
+        inline LastUpdateTime& lastUpdateTime() { return last_update_time_; };
 
 
         inline bool debug() { return debug_; };
@@ -94,21 +120,13 @@ namespace diffbot {
 
         MotorControllerIntf<TMotorDriver>* p_motor_controller_right_;
         MotorControllerIntf<TMotorDriver>* p_motor_controller_left_;
-        unsigned long prev_control_time_ = 0;
 
-        
         ros::Subscriber<diffbot_msgs::WheelCmd, BaseController<TMotorController, TMotorDriver>> sub_wheel_cmd_velocities_;
         float wheel_cmd_velocity_left_ = 0.0;
         float wheel_cmd_velocity_right_ = 0.0;
-        unsigned long prev_command_time_ = 0;
-
-
-        // IMU
-        unsigned long prev_imu_time_ = 0;
 
         // DEBUG
         bool debug_;
-        unsigned long prev_debug_time_ = 0;
     };
 
 
@@ -116,8 +134,6 @@ namespace diffbot {
 
 template <typename TMotorController, typename TMotorDriver>
 using BC = diffbot::BaseController<TMotorController, TMotorDriver>;
-
-
 
 
 template <typename TMotorController, typename TMotorDriver>
@@ -129,14 +145,11 @@ diffbot::BaseController<TMotorController, TMotorDriver>
     , sub_reset_encoders_("reset", &BC<TMotorController, TMotorDriver>::resetEncodersCallback, this)
     , pub_encoders_("encoder_ticks", &encoders_)
     , sub_wheel_cmd_velocities_("wheel_cmd_velocities", &BC<TMotorController, TMotorDriver>::commandCallback, this)
-    , last_update_time_(prev_command_time_, prev_control_time_, prev_imu_time_, prev_debug_time_)
+    , last_update_time_(nh.now())
+    , publish_rate_(PUBLISH_RATE_IMU, PUBLISH_RATE_COMMAND, PUBLISH_RATE_DEBUG)
 {
     p_motor_controller_left_ = motor_controller_left;
     p_motor_controller_right_ = motor_controller_right;
-
-    publish_rate_.imu_ = 1;
-    publish_rate_.command_ = 20;
-    publish_rate_.debug_ = 5;
 }
 
 
@@ -189,54 +202,54 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::commandCallback(co
     wheel_cmd_velocity_left_ = cmd_msg.velocities[0];
     wheel_cmd_velocity_right_ = cmd_msg.velocities[1];
 
-    prev_command_time_ = millis();
+    lastUpdateTime().command = nh_.now();
 }
 
 // ROS Subscriber setup to reset both encoders to zero
 template <typename TMotorController, typename TMotorDriver>
 void diffbot::BaseController<TMotorController, TMotorDriver>::resetEncodersCallback(const std_msgs::Empty& reset)
 {
-  //digitalWrite(13, HIGH-digitalRead(13));   // blink the led
-  // reset both back to zero.
-  this->encoder_left_.write(0);
-  this->encoder_right_.write(0);
-  this->nh_.loginfo("Reset both wheel encoders to zero");
+    //digitalWrite(13, HIGH-digitalRead(13));   // blink the led
+    // reset both back to zero.
+    this->encoder_left_.write(0);
+    this->encoder_right_.write(0);
+    this->nh_.loginfo("Reset both wheel encoders to zero");
 }
 
 
 template <typename TMotorController, typename TMotorDriver>
 void diffbot::BaseController<TMotorController, TMotorDriver>::read()
 {
-  //get the current speed of each motor from the encoder ticks
-  long new_left, new_right;
-  new_left = encoder_left_.read();
-  new_right = encoder_right_.read();
+    //get the current speed of each motor from the encoder ticks
+    long new_left, new_right;
+    new_left = encoder_left_.read();
+    new_right = encoder_right_.read();
 
-  encoders_.ticks[0] = new_left;
-  encoders_.ticks[1] = new_right;
-  pub_encoders_.publish(&encoders_);
+    encoders_.ticks[0] = new_left;
+    encoders_.ticks[1] = new_right;
+    pub_encoders_.publish(&encoders_);
 
-  // TODO publish low level velocities and compare with high level
+    // TODO publish low level velocities and compare with high level
 }
 
 template <typename TMotorController, typename TMotorDriver>
 void diffbot::BaseController<TMotorController, TMotorDriver>::write()
 {
-  // https://www.arduino.cc/reference/en/language/functions/math/map/
-  // map(value, fromLow, fromHigh, toLow, toHigh)
-  // Map angular wheel joint velocity to motor cmd
-  // TODO get rosparam linear max_velocity and convert to max rotational max velocity
-  int motor_cmd_left = map(wheel_cmd_velocity_left_, -max_angular_velocity_, max_angular_velocity_, -255, 255);
+    // https://www.arduino.cc/reference/en/language/functions/math/map/
+    // map(value, fromLow, fromHigh, toLow, toHigh)
+    // Map angular wheel joint velocity to motor cmd
+    // TODO get rosparam linear max_velocity and convert to max rotational max velocity
+    int motor_cmd_left = map(wheel_cmd_velocity_left_, -max_angular_velocity_, max_angular_velocity_, -255, 255);
 
-  // TODO compute PID output
-  //the value sent to the motor driver is calculated by the PID based on the error between commanded RPM vs measured RPM
-  //the calculated PID ouput value is is capped at -/+ MAX_RPM to prevent the PID from having too much error
-  // float measured_angular_velocity_left = encoderLeft.getRPM();
-  //motor_pid_left.compute(g_wheel_cmd_velocity_left, measured_angular_velocity_left));
-  p_motor_controller_left_->setSpeed(motor_cmd_left);
+    // TODO compute PID output
+    //the value sent to the motor driver is calculated by the PID based on the error between commanded RPM vs measured RPM
+    //the calculated PID ouput value is is capped at -/+ MAX_RPM to prevent the PID from having too much error
+    // float measured_angular_velocity_left = encoderLeft.getRPM();
+    //motor_pid_left.compute(g_wheel_cmd_velocity_left, measured_angular_velocity_left));
+    p_motor_controller_left_->setSpeed(motor_cmd_left);
 
-  int motor_cmd_right = map(wheel_cmd_velocity_right_, -max_angular_velocity_, max_angular_velocity_, -255, 255);
-  p_motor_controller_right_->setSpeed(motor_cmd_right);
+    int motor_cmd_right = map(wheel_cmd_velocity_right_, -max_angular_velocity_, max_angular_velocity_, -255, 255);
+    p_motor_controller_right_->setSpeed(motor_cmd_right);
 }
 
 template <typename TMotorController, typename TMotorDriver>
@@ -251,8 +264,6 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::printDebug()
 {
 
 }
-
-
 
 
 #endif // DIFFBOT_BASE_CONTROLLER_H

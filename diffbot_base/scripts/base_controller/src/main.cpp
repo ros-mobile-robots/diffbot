@@ -32,21 +32,24 @@ void loop()
     static bool imu_is_initialized;
 
     //this block drives the robot based on defined rate
-    if ((millis() - base_controller.last_update_time().control) >= (1000 / base_controller.publish_rate_.command_))
+    ros::Duration command_dt = nh.now() - base_controller.lastUpdateTime().control;
+    if (command_dt.toSec() >= ros::Duration(1.0 / base_controller.publishRate().command_, 0).toSec())
     {
         base_controller.read();
         base_controller.write();
-        base_controller.last_update_time().control = millis();
+        base_controller.lastUpdateTime().control = nh.now();
     }
 
     //this block stops the motor when no command is received
-    if ((millis() - base_controller.last_update_time().command) >= 400)
+    command_dt = nh.now() - base_controller.lastUpdateTime().command;
+    if (command_dt.toSec() >= ros::Duration(400, 0).toSec())
     {
         base_controller.eStop();
     }
 
     //this block publishes the IMU data based on defined rate
-    if ((millis() - base_controller.last_update_time().imu) >= (1000 / base_controller.publish_rate_.imu_))
+    ros::Duration imu_dt = nh.now() - base_controller.lastUpdateTime().imu;
+    if (imu_dt.toSec() >= base_controller.publishRate().period().imu_)
     {
         //sanity check if the IMU is connected
         if (!imu_is_initialized)
@@ -62,16 +65,17 @@ void loop()
         {
             //publishIMU();
         }
-        base_controller.last_update_time().imu = millis();
+        base_controller.lastUpdateTime().imu = nh.now();
     }
 
     //this block displays the encoder readings. change DEBUG to 0 if you don't want to display
     if(base_controller.debug())
     {
-        if ((millis() - base_controller.last_update_time().debug) >= (1000 / base_controller.publish_rate_.debug_))
+        ros::Duration debug_dt = nh.now() - base_controller.lastUpdateTime().debug;
+        if (debug_dt.toSec() >= base_controller.publishRate().period().debug_)
         {
             base_controller.printDebug();
-            base_controller.last_update_time().debug = millis();
+            base_controller.lastUpdateTime().debug = nh.now();
         }
     }
     //call all the callbacks waiting to be called
