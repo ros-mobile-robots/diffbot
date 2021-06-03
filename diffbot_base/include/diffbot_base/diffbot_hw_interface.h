@@ -168,6 +168,12 @@ namespace diffbot_base
         double motor_constant_;
         double pwm_limit_;
 
+        // Enable/Disable debug output
+        // Setting only possible during first start of the hw interface
+        // to avoid reading permanently form the parameter server
+        bool debug_;
+
+
         // Data member array to store the controller commands which are sent to the 
         // robot's resources (joints, actuators)
         // The diff_drive_controller uses the hardware_interface::VelocityJointInterface

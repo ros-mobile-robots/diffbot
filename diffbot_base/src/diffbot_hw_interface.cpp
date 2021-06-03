@@ -38,6 +38,7 @@ namespace diffbot_base
         error += !rosparam_shortcuts::get(name_, nh_, "trim", trim_);
         error += !rosparam_shortcuts::get(name_, nh_, "motor_constant", motor_constant_);
         error += !rosparam_shortcuts::get(name_, nh_, "pwm_limit", pwm_limit_);
+        error += !rosparam_shortcuts::get(name_, nh_, "debug/hardware_interface", debug_);
         rosparam_shortcuts::shutdownIfError(name_, error);
 
         wheel_diameter_ = 2.0 * wheel_radius_;
@@ -148,14 +149,18 @@ namespace diffbot_base
             joint_velocities_[i] = wheel_angle_deltas[i] / period.toSec();
             joint_efforts_[i] = 0.0; // unused with diff_drive_controller
         }
-        const int width = 10;
-        const char sep = ' ';
-        std::stringstream ss;
-        ss << std::left << std::setw(width) << std::setfill(sep) << "Read" << std::left << std::setw(width) << std::setfill(sep) << "ticks" << std::left << std::setw(width) << std::setfill(sep) << "angle" << std::left << std::setw(width) << std::setfill(sep) << "dangle" << std::setw(width) << std::setfill(sep) << "velocity" << std::endl;
-        ss << std::left << std::setw(width) << std::setfill(sep) << "j0:" << std::left << std::setw(width) << std::setfill(sep) << encoder_ticks_[0] << std::left << std::setw(width) << std::setfill(sep) << wheel_angles[0] << std::left << std::setw(width) << std::setfill(sep) << wheel_angle_deltas[0] << std::setw(width) << std::setfill(sep) << joint_velocities_[0] << std::endl;
-        ss << std::left << std::setw(width) << std::setfill(sep) << "j1:" << std::left << std::setw(width) << std::setfill(sep) << encoder_ticks_[1] << std::left << std::setw(width) << std::setfill(sep) << wheel_angles[1] << std::left << std::setw(width) << std::setfill(sep) << wheel_angle_deltas[1] << std::setw(width) << std::setfill(sep) << joint_velocities_[1];
-        ROS_INFO_STREAM(std::endl << ss.str());
-        //printState();
+
+        if (debug_)
+        {
+            const int width = 10;
+            const char sep = ' ';
+            std::stringstream ss;
+            ss << std::left << std::setw(width) << std::setfill(sep) << "Read" << std::left << std::setw(width) << std::setfill(sep) << "ticks" << std::left << std::setw(width) << std::setfill(sep) << "angle" << std::left << std::setw(width) << std::setfill(sep) << "dangle" << std::setw(width) << std::setfill(sep) << "velocity" << std::endl;
+            ss << std::left << std::setw(width) << std::setfill(sep) << "j0:" << std::left << std::setw(width) << std::setfill(sep) << encoder_ticks_[0] << std::left << std::setw(width) << std::setfill(sep) << wheel_angles[0] << std::left << std::setw(width) << std::setfill(sep) << wheel_angle_deltas[0] << std::setw(width) << std::setfill(sep) << joint_velocities_[0] << std::endl;
+            ss << std::left << std::setw(width) << std::setfill(sep) << "j1:" << std::left << std::setw(width) << std::setfill(sep) << encoder_ticks_[1] << std::left << std::setw(width) << std::setfill(sep) << wheel_angles[1] << std::left << std::setw(width) << std::setfill(sep) << wheel_angle_deltas[1] << std::setw(width) << std::setfill(sep) << joint_velocities_[1];
+            ROS_INFO_STREAM(std::endl << ss.str());
+            //printState();
+        }
     }
 
     void DiffBotHWInterface::write(const ros::Time& time, const ros::Duration& period)
@@ -224,35 +229,38 @@ namespace diffbot_base
         pub_right_motor_value_.publish(right_motor);
 
 
-        const int width = 10;
-        const char sep = ' ';
-        std::stringstream ss;
-        // Header
-        ss << std::left << std::setw(width) << std::setfill(sep) << "Write"
-           << std::left << std::setw(width) << std::setfill(sep) << "velocity"
-           << std::left << std::setw(width) << std::setfill(sep) << "p_error"
-           << std::left << std::setw(width) << std::setfill(sep) << "i_error"
-           << std::left << std::setw(width) << std::setfill(sep) << "d_error"
-           << std::left << std::setw(width) << std::setfill(sep) << "pid out"
-           << std::left << std::setw(width) << std::setfill(sep) << "percent"
-           << std::endl;
-        double p_error, i_error, d_error;
-        for (int i = 0; i < NUM_JOINTS; ++i)
+        if (debug_)
         {
-            pids_[i].getCurrentPIDErrors(&p_error, &i_error, &d_error);
-            
-            // Joint i
-            std::string j = "j" + std::to_string(i) + ":";
-            ss << std::left << std::setw(width) << std::setfill(sep) << j
-               << std::left << std::setw(width) << std::setfill(sep) << joint_velocity_commands_[i]
-               << std::left << std::setw(width) << std::setfill(sep) << p_error
-               << std::left << std::setw(width) << std::setfill(sep) << i_error
-               << std::left << std::setw(width) << std::setfill(sep) << d_error
-               << std::left << std::setw(width) << std::setfill(sep) << pid_outputs[i]
-               << std::left << std::setw(width) << std::setfill(sep) << motor_cmds[i]
-               << std::endl;
+            const int width = 10;
+            const char sep = ' ';
+            std::stringstream ss;
+            // Header
+            ss << std::left << std::setw(width) << std::setfill(sep) << "Write"
+            << std::left << std::setw(width) << std::setfill(sep) << "velocity"
+            << std::left << std::setw(width) << std::setfill(sep) << "p_error"
+            << std::left << std::setw(width) << std::setfill(sep) << "i_error"
+            << std::left << std::setw(width) << std::setfill(sep) << "d_error"
+            << std::left << std::setw(width) << std::setfill(sep) << "pid out"
+            << std::left << std::setw(width) << std::setfill(sep) << "percent"
+            << std::endl;
+            double p_error, i_error, d_error;
+            for (int i = 0; i < NUM_JOINTS; ++i)
+            {
+                pids_[i].getCurrentPIDErrors(&p_error, &i_error, &d_error);
+
+                // Joint i
+                std::string j = "j" + std::to_string(i) + ":";
+                ss << std::left << std::setw(width) << std::setfill(sep) << j
+                << std::left << std::setw(width) << std::setfill(sep) << joint_velocity_commands_[i]
+                << std::left << std::setw(width) << std::setfill(sep) << p_error
+                << std::left << std::setw(width) << std::setfill(sep) << i_error
+                << std::left << std::setw(width) << std::setfill(sep) << d_error
+                << std::left << std::setw(width) << std::setfill(sep) << pid_outputs[i]
+                << std::left << std::setw(width) << std::setfill(sep) << motor_cmds[i]
+                << std::endl;
+            }
+            ROS_INFO_STREAM(std::endl << ss.str());
         }
-        ROS_INFO_STREAM(std::endl << ss.str());
     }
 
     bool DiffBotHWInterface::isReceivingEncoderTicks(const ros::Duration &timeout)
