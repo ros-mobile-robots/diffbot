@@ -5,8 +5,8 @@ diffbot:
   encoder_resolution: 542
   gain: 1.0
   trim: 0.0
-  motor_constant: 27.0
+  motor_constant: 1.0 #27.0
   pwm_limit: 1.0
   debug:
-    hardware_interface: true
+    hardware_interface: false
     base_controller: true
