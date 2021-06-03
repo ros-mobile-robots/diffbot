@@ -5,7 +5,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include "ros/msg.h"
-#include "std_msgs/Header.h"
 
 namespace diffbot_msgs
 {
@@ -13,12 +12,9 @@ namespace diffbot_msgs
   class Encoders : public ros::Msg
   {
     public:
-      typedef std_msgs::Header _header_type;
-      _header_type header;
       int32_t ticks[2];
 
     Encoders():
-      header(),
       ticks()
     {
     }
@@ -26,7 +22,6 @@ namespace diffbot_msgs
     virtual int serialize(unsigned char *outbuffer) const override
     {
       int offset = 0;
-      offset += this->header.serialize(outbuffer + offset);
       for( uint32_t i = 0; i < 2; i++){
       union {
         int32_t real;
@@ -45,7 +40,6 @@ namespace diffbot_msgs
     virtual int deserialize(unsigned char *inbuffer) override
     {
       int offset = 0;
-      offset += this->header.deserialize(inbuffer + offset);
       for( uint32_t i = 0; i < 2; i++){
       union {
         int32_t real;
@@ -63,7 +57,7 @@ namespace diffbot_msgs
     }
 
     virtual const char * getType() override { return "diffbot_msgs/Encoders"; };
-    virtual const char * getMD5() override { return "8ae22cff29caeebdd5f3ad8360764a8a"; };
+    virtual const char * getMD5() override { return "e0f0e0582d1fb8eb1fb134e9dacef19f"; };
 
   };
 

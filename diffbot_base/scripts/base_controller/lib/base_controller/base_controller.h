@@ -8,8 +8,8 @@
 
 #include <ros.h>
 //#include <std_msgs/Int32.h>
-#include <diffbot_msgs/Encoders.h>
-#include <diffbot_msgs/WheelCmd.h>
+#include <diffbot_msgs/EncodersStamped.h>
+#include <diffbot_msgs/WheelsCmdStamped.h>
 #include <std_msgs/Empty.h>
 
 #include "diffbot_base_config.h"
@@ -88,7 +88,7 @@ namespace diffbot {
         void printDebug();
 
 
-        void commandCallback(const diffbot_msgs::WheelCmd& cmd_msg);
+        void commandCallback(const diffbot_msgs::WheelsCmdStamped& cmd_msg);
         void resetEncodersCallback(const std_msgs::Empty& reset);
 
     private:
@@ -114,14 +114,14 @@ namespace diffbot {
 
         // ROS Publisher setup to publish left and right encoder ticks
         // This uses the custom encoder ticks message that defines an array of two integers
-        diffbot_msgs::Encoders encoders_;
+        diffbot_msgs::EncodersStamped encoder_msg_;
         ros::Publisher pub_encoders_;
 
 
         MotorControllerIntf<TMotorDriver>* p_motor_controller_right_;
         MotorControllerIntf<TMotorDriver>* p_motor_controller_left_;
 
-        ros::Subscriber<diffbot_msgs::WheelCmd, BaseController<TMotorController, TMotorDriver>> sub_wheel_cmd_velocities_;
+        ros::Subscriber<diffbot_msgs::WheelsCmdStamped, BaseController<TMotorController, TMotorDriver>> sub_wheel_cmd_velocities_;
         float wheel_cmd_velocity_left_ = 0.0;
         float wheel_cmd_velocity_right_ = 0.0;
 
@@ -143,7 +143,7 @@ diffbot::BaseController<TMotorController, TMotorDriver>
     , encoder_left_(ENCODER_LEFT_H1, ENCODER_LEFT_H2, ENCODER_RESOLUTION)
     , encoder_right_(ENCODER_RIGHT_H1, ENCODER_RIGHT_H2, ENCODER_RESOLUTION)
     , sub_reset_encoders_("reset", &BC<TMotorController, TMotorDriver>::resetEncodersCallback, this)
-    , pub_encoders_("encoder_ticks", &encoders_)
+    , pub_encoders_("encoder_ticks", &encoder_msg_)
     , sub_wheel_cmd_velocities_("wheel_cmd_velocities", &BC<TMotorController, TMotorDriver>::commandCallback, this)
     , last_update_time_(nh.now())
     , publish_rate_(PUBLISH_RATE_IMU, PUBLISH_RATE_COMMAND, PUBLISH_RATE_DEBUG)
@@ -195,12 +195,12 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::init()
 }
 
 template <typename TMotorController, typename TMotorDriver>
-void diffbot::BaseController<TMotorController, TMotorDriver>::commandCallback(const diffbot_msgs::WheelCmd& cmd_msg)
+void diffbot::BaseController<TMotorController, TMotorDriver>::commandCallback(const diffbot_msgs::WheelsCmdStamped& cmd_msg)
 {
     //callback function every time linear and angular speed is received from 'cmd_vel' topic
     //this callback function receives cmd_msg object where linear and angular speed are stored
-    wheel_cmd_velocity_left_ = cmd_msg.velocities[0];
-    wheel_cmd_velocity_right_ = cmd_msg.velocities[1];
+    wheel_cmd_velocity_left_ = cmd_msg.wheels_cmd.angular_velocities.joint[0];
+    wheel_cmd_velocity_right_ = cmd_msg.wheels_cmd.angular_velocities.joint[1];
 
     lastUpdateTime().command = nh_.now();
 }
@@ -225,9 +225,9 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::read()
     new_left = encoder_left_.read();
     new_right = encoder_right_.read();
 
-    encoders_.ticks[0] = new_left;
-    encoders_.ticks[1] = new_right;
-    pub_encoders_.publish(&encoders_);
+    encoder_msg_.encoders.ticks[0] = new_left;
+    encoder_msg_.encoders.ticks[1] = new_right;
+    pub_encoders_.publish(&encoder_msg_);
 
     // TODO publish low level velocities and compare with high level
 }
