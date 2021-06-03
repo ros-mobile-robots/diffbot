@@ -60,7 +60,7 @@ namespace diffbot_base
         pub_right_motor_value_ = nh_.advertise<std_msgs::Int32>("motor_right", 10);
 
         //Setup publisher for angular wheel joint velocity commands
-        pub_wheel_cmd_velocities_ = nh_.advertise<diffbot_msgs::WheelCmd>("wheel_cmd_velocities", 10);
+        pub_wheel_cmd_velocities_ = nh_.advertise<diffbot_msgs::WheelsCmdStamped>("wheel_cmd_velocities", 10);
 
         // Setup publisher to reset wheel encoders (used during first launch of the hardware interface)
         pub_reset_encoders_ = nh_.advertise<std_msgs::Empty>("reset", 10);
@@ -179,13 +179,14 @@ namespace diffbot_base
 
 
         // Publish the desired (commanded) angular wheel joint velocities
-        diffbot_msgs::WheelCmd joint_wheel_command;
+        diffbot_msgs::WheelsCmdStamped wheel_cmd_msg;
+        wheel_cmd_msg.header.stamp = ros::Time::now();
         for (int i = 0; i < NUM_JOINTS; ++i)
         {
-            joint_wheel_command.velocities.push_back(joint_velocity_commands_[i]);
+            wheel_cmd_msg.wheels_cmd.angular_velocities.joint.push_back(joint_velocity_commands_[i]);
         }
 
-        pub_wheel_cmd_velocities_.publish(joint_wheel_command);
+        pub_wheel_cmd_velocities_.publish(wheel_cmd_msg);
 
         // The following code provides another velocity commands interface
         // With it a motor driver node can directly subscribe to the desired velocities.
@@ -357,11 +358,11 @@ namespace diffbot_base
 
 
     /// Process updates from encoders
-    void DiffBotHWInterface::encoderTicksCallback(const diffbot_msgs::Encoders::ConstPtr& msg_encoders)
+    void DiffBotHWInterface::encoderTicksCallback(const diffbot_msgs::EncodersStamped::ConstPtr& msg_encoder)
     {
         /// Update current encoder ticks in encoders array
-        encoder_ticks_[0] = msg_encoders->ticks[0];
-        encoder_ticks_[1] = msg_encoders->ticks[1];
+        encoder_ticks_[0] = msg_encoder->encoders.ticks[0];
+        encoder_ticks_[1] = msg_encoder->encoders.ticks[1];
         ROS_DEBUG_STREAM_THROTTLE(1, "Left encoder ticks: " << encoder_ticks_[0]);
         ROS_DEBUG_STREAM_THROTTLE(1, "Right encoder ticks: " << encoder_ticks_[1]);
     }
