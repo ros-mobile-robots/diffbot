@@ -49,7 +49,12 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   FILES
   Encoders.msg
-  WheelCmd.msg
+  EncodersStamped.msg
+  AngularVelocities.msg
+  WheelsCmd.msg
+  WheelsCmdStamped.msg
+  PID.msg
+  PIDStamped.msg
 #  Message3.msg
 )
 
