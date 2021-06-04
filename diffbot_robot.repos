@@ -1,0 +1,5 @@
+repositories:
+  ../rplidar_ros:
+    type: git
+    url: https://github.com/Slamtec/rplidar_ros
+    version: master
