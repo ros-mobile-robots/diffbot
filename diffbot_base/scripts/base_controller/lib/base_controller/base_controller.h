@@ -175,6 +175,12 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::setup()
 {
     nh_.initNode();
     nh_.advertise(pub_encoders_);
+
+    // measured_vel_msg_ is of type diffbot_msgs::AngularVelocities
+    // which contains an float[] joint array of undefined size.
+    // For rosserial to work it is required to reserve the memory using malloc
+    // and setting the *_length member appropriately.
+    // http://wiki.ros.org/rosserial/Overview/Limitations#Arrays
     measured_vel_msg_.joint = (float*)malloc(sizeof(float) * 2);
     measured_vel_msg_.joint_length = 2;
     nh_.advertise(pub_measured_angular_velocities_);
@@ -255,10 +261,12 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::read()
     measured_angular_velocity_left_ = encoder_left_.angularVelocity();
     measured_angular_velocity_right_ = encoder_right_.angularVelocity();
 
-
-    measured_vel_msg_.joint[0] = measured_angular_velocity_left_;
-    measured_vel_msg_.joint[1] = measured_angular_velocity_right_;
-    pub_measured_angular_velocities_.publish(&measured_vel_msg_);
+    // Avoid having too many publishers
+    // Otherwise error like 'wrong checksum for topic id and msg'
+    // and 'Write timeout: Write timeout' happen.
+    //measured_vel_msg_.joint[0] = measured_angular_velocity_left_;
+    //measured_vel_msg_.joint[1] = measured_angular_velocity_right_;
+    //pub_measured_angular_velocities_.publish(&measured_vel_msg_);
 }
 
 template <typename TMotorController, typename TMotorDriver>
