@@ -1,10 +1,11 @@
 #include "encoder.h"
 
 
-diffbot::Encoder::Encoder(uint8_t pin1, uint8_t pin2, int encoder_resolution)
-  : encoder(pin1, pin2)
+diffbot::Encoder::Encoder(ros::NodeHandle& nh, uint8_t pin1, uint8_t pin2, int encoder_resolution)
+  : nh_(nh)
+  , encoder(pin1, pin2)
   , encoder_resolution_(encoder_resolution)
-  , prev_update_time_(0)
+  , prev_update_time_(0, 0)
   , prev_encoder_ticks_(0)
 {
 
@@ -14,12 +15,12 @@ diffbot::Encoder::Encoder(uint8_t pin1, uint8_t pin2, int encoder_resolution)
 float diffbot::Encoder::angularVelocity()
 {
     long encoder_ticks = encoder.read();
-    //this function calculates the motor's rotational (angular) velocity based on encoder ticks and delta time
-    unsigned long current_time = millis();
-    unsigned long dt = current_time - prev_update_time_;
+    // This function calculates the motor's rotational (angular) velocity based on encoder ticks and delta time
+    ros::Time current_time = nh_.now();
+    ros::Duration dt = current_time - prev_update_time_;
 
-    //convert the time from milliseconds to seconds
-    double dts = (double)dt / 1000;
+    // Convert the delta time to seconds
+    double dts = dt.toSec();
 
     //calculate wheel's speed (RPM)
     double delta_ticks = encoder_ticks - prev_encoder_ticks_;
@@ -44,11 +45,11 @@ int diffbot::Encoder::getRPM()
 {
     long encoder_ticks = encoder.read();
     //this function calculates the motor's RPM based on encoder ticks and delta time
-    unsigned long current_time = millis();
-    unsigned long dt = current_time - prev_update_time_;
+    ros::Time current_time = nh_.now();
+    ros::Duration dt = current_time - prev_update_time_;
 
     //convert the time from milliseconds to minutes
-    double dtm = (double)dt / 60000;
+    double dtm = dt.toSec() / 60;
     double delta_ticks = encoder_ticks - prev_encoder_ticks_;
 
     //calculate wheel's speed (RPM)

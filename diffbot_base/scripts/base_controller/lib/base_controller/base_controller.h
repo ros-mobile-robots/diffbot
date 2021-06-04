@@ -10,11 +10,13 @@
 //#include <std_msgs/Int32.h>
 #include <diffbot_msgs/EncodersStamped.h>
 #include <diffbot_msgs/WheelsCmdStamped.h>
+#include <diffbot_msgs/AngularVelocities.h>
 #include <std_msgs/Empty.h>
 
 #include "diffbot_base_config.h"
 #include "encoder.h"
 #include "adafruit_feather_wing/adafruit_feather_wing.h"
+#include "pid.h"
 
 
 namespace diffbot {
@@ -107,8 +109,11 @@ namespace diffbot {
         // avoid using pins with LEDs attached
         diffbot::Encoder encoder_left_;
         diffbot::Encoder encoder_right_;
+        long ticks_left_ = 0, ticks_right_ = 0;
 
         unsigned long encoder_resolution_;
+        float measured_angular_velocity_left_;
+        float measured_angular_velocity_right_;
 
         ros::Subscriber<std_msgs::Empty, BaseController<TMotorController, TMotorDriver>> sub_reset_encoders_;
 
@@ -117,6 +122,8 @@ namespace diffbot {
         diffbot_msgs::EncodersStamped encoder_msg_;
         ros::Publisher pub_encoders_;
 
+        diffbot_msgs::AngularVelocities measured_vel_msg_;
+        ros::Publisher pub_measured_angular_velocities_;
 
         MotorControllerIntf<TMotorDriver>* p_motor_controller_right_;
         MotorControllerIntf<TMotorDriver>* p_motor_controller_left_;
@@ -124,6 +131,13 @@ namespace diffbot {
         ros::Subscriber<diffbot_msgs::WheelsCmdStamped, BaseController<TMotorController, TMotorDriver>> sub_wheel_cmd_velocities_;
         float wheel_cmd_velocity_left_ = 0.0;
         float wheel_cmd_velocity_right_ = 0.0;
+
+        int motor_cmd_left_ = 0;
+        int motor_cmd_right_ = 0;
+
+
+        PID motor_pid_left_;
+        PID motor_pid_right_;
 
         // DEBUG
         bool debug_;
@@ -140,13 +154,16 @@ template <typename TMotorController, typename TMotorDriver>
 diffbot::BaseController<TMotorController, TMotorDriver>
     ::BaseController(ros::NodeHandle &nh, TMotorController* motor_controller_left, TMotorController* motor_controller_right)
     : nh_(nh)
-    , encoder_left_(ENCODER_LEFT_H1, ENCODER_LEFT_H2, ENCODER_RESOLUTION)
-    , encoder_right_(ENCODER_RIGHT_H1, ENCODER_RIGHT_H2, ENCODER_RESOLUTION)
+    , encoder_left_(nh, ENCODER_LEFT_H1, ENCODER_LEFT_H2, ENCODER_RESOLUTION)
+    , encoder_right_(nh, ENCODER_RIGHT_H1, ENCODER_RIGHT_H2, ENCODER_RESOLUTION)
     , sub_reset_encoders_("reset", &BC<TMotorController, TMotorDriver>::resetEncodersCallback, this)
     , pub_encoders_("encoder_ticks", &encoder_msg_)
     , sub_wheel_cmd_velocities_("wheel_cmd_velocities", &BC<TMotorController, TMotorDriver>::commandCallback, this)
+    , pub_measured_angular_velocities_("measured_angular_velocities", &measured_vel_msg_)
     , last_update_time_(nh.now())
     , publish_rate_(PUBLISH_RATE_IMU, PUBLISH_RATE_COMMAND, PUBLISH_RATE_DEBUG)
+    , motor_pid_left_(PWM_MIN, PWM_MAX, K_P, K_I, K_D)
+    , motor_pid_right_(PWM_MIN, PWM_MAX, K_P, K_I, K_D)
 {
     p_motor_controller_left_ = motor_controller_left;
     p_motor_controller_right_ = motor_controller_right;
@@ -158,6 +175,9 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::setup()
 {
     nh_.initNode();
     nh_.advertise(pub_encoders_);
+    measured_vel_msg_.joint = (float*)malloc(sizeof(float) * 2);
+    measured_vel_msg_.joint_length = 2;
+    nh_.advertise(pub_measured_angular_velocities_);
     nh_.subscribe(sub_wheel_cmd_velocities_);
     nh_.subscribe(sub_reset_encoders_);
 
@@ -179,6 +199,9 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::init()
     nh_.loginfo(log_msg.c_str());
     nh_.getParam("/diffbot/mobile_base_controller/linear/x/max_velocity", &max_linear_velocity_);
     log_msg = String("/diffbot/mobile_base_controller/linear/x/max_velocity: ") + String(max_linear_velocity_);
+    nh_.loginfo(log_msg.c_str());
+    nh_.getParam("/diffbot/debug/base_controller", &debug_);
+    log_msg = String("/diffbot/debug/base_controller: ") + String(debug_);
     nh_.loginfo(log_msg.c_str());
 
     nh_.loginfo("Initialize DiffBot Wheel Encoders");
@@ -221,15 +244,21 @@ template <typename TMotorController, typename TMotorDriver>
 void diffbot::BaseController<TMotorController, TMotorDriver>::read()
 {
     //get the current speed of each motor from the encoder ticks
-    long new_left, new_right;
-    new_left = encoder_left_.read();
-    new_right = encoder_right_.read();
+    ticks_left_ = encoder_left_.read();
+    ticks_right_ = encoder_right_.read();
 
-    encoder_msg_.encoders.ticks[0] = new_left;
-    encoder_msg_.encoders.ticks[1] = new_right;
+    encoder_msg_.encoders.ticks[0] = ticks_left_;
+    encoder_msg_.encoders.ticks[1] = ticks_right_;
     pub_encoders_.publish(&encoder_msg_);
 
     // TODO publish low level velocities and compare with high level
+    measured_angular_velocity_left_ = encoder_left_.angularVelocity();
+    measured_angular_velocity_right_ = encoder_right_.angularVelocity();
+
+
+    measured_vel_msg_.joint[0] = measured_angular_velocity_left_;
+    measured_vel_msg_.joint[1] = measured_angular_velocity_right_;
+    pub_measured_angular_velocities_.publish(&measured_vel_msg_);
 }
 
 template <typename TMotorController, typename TMotorDriver>
@@ -239,17 +268,19 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::write()
     // map(value, fromLow, fromHigh, toLow, toHigh)
     // Map angular wheel joint velocity to motor cmd
     // TODO get rosparam linear max_velocity and convert to max rotational max velocity
-    int motor_cmd_left = map(wheel_cmd_velocity_left_, -max_angular_velocity_, max_angular_velocity_, -255, 255);
+    motor_cmd_left_ = map(wheel_cmd_velocity_left_, -max_angular_velocity_, max_angular_velocity_, PWM_MIN, PWM_MAX);
+    motor_cmd_right_ = map(wheel_cmd_velocity_right_, -max_angular_velocity_, max_angular_velocity_, PWM_MIN, PWM_MAX);
 
     // TODO compute PID output
     //the value sent to the motor driver is calculated by the PID based on the error between commanded RPM vs measured RPM
-    //the calculated PID ouput value is is capped at -/+ MAX_RPM to prevent the PID from having too much error
-    // float measured_angular_velocity_left = encoderLeft.getRPM();
-    //motor_pid_left.compute(g_wheel_cmd_velocity_left, measured_angular_velocity_left));
-    p_motor_controller_left_->setSpeed(motor_cmd_left);
+    //the calculated PID ouput value is capped at -/+ MAX_RPM to prevent the PID from having too much error
+    motor_cmd_left_ = motor_pid_left_.compute(wheel_cmd_velocity_left_, measured_angular_velocity_left_);
+    motor_cmd_right_ = motor_pid_right_.compute(wheel_cmd_velocity_right_, measured_angular_velocity_right_);
 
-    int motor_cmd_right = map(wheel_cmd_velocity_right_, -max_angular_velocity_, max_angular_velocity_, -255, 255);
-    p_motor_controller_right_->setSpeed(motor_cmd_right);
+    //p_motor_controller_left_->setSpeed(motor_cmd_left);
+    //p_motor_controller_right_->setSpeed(motor_cmd_right);
+    p_motor_controller_left_->setSpeed(motor_cmd_left_);
+    p_motor_controller_right_->setSpeed(motor_cmd_right_);
 }
 
 template <typename TMotorController, typename TMotorDriver>
@@ -262,7 +293,17 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::eStop()
 template <typename TMotorController, typename TMotorDriver>
 void diffbot::BaseController<TMotorController, TMotorDriver>::printDebug()
 {
-
+    String log_msg = 
+            String("\nRead:\n") + 
+            String("ticks_left_ \t ticks_right_ \t measured_ang_vel_left \t measured_ang_vel_right\n") + 
+            String(ticks_left_) + String("\t") + String(ticks_right_) + String("\t") +
+            String(measured_angular_velocity_left_) + String("\t") + String(measured_angular_velocity_right_) +
+            String("\nWrite:\n") + 
+                     String("motor_cmd_left_ \t motor_cmd_right_ \t pid_left_error \t pid_right_error\n") +
+                     String(motor_cmd_left_) + String("\t") + String(motor_cmd_right_) + String("\t") +
+                     //String("pid_left \t pid_right\n") +
+                     String(motor_pid_left_.error()) + String("\t") + String(motor_pid_right_.error());
+    nh_.loginfo(log_msg.c_str());
 }
 
 

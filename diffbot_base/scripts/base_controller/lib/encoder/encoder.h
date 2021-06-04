@@ -7,6 +7,8 @@
 
 #include <Encoder.h>
 
+#include <ros.h>
+
 
 namespace diffbot 
 {
@@ -15,7 +17,7 @@ namespace diffbot
     public:
         ::Encoder encoder;
 
-        Encoder(uint8_t pin1, uint8_t pin2, int encoder_resolution);
+        Encoder(ros::NodeHandle& nh, uint8_t pin1, uint8_t pin2, int encoder_resolution);
 
         /** \brief get revolutions per minute
          *
@@ -64,8 +66,9 @@ namespace diffbot
         inline int resolution() { return encoder_resolution_; };
 
     private:
+        ros::NodeHandle& nh_;
         int encoder_resolution_;
-        unsigned long prev_update_time_;
+        ros::Time prev_update_time_;
         long prev_encoder_ticks_;
     };
 }
