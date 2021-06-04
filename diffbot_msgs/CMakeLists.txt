@@ -51,6 +51,7 @@ add_message_files(
   Encoders.msg
   EncodersStamped.msg
   AngularVelocities.msg
+  AngularVelocitiesStamped.msg
   WheelsCmd.msg
   WheelsCmdStamped.msg
   PID.msg
