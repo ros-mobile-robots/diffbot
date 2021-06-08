@@ -1,0 +1,9 @@
+repositories:
+  src/rplidar_ros:
+    type: git
+    url: https://github.com/Slamtec/rplidar_ros
+    version: master
+  src/remo_description:
+    type: git
+    url: https://github.com/ros-mobile-robots/remo_description
+    version: main
