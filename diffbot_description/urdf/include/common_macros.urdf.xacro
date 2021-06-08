@@ -119,7 +119,7 @@
           <xacro:if value="${motor_props['scale'] == '' }" >
             <mesh filename="package://${package_name}/meshes/${robot_name}/${motor_props['mesh']}" />
           </xacro:if>
-          <xacro:if value="${motor_props['scale'] == '' }" >
+          <xacro:if value="${motor_props['scale'] != '' }" >
             <mesh filename="package://${package_name}/meshes/${robot_name}/${motor_props['mesh']}" scale="${motor_props['scale']}"/>
           </xacro:if>
         </geometry>
