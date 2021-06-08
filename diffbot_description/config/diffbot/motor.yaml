@@ -2,7 +2,7 @@ mass: 0.1          # Motor mass in Kg
 x_size: 0.07       # Motor dimension in x axis
 y_size: 0.0225     # Motor dimension in y axis
 z_size: 0.0188     # Motor dimension in z axis
-mesh: 'motor.stl'  # Name of the mesh files. Leave it empty ('') to have a red wheel
+mesh: 'motor.stl'  # Name of the mesh files. Leave it empty ('') to have a box as motor
 #mesh: ''
 scale: ''
 x_offset: 0.096
