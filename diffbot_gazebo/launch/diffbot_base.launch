@@ -1,9 +1,11 @@
 <launch>
     <!-- This launch file can be used to run the simulation and the real robot together -->
     <!-- Using this launch file requries diffbot_base/launch/diffbot.launch running before it -->
+    <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
+    <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
 
     <include file="$(find diffbot_gazebo)/launch/diffbot.launch">
-        <!--arg name="model" value="$(arg model)" /-->
+        <arg name="model" value="$(arg model)" />
     </include>
 
     <!-- convert joint states to TF transforms for rviz, etc -->

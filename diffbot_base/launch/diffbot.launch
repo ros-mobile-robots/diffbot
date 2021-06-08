@@ -1,11 +1,12 @@
 <!-- https://github.com/ros-controls/ros_controllers/tree/kinetic-devel/diff_drive_controller/test -->
 <launch>
     <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
-    <arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/>
-    <arg name="urdf_file" default="$(find xacro)/xacro --inorder '$(find diffbot_description)/urdf/$(arg model).urdf.xacro'" />
+    <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
+    <arg name="description_package" default="$(eval find(arg('model') + '_description'))" />
+    <arg name="urdf_file" default="$(find xacro)/xacro '$(arg description_package)/urdf/$(arg model).urdf.xacro'" />
 
     <!-- Load the URDF model of DiffBot into the ROS Parameter Server -->
-    <param name="robot_description" command="$(arg urdf_file)" />
+    <param name="diffbot/robot_description" command="$(arg urdf_file)" />
 
     <!-- Run the diffbot_base -->
     <!-- This will create the DiffBot hardware interface and instantiate a new controller manager with it -->

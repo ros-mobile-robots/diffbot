@@ -1,5 +1,7 @@
 <launch>
   <!-- Arguments -->
+  <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
+  <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
   <arg name="scan_topic"     default="diffbot/scan"/>
   <arg name="initial_pose_x" default="0.0"/>
   <arg name="initial_pose_y" default="0.0"/>

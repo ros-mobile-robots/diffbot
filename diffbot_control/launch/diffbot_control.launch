@@ -3,6 +3,8 @@
         Launch file follows: 
         http://gazebosim.org/tutorials?tut=ros_control#Createaroslaunchfile
     -->
+    <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
+    <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
 
     <!-- Load controller configurations from YAML file to parameter server -->
     <rosparam command="load"

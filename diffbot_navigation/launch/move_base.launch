@@ -1,5 +1,6 @@
 <launch>
   <!-- Arguments -->
+  <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
   <arg name="cmd_vel_topic" default="/diffbot/mobile_base_controller/cmd_vel" />
   <arg name="odom_topic" default="/diffbot/mobile_base_controller/odom" />
   <arg name="local_planner" default="dwa" doc="Local planner can be either dwa, dwb, base, teb or pose"/>
