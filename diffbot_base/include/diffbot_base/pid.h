@@ -19,6 +19,7 @@ namespace diffbot_base
          * @param d The derivative gain.
          * @param i_max The max integral windup.
          * @param i_min The min integral windup.
+         * @param antiwindup Enable or disable antiwindup of the integrator.
          * @param out_min The min computed output.
          * @param out_max The max computed output.
          */
@@ -28,10 +29,10 @@ namespace diffbot_base
          * @brief Initialize the 
          * 
          * @param nh ROS node handle with possible namespace describing the purpose of the PID controller.
-         * @param kF The feed forward gain.
-         * @param kP The proportional gain.
-         * @param kI The integral gain.
-         * @param kD The derivative gain.
+         * @param f The feed forward gain.
+         * @param p The proportional gain.
+         * @param i The integral gain.
+         * @param d The derivative gain.
          * @param i_max The max integral windup.
          * @param i_min The min integral windup.
          * @param antiwindup 
@@ -59,9 +60,19 @@ namespace diffbot_base
          * @param d The derivative gain.
          * @param i_max The max integral windup.
          * @param i_min The min integral windup.
-         * @param antiwindup Enable or disable antiwindup check.
          */
         void getParameters(double &f, double &p, double &i, double &d, double &i_max, double &i_min);
+        /**
+         * @brief Get the FPID parameters
+         * 
+         * @param f The feed forward gain.
+         * @param p The proportional gain.
+         * @param i The integral gain.
+         * @param d The derivative gain.
+         * @param i_max The max integral windup.
+         * @param i_min The min integral windup.
+         * @param antiwindup Enable or disable antiwindup check.
+         */
         void getParameters(double &f, double &p, double &i, double &d, double &i_max, double &i_min, bool &antiwindup);
 
         /**

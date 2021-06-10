@@ -27,7 +27,7 @@ namespace diffbot_base
         /**
          * \brief Constructor
          * \param nh - Node handle for topics.
-         * \param urdf - optional pointer to a parsed robot model
+         * \param urdf_model - optional pointer to a parsed robot model
          */
         DiffBotHWInterface(ros::NodeHandle &nh, urdf::Model *urdf_model = NULL);
 
@@ -35,13 +35,13 @@ namespace diffbot_base
         virtual ~DiffBotHWInterface() {}
 
         /** \brief The init function is called to initialize the RobotHW from a
-         * non-realtime thread.
+         *         non-realtime thread.
          *
          * Initialising a custom robot is done by registering joint handles
          * (\ref hardware_interface::ResourceManager::registerHandle) to hardware
          * interfaces that group similar joints and registering those individual
          * hardware interfaces with the class that represents the custom robot
-         * (derived from this hardware_interface::RobotHW)
+         * (derived from this \ref hardware_interface::RobotHW)
          *
          * \note Registering of joint handles and interfaces can either be done in the
          * constructor or this \ref init method.
@@ -66,7 +66,7 @@ namespace diffbot_base
          * This complements \ref write, which refers to writing commands to the hardware.
          *
          * Querying WallTime inside \ref read is not realtime safe. The parameters
-         * \ref time and \ref period make it possible to inject time from a realtime source.
+         * \p time and \p period make it possible to inject time from a realtime source.
          *
          * \param time The current time
          * \param period The time passed since the last call to \ref read
@@ -84,7 +84,7 @@ namespace diffbot_base
          * This complements \ref read, which refers to reading state from the hardware.
          *
          * Querying WallTime inside \ref write is not realtime safe. The parameters
-         * \ref time and \ref period make it possible to inject time from a realtime source.
+         * \p time and \p period make it possible to inject time from a realtime source.
          *
          * \param time The current time
          * \param period The time passed since the last call to \ref write

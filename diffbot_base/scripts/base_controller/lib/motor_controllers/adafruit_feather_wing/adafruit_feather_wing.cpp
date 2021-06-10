@@ -1,19 +1,19 @@
 #include "adafruit_feather_wing/adafruit_feather_wing.h"
 
 
-AdafruitMotorController::AdafruitMotorController(uint8_t motor_num, uint8_t addr)
+diffbot::AdafruitMotorController::AdafruitMotorController(uint8_t motor_num, uint8_t addr)
 {
     motor_driver_ = Adafruit_MotorShield(addr);
     // Select which 'port' (motor pin) M1, M2, M3 or M4.
     pMotor_ = motor_driver_.getMotor(motor_num);
 }
 
-void AdafruitMotorController::begin(uint16_t freq)
+void diffbot::AdafruitMotorController::begin(uint16_t freq)
 {
     motor_driver_.begin(freq);
 }
 
-void AdafruitMotorController::setSpeed(int value)
+void diffbot::AdafruitMotorController::setSpeed(int value)
 {
     if (value > 0)
     {

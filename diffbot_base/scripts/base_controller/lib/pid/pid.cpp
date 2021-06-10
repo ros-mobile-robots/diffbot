@@ -1,7 +1,7 @@
 #include "Arduino.h"
 #include "pid.h"
 
-PID::PID(float min_val, float max_val, float kp, float ki, float kd):
+diffbot::PID::PID(float min_val, float max_val, float kp, float ki, float kd):
     min_val_(min_val),
     max_val_(max_val),
     kp_(kp),
@@ -10,7 +10,7 @@ PID::PID(float min_val, float max_val, float kp, float ki, float kd):
 {
 }
 
-double PID::compute(float setpoint, float measured_value)
+double diffbot::PID::compute(float setpoint, float measured_value)
 {
     double error;
     double pid;
@@ -31,14 +31,14 @@ double PID::compute(float setpoint, float measured_value)
     return constrain(pid, min_val_, max_val_);
 }
 
-void PID::updateConstants(float kp, float ki, float kd)
+void diffbot::PID::updateConstants(float kp, float ki, float kd)
 {
     kp_ = kp;
     ki_ = ki;
     kd_ = kd;
 }
 
-double PID::error()
+double diffbot::PID::error()
 {
     return prev_error_;
 }

@@ -1,5 +1,3 @@
-#include <Arduino.h>
-
 #include <ros.h>
 
 #include "diffbot_base_config.h"
@@ -8,6 +6,8 @@
 
 
 ros::NodeHandle nh;
+
+using namespace diffbot;
 
 AdafruitMotorController motor_controller_right = AdafruitMotorController(3);
 AdafruitMotorController motor_controller_left = AdafruitMotorController(4);

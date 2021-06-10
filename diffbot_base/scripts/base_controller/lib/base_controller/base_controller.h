@@ -7,7 +7,6 @@
 
 
 #include <ros.h>
-//#include <std_msgs/Int32.h>
 #include <diffbot_msgs/EncodersStamped.h>
 #include <diffbot_msgs/WheelsCmdStamped.h>
 #include <diffbot_msgs/AngularVelocities.h>
@@ -21,12 +20,31 @@
 
 namespace diffbot {
 
-
+    /** \brief Communicates with the high level hardware_interface::RobotHW and interacts with
+     *         the robot hardware sensors (e.g. encoders) and actuators (e.g. motor driver).
+     * 
+     * The BaseController communicates with the high level interface diffbot_base::hardware_interface::RobotHW
+     * using ROS publishers and subscribers. It subscribes to the target wheel command angular velocities
+     * (\ref diffbot_msgs::WheelsCmdStamped) with the \ref sub_wheel_cmd_velocities_ and keeps pointers to both motors 
+     * in \ref p_motor_controller_right_ and \ref p_motor_controller_left_ using a motor driver agnostic interface 
+     * \ref diffbot::MotorControllerIntf. Each time a new \ref diffbot_msgs::WheelsCmdStamped is received on the
+     * "wheel_cmd_velocities" topic the \ref commandCallback is called and the two target velocities \ref wheel_cmd_velocity_left_
+     * and \ref wheel_cmd_velocity_right_ are updated.
+     * 
+     * To measure the angular wheel velocities, two \ref diffbot::Encoder are used to \ref read() the encoder ticks, 
+     * stored in \ref ticks_left_ and \ref ticks_right_.
+     * After reading the latest encoder tick count, the values are published with \ref pub_encoders_ on 
+     * "encoder_ticks" topic of type \ref diffbot_msgs::Encoders. The \ref diffbot_base::hardware_interface::RobotHW
+     * subscribes to these encoder ticks to calculate angular joint velocities and provide it for the \ref diff_drive_controller. 
+     * Also inside the \ref read() method, the angular wheel joint velocities are read from the \ref encoder_left_ and \ref encoder_right_.
+     * 
+     * These measured angular velocities are important to compute the pwm signals for each motor using two separate
+     * PID controllers (\ref motor_pid_left_ and \ref motor_pid_right_) based on the error between measured and commanded angular wheel velocity.
+     */
     template <typename TMotorController, typename TMotorDriver>
     class BaseController
     {
     public:
-
 
         BaseController(ros::NodeHandle &nh, TMotorController* motor_controller_left, TMotorController* motor_controller_right);
 
