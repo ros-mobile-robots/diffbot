@@ -1,0 +1,6 @@
+<launch>
+  <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="diffbot_teleop_keyboard" output="screen">
+
+    <remap from="/cmd_vel" to="/diffbot/mobile_base_controller/cmd_vel"/>
+  </node>
+</launch>
