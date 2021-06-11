@@ -3,5 +3,5 @@
     <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
     <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
     <!-- Launch visualization in rviz -->
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find diffbot_bringup)/rviz/diffbot_bringup.rviz" required="true" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find diffbot_bringup)/rviz/$(arg model)_bringup.rviz" required="true" />
 </launch>
