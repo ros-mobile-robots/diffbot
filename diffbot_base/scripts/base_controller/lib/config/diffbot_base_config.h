@@ -22,9 +22,11 @@
 #define PWM_BITS 8  // PWM Resolution of the microcontroller
 
 
-#define PUBLISH_RATE_COMMAND 20
-#define PUBLISH_RATE_IMU 1
-#define PUBLISH_RATE_DEBUG 5
+#define UPDATE_RATE_CONTROL 20
+#define UPDATE_RATE_IMU 1
+#define UPDATE_RATE_DEBUG 5
+
+#define E_STOP_COMMAND_RECEIVED_DURATION 5 // Stop motors if no command was received after this amount of seconds
 
 
 

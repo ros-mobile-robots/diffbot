@@ -10,8 +10,8 @@ namespace diffbot {
     /** \brief Abstract base interface class for a motor controller
      * 
      * Inherit from this base class and specify the type of 
-     * motor driver. The interface provides setSpeed, which
-     * is an abstract method and therefore must be implemented.
+     * motor driver. The interface provides \ref setSpeed, which
+     * is an abstract method and must therefore be implemented.
      */
     template<typename TMotorDriver>
     class MotorControllerIntf
@@ -22,7 +22,7 @@ namespace diffbot {
              * 
              * Implement this method to set the speed of a 
              * motor that is connected to the \ref motor_driver_
-             * which is of type TMotorDriver.
+             * which is of type \ref TMotorDriver.
              * 
              * \param value positive or negative value to set the direction
              * and speed of the motor.
@@ -31,6 +31,7 @@ namespace diffbot {
             virtual void setSpeed(int value) = 0;
 
         protected:
+            // Generic motor driver
             TMotorDriver motor_driver_;
     };
 }
