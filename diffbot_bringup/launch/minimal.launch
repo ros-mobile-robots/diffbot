@@ -12,7 +12,7 @@
   
   <!-- Base Controller for Motor Driver, Encoders and IMU -->
   <!-- Run rosserial to connect with the Teensy 3.2 board connected to the motor encoders -->
-  <node name="rosserial_teensy" pkg="rosserial_python" type="serial_node.py" respawn="false"
+  <node name="rosserial_base_controller" pkg="rosserial_python" type="serial_node.py" respawn="false"
       output="screen" ns="diffbot" args="_port:=/dev/ttyACM0
                                          _baud:=115200"/>
 
