@@ -1,5 +1,7 @@
 <launch>
     <arg name="laser_frame_id" default="rplidar_gpu_laser_link" />
+    <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
+    <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
 
     <!-- The `minimal.launch` is used to load the DiffBot's robot descripton
         and the controller configuration onto the ROS parameter server using the launch file from the 
@@ -10,7 +12,7 @@
         And for the encoders rosserial communicates with the Teensy microcontroller to publish the encoder ticks. 
     -->
     <include file="$(find diffbot_bringup)/launch/minimal.launch">
-        <!-- arg name="model" value="$(arg model)" /-->
+        <arg name="model" value="$(arg model)" />
     </include>
 
     <!-- Starting robot state publish which will publish tf -->
