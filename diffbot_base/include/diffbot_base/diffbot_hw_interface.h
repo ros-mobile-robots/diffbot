@@ -7,6 +7,8 @@
 #include <urdf/model.h>
 #include <diffbot_msgs/EncodersStamped.h>
 #include <diffbot_msgs/WheelsCmdStamped.h>
+#include <diffbot_msgs/AngularVelocitiesStamped.h>
+#include <sensor_msgs/JointState.h>
 
 // ROS Controls
 #include <hardware_interface/robot_hw.h>
@@ -19,6 +21,12 @@
 namespace diffbot_base
 {
     const unsigned int NUM_JOINTS = 2;
+
+    struct JointState
+    {
+        float angular_position_;
+        float angular_velocity_;
+    };
 
     /// \brief Hardware interface for a robot
     class DiffBotHWInterface : public hardware_interface::RobotHW
@@ -114,6 +122,9 @@ namespace diffbot_base
         /** \brief Callback to receive the encoder ticks from Teensy MCU */
         void encoderTicksCallback(const diffbot_msgs::EncodersStamped::ConstPtr& msg_encoders);
 
+        /** \brief Callback to receive the measured joint states from Teensy MCU */
+        void measuredJointStatesCallback(const sensor_msgs::JointState::ConstPtr& msg_joint_states);
+
         /** \brief Convert number of encoder ticks to angle in radians */
         double ticksToAngle(const int &ticks) const;
 
@@ -200,14 +211,18 @@ namespace diffbot_base
         ros::Publisher pub_wheel_cmd_velocities_;
 
         // Declare publisher to reset the wheel encoders
-	// used during first launch of hardware interface to avoid large difference in encoder ticks from a previous run
+        // used during first launch of hardware interface to avoid large difference in encoder ticks from a previous run
         ros::Publisher pub_reset_encoders_;
         // Declare subscriber for the wheel encoders
         // This subscriber receives the encoder ticks in the custom diffbot_msgs/Encoder message
         ros::Subscriber sub_encoder_ticks_;
+        // Declare subscriber for the measured joint states (absolute angular position (rad) and angular velocity (rad/s) of the wheel)
+        // This subscriber receives the measured angular wheel joint velocity in the custom diffbot_msgs/AngularVelocitiesStamped message
+        ros::Subscriber sub_measured_joint_states_;
 
         // Array to store the received encoder tick values from the \ref sub_encoder_ticks_ subscriber
         int encoder_ticks_[NUM_JOINTS];
+        JointState measured_joint_states_[NUM_JOINTS];
 
         PID pids_[NUM_JOINTS];
     };  // class DiffBotHWInterface

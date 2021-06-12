@@ -66,6 +66,7 @@ namespace diffbot_base
         pub_reset_encoders_ = nh_.advertise<std_msgs::Empty>("reset", 10);
         // Setup subscriber for the wheel encoders
         sub_encoder_ticks_ = nh_.subscribe("encoder_ticks", 10, &DiffBotHWInterface::encoderTicksCallback, this);
+        sub_measured_joint_states_ = nh_.subscribe("measured_joint_states", 10, &DiffBotHWInterface::measuredJointStatesCallback, this);
 
         // Initialize the hardware interface
         init(nh_, nh_);
@@ -107,6 +108,8 @@ namespace diffbot_base
             // Initialize encoder_ticks_ to zero because receiving meaningful
             // tick values from the microcontroller might take some time
             encoder_ticks_[i] = 0.0;
+            measured_joint_states_[i].angular_position_ = 0.0;
+            measured_joint_states_[i].angular_velocity_ = 0.0;
 
             // Initialize the pid controllers for the motors using the robot namespace
             std::string pid_namespace = "pid/" + motor_names[i];
@@ -147,6 +150,10 @@ namespace diffbot_base
             
             joint_positions_[i] += wheel_angle_deltas[i];
             joint_velocities_[i] = wheel_angle_deltas[i] / period.toSec();
+            joint_efforts_[i] = 0.0; // unused with diff_drive_controller
+
+            joint_positions_[i] = measured_joint_states_[i].angular_position_;
+            joint_velocities_[i] = measured_joint_states_[i].angular_velocity_;
             joint_efforts_[i] = 0.0; // unused with diff_drive_controller
         }
 
@@ -266,23 +273,23 @@ namespace diffbot_base
 
     bool DiffBotHWInterface::isReceivingEncoderTicks(const ros::Duration &timeout)
     {
-        ROS_INFO("Get number of encoder ticks publishers");
+        ROS_INFO("Get number of measured joint states publishers");
 
         ros::Time start = ros::Time::now();
-        int num_publishers = sub_encoder_ticks_.getNumPublishers();
-        ROS_INFO("Waiting for encoder ticks being published...");
+        int num_publishers = sub_measured_joint_states_.getNumPublishers();
+        ROS_INFO("Waiting for measured joint states being published...");
         while ((num_publishers == 0) && (ros::Time::now() < start + timeout))
         {
             ros::Duration(0.1).sleep();
-            num_publishers = sub_encoder_ticks_.getNumPublishers();
+            num_publishers = sub_measured_joint_states_.getNumPublishers();
         }
         if (num_publishers == 0)
         {
-            ROS_ERROR("No encoder ticks publishers. Timeout reached.");
+            ROS_ERROR("No measured joint states publishers. Timeout reached.");
         }
         else
         {
-            ROS_INFO_STREAM("Number of encoder ticks publishers: " << num_publishers);
+            ROS_INFO_STREAM("Number of measured joint states publishers: " << num_publishers);
         }
 
         ROS_INFO("Publish /reset to encoders");
@@ -365,6 +372,18 @@ namespace diffbot_base
         encoder_ticks_[1] = msg_encoder->encoders.ticks[1];
         ROS_DEBUG_STREAM_THROTTLE(1, "Left encoder ticks: " << encoder_ticks_[0]);
         ROS_DEBUG_STREAM_THROTTLE(1, "Right encoder ticks: " << encoder_ticks_[1]);
+    }
+
+    void DiffBotHWInterface::measuredJointStatesCallback(const sensor_msgs::JointState::ConstPtr& msg_joint_states)
+    {
+        /// Update current encoder ticks in encoders array
+        for (std::size_t i = 0; i < num_joints_; ++i)
+        {
+            measured_joint_states_[i].angular_position_ = msg_joint_states->position[i];
+            measured_joint_states_[i].angular_velocity_ = msg_joint_states->velocity[i];
+        }
+        //ROS_DEBUG_STREAM_THROTTLE(1, "Left encoder ticks: " << encoder_ticks_[0]);
+        //ROS_DEBUG_STREAM_THROTTLE(1, "Right encoder ticks: " << encoder_ticks_[1]);
     }
 
 
