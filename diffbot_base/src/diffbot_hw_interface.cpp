@@ -72,7 +72,7 @@ namespace diffbot_base
         init(nh_, nh_);
 
         // Wait for encoder messages being published
-        isReceivingEncoderTicks(ros::Duration(10));
+        isReceivingMeasuredJointStates(ros::Duration(10));
     }
 
  
@@ -140,18 +140,8 @@ namespace diffbot_base
 
         // Read from robot hw (motor encoders)
         // Fill joint_state_* members with read values
-        double wheel_angles[2];
-        double wheel_angle_deltas[2];
         for (std::size_t i = 0; i < num_joints_; ++i)
         {
-            wheel_angles[i] = ticksToAngle(encoder_ticks_[i]);
-            //double wheel_angle_normalized = normalizeAngle(wheel_angle);
-            wheel_angle_deltas[i] = wheel_angles[i] - joint_positions_[i];
-            
-            joint_positions_[i] += wheel_angle_deltas[i];
-            joint_velocities_[i] = wheel_angle_deltas[i] / period.toSec();
-            joint_efforts_[i] = 0.0; // unused with diff_drive_controller
-
             joint_positions_[i] = measured_joint_states_[i].angular_position_;
             joint_velocities_[i] = measured_joint_states_[i].angular_velocity_;
             joint_efforts_[i] = 0.0; // unused with diff_drive_controller
@@ -162,9 +152,9 @@ namespace diffbot_base
             const int width = 10;
             const char sep = ' ';
             std::stringstream ss;
-            ss << std::left << std::setw(width) << std::setfill(sep) << "Read" << std::left << std::setw(width) << std::setfill(sep) << "ticks" << std::left << std::setw(width) << std::setfill(sep) << "angle" << std::left << std::setw(width) << std::setfill(sep) << "dangle" << std::setw(width) << std::setfill(sep) << "velocity" << std::endl;
-            ss << std::left << std::setw(width) << std::setfill(sep) << "j0:" << std::left << std::setw(width) << std::setfill(sep) << encoder_ticks_[0] << std::left << std::setw(width) << std::setfill(sep) << wheel_angles[0] << std::left << std::setw(width) << std::setfill(sep) << wheel_angle_deltas[0] << std::setw(width) << std::setfill(sep) << joint_velocities_[0] << std::endl;
-            ss << std::left << std::setw(width) << std::setfill(sep) << "j1:" << std::left << std::setw(width) << std::setfill(sep) << encoder_ticks_[1] << std::left << std::setw(width) << std::setfill(sep) << wheel_angles[1] << std::left << std::setw(width) << std::setfill(sep) << wheel_angle_deltas[1] << std::setw(width) << std::setfill(sep) << joint_velocities_[1];
+            ss << std::left << std::setw(width) << std::setfill(sep) << "Read" << std::left << std::setw(width) << std::setfill(sep) << "ticks" << std::left << std::setw(width) << std::setfill(sep) << "angle" << std::left << std::setw(width) << std::setfill(sep) << "velocity" << std::endl;
+            ss << std::left << std::setw(width) << std::setfill(sep) << "j0:" << std::left << std::setw(width) << std::setfill(sep) << encoder_ticks_[0] << std::left << std::setw(width) << std::setfill(sep) << joint_positions_[0] << std::left << std::setw(width) << std::setfill(sep) << joint_velocities_[0] << std::endl;
+            ss << std::left << std::setw(width) << std::setfill(sep) << "j1:" << std::left << std::setw(width) << std::setfill(sep) << encoder_ticks_[1] << std::left << std::setw(width) << std::setfill(sep) << joint_positions_[1] << std::left << std::setw(width) << std::setfill(sep) << std::setfill(sep) << joint_velocities_[1];
             ROS_INFO_STREAM(std::endl << ss.str());
             //printState();
         }
@@ -271,7 +261,7 @@ namespace diffbot_base
         }
     }
 
-    bool DiffBotHWInterface::isReceivingEncoderTicks(const ros::Duration &timeout)
+    bool DiffBotHWInterface::isReceivingMeasuredJointStates(const ros::Duration &timeout)
     {
         ROS_INFO("Get number of measured joint states publishers");
 
