@@ -99,13 +99,15 @@ namespace diffbot_base
          */
         virtual void write(const ros::Time& time, const ros::Duration& period);
 
-        /** \brief Check if encoder ticks are received.
+        /** \brief Check if measured joint states (position and velocity) are received.
          * 
-         * This function blocks until the sub_encoder_ticks_ subscriber receives encoder ticks.
+         * This function blocks until the sub_measured_joint_states_ subscriber receives measured joint states
+         * (angular position (rad) and angular velocity (rad/s)) for each joint on the "measured_joint_states" topic
+         * of type sensor_msgs::JointState.
          *
          * \param timeout Minimum time to wait for receiving encoder ticks
          */
-        bool isReceivingEncoderTicks(const ros::Duration &timeout=ros::Duration(1));
+        bool isReceivingMeasuredJointStates(const ros::Duration &timeout=ros::Duration(1));
 
         /** \brief Helper for debugging a joint's state */
         virtual void printState();
