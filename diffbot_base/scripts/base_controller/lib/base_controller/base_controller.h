@@ -11,6 +11,7 @@
 #include <diffbot_msgs/WheelsCmdStamped.h>
 #include <diffbot_msgs/AngularVelocities.h>
 #include <std_msgs/Empty.h>
+#include <sensor_msgs/JointState.h>
 
 #include "diffbot_base_config.h"
 #include "encoder.h"
@@ -49,13 +50,16 @@ namespace diffbot {
      * "wheel_cmd_velocities" topic the \ref commandCallback is called and the two target velocities \ref wheel_cmd_velocity_left_
      * and \ref wheel_cmd_velocity_right_ for each wheel are updated.
      * 
-     * To measure the angular wheel velocities, two \ref diffbot::Encoder objects (\ref encoder_left_ \ref encoder_right_)
-     * are used to \ref read() the encoder ticks, stored in \ref ticks_left_ and \ref ticks_right_.
-     * After reading the latest encoder tick count, the values are published with \ref pub_encoders_ on 
-     * "encoder_ticks" topic of type \ref diffbot_msgs::Encoders. The \ref diffbot_base::hardware_interface::RobotHW
-     * subscribes to these encoder ticks to calculate angular joint positions and velocities and passes it on to the \ref diff_drive_controller. 
-     * Also inside the \ref read() method, the angular wheel joint velocities are read from the \ref encoder_left_ and \ref encoder_right_.
-     * These measured angular velocities are important to compute the pwm signals for each motor using two separate
+     * To measure the angular wheel positions (absolut) and the angular velocities, 
+     * two \ref diffbot::Encoder objects (\ref encoder_left_ \ref encoder_right_)
+     * are used to \ref read() the diffbot::JointStates, stored in \ref joint_state_left_ and \ref joint_state_left_.
+     * After reading the latest states (position and velocity), the values are published with \ref pub_measured_joint_states_ on 
+     * "measured_joint_states" topic of type \ref sensor_msgs::JointState. The \ref diffbot_base::hardware_interface::RobotHW
+     * subscribes to these joint states and passes them on to the \ref diff_drive_controller.
+     * Also inside the \ref read() method, the current encoder ticks read from the \ref encoder_left_ and \ref encoder_right_
+     * and stored in \ref ticks_left_ and \ref ticks_right_.
+     * 
+     * The measured angular velocities are important to compute the pwm signals for each motor using two separate
      * PID controllers (\ref motor_pid_left_ and \ref motor_pid_right_), which calculate 
      * the error between measured and commanded angular wheel velocity for each wheel joint.
      * 
@@ -237,12 +241,11 @@ namespace diffbot {
         void eStop();
 
         /**
-         * @brief Reads the current encoder ticks and angular wheel velocities and publishes the current tick count
-         *        for both left \ref encoder_left_ and right \ref encoder_right_ encoders.
-         * 
-         * \todo publish measured wheel joint position and velocity in one message (to be created)
-         *       This would avoid having to calculate the position and velocity in the high level
-         *       hardware interface.
+         * @brief Reads the current encoder tick counts and joint states (angular position (rad) and angular velocity (rad/s) 
+         *        from both encoders left \ref encoder_left_ and right \ref encoder_right_ 
+         *        and publishes sensor_msgs::JointState on the "measured_joint_states" topic,
+         *        using the \ref pub_measured_joint_states_.
+         *
          */
         void read();
 
@@ -317,9 +320,10 @@ namespace diffbot {
         diffbot::Encoder encoder_right_;
         long ticks_left_ = 0, ticks_right_ = 0;
 
+        // Measured left and right joint states (angular position (rad) and angular velocity (rad/s))
+        diffbot::JointState joint_state_left_, joint_state_right_;
+
         unsigned long encoder_resolution_;
-        float measured_angular_velocity_left_;
-        float measured_angular_velocity_right_;
 
         ros::Subscriber<std_msgs::Empty, BaseController<TMotorController, TMotorDriver>> sub_reset_encoders_;
 
@@ -328,8 +332,8 @@ namespace diffbot {
         diffbot_msgs::EncodersStamped encoder_msg_;
         ros::Publisher pub_encoders_;
 
-        diffbot_msgs::AngularVelocities measured_vel_msg_;
-        ros::Publisher pub_measured_angular_velocities_;
+        sensor_msgs::JointState msg_measured_joint_states_;
+        ros::Publisher pub_measured_joint_states_;
 
         MotorControllerIntf<TMotorDriver>* p_motor_controller_right_;
         MotorControllerIntf<TMotorDriver>* p_motor_controller_left_;
@@ -364,8 +368,8 @@ diffbot::BaseController<TMotorController, TMotorDriver>
     , encoder_right_(nh, ENCODER_RIGHT_H1, ENCODER_RIGHT_H2, ENCODER_RESOLUTION)
     , sub_reset_encoders_("reset", &BC<TMotorController, TMotorDriver>::resetEncodersCallback, this)
     , pub_encoders_("encoder_ticks", &encoder_msg_)
+    , pub_measured_joint_states_("measured_joint_states", &msg_measured_joint_states_)
     , sub_wheel_cmd_velocities_("wheel_cmd_velocities", &BC<TMotorController, TMotorDriver>::commandCallback, this)
-    , pub_measured_angular_velocities_("measured_angular_velocities", &measured_vel_msg_)
     , last_update_time_(nh.now())
     , update_rate_(UPDATE_RATE_IMU, UPDATE_RATE_CONTROL, UPDATE_RATE_DEBUG)
     , motor_pid_left_(PWM_MIN, PWM_MAX, K_P, K_I, K_D)
@@ -382,14 +386,17 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::setup()
     nh_.initNode();
     nh_.advertise(pub_encoders_);
 
-    // measured_vel_msg_ is of type diffbot_msgs::AngularVelocities
-    // which contains an float[] joint array of undefined size.
+    // msg_measured_joint_states_ is of type sensor_msgs::JointState
+    // which contains float[] joint arrays of undefined size.
     // For rosserial to work it is required to reserve the memory using malloc
     // and setting the *_length member appropriately.
     // http://wiki.ros.org/rosserial/Overview/Limitations#Arrays
-    measured_vel_msg_.joint = (float*)malloc(sizeof(float) * 2);
-    measured_vel_msg_.joint_length = 2;
-    nh_.advertise(pub_measured_angular_velocities_);
+    msg_measured_joint_states_.position = (float*)malloc(sizeof(float) * 2);
+    msg_measured_joint_states_.position_length = 2;
+    msg_measured_joint_states_.velocity = (float*)malloc(sizeof(float) * 2);
+    msg_measured_joint_states_.velocity_length = 2;
+    nh_.advertise(pub_measured_joint_states_);
+
     nh_.subscribe(sub_wheel_cmd_velocities_);
     nh_.subscribe(sub_reset_encoders_);
 
@@ -447,7 +454,6 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::commandCallback(co
 template <typename TMotorController, typename TMotorDriver>
 void diffbot::BaseController<TMotorController, TMotorDriver>::resetEncodersCallback(const std_msgs::Empty& reset_msg)
 {
-    //digitalWrite(13, HIGH-digitalRead(13));   // blink the led
     // reset both back to zero.
     this->encoder_left_.write(0);
     this->encoder_right_.write(0);
@@ -458,24 +464,26 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::resetEncodersCallb
 template <typename TMotorController, typename TMotorDriver>
 void diffbot::BaseController<TMotorController, TMotorDriver>::read()
 {
-    //get the current speed of each motor from the encoder ticks
+    joint_state_left_ = encoder_left_.jointState();
+    joint_state_right_ = encoder_right_.jointState();
+
+    msg_measured_joint_states_.position[0] = joint_state_left_.angular_position_;
+    msg_measured_joint_states_.position[1] = joint_state_right_.angular_position_;
+
+    msg_measured_joint_states_.velocity[0] = joint_state_left_.angular_velocity_;
+    msg_measured_joint_states_.velocity[1] = joint_state_right_.angular_velocity_;
+    pub_measured_joint_states_.publish(&msg_measured_joint_states_);
+
+    // get the current tick count of each encoder
     ticks_left_ = encoder_left_.read();
     ticks_right_ = encoder_right_.read();
 
     encoder_msg_.encoders.ticks[0] = ticks_left_;
     encoder_msg_.encoders.ticks[1] = ticks_right_;
-    pub_encoders_.publish(&encoder_msg_);
-
-    // TODO publish low level velocities and compare with high level
-    measured_angular_velocity_left_ = encoder_left_.angularVelocity();
-    measured_angular_velocity_right_ = encoder_right_.angularVelocity();
-
     // Avoid having too many publishers
     // Otherwise error like 'wrong checksum for topic id and msg'
     // and 'Write timeout: Write timeout' happen.
-    //measured_vel_msg_.joint[0] = measured_angular_velocity_left_;
-    //measured_vel_msg_.joint[1] = measured_angular_velocity_right_;
-    //pub_measured_angular_velocities_.publish(&measured_vel_msg_);
+    //pub_encoders_.publish(&encoder_msg_);
 }
 
 template <typename TMotorController, typename TMotorDriver>
@@ -487,14 +495,14 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::write()
     // The /diffbot/mobile_base_controller/linear/x/max_velocity from the ROS parameter server 
     // is convert to max rotational velocity (see init()) and used to map the angular velocity to PWM signals for the motor.
     // Note this is currently unused because the PID helps to keep the velocity to the commanded one.
-    motor_cmd_left_ = map(wheel_cmd_velocity_left_, -max_angular_velocity_, max_angular_velocity_, PWM_MIN, PWM_MAX);
-    motor_cmd_right_ = map(wheel_cmd_velocity_right_, -max_angular_velocity_, max_angular_velocity_, PWM_MIN, PWM_MAX);
+    //motor_cmd_left_ = map(wheel_cmd_velocity_left_, -max_angular_velocity_, max_angular_velocity_, PWM_MIN, PWM_MAX);
+    //motor_cmd_right_ = map(wheel_cmd_velocity_right_, -max_angular_velocity_, max_angular_velocity_, PWM_MIN, PWM_MAX);
 
     // Compute PID output
     // The value sent to the motor driver is calculated by the PID based on the error between commanded angular velocity vs measured angular velocity
     // The calculated PID ouput value is capped at -/+ MAX_RPM to prevent the PID from having too much error
-    motor_cmd_left_ = motor_pid_left_.compute(wheel_cmd_velocity_left_, measured_angular_velocity_left_);
-    motor_cmd_right_ = motor_pid_right_.compute(wheel_cmd_velocity_right_, measured_angular_velocity_right_);
+    motor_cmd_left_ = motor_pid_left_.compute(wheel_cmd_velocity_left_, joint_state_left_.angular_velocity_);
+    motor_cmd_right_ = motor_pid_right_.compute(wheel_cmd_velocity_right_, joint_state_right_.angular_velocity_);
 
     p_motor_controller_left_->setSpeed(motor_cmd_left_);
     p_motor_controller_right_->setSpeed(motor_cmd_right_);
@@ -514,7 +522,7 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::printDebug()
             String("\nRead:\n") + 
             String("ticks_left_ \t ticks_right_ \t measured_ang_vel_left \t measured_ang_vel_right\n") + 
             String(ticks_left_) + String("\t") + String(ticks_right_) + String("\t") +
-            String(measured_angular_velocity_left_) + String("\t") + String(measured_angular_velocity_right_) +
+            String(joint_state_left_.angular_velocity_) + String("\t") + String(joint_state_right_.angular_velocity_) +
             String("\nWrite:\n") + 
                      String("motor_cmd_left_ \t motor_cmd_right_ \t pid_left_error \t pid_right_error\n") +
                      String(motor_cmd_left_) + String("\t") + String(motor_cmd_right_) + String("\t") +

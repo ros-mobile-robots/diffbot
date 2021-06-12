@@ -12,6 +12,13 @@
 
 namespace diffbot
 {
+    struct JointState
+    {
+        double angular_position_;
+        double angular_velocity_;
+    };
+
+
     /** \brief Decorates the Teensy Encoder Library to read the angular wheel velocity
      * from quadrature wheel encoders.
      * 
@@ -50,13 +57,19 @@ namespace diffbot
          */
         int getRPM();
 
+
+        double angularPosition();
+
         /** \brief Get the measure the angular joint velocity
          *
          * Calculates the angular velocity of the wheel joint using the encoder ticks.
          * 
          * \returns angular wheel joint velocity (rad/s)
          */
-        float angularVelocity();
+        double angularVelocity();
+
+
+        JointState jointState();
 
         /** \brief Convert number of encoder ticks to angle in radians 
          *
@@ -97,6 +110,9 @@ namespace diffbot
          * Returns the currently set encder resolution.
          */
         inline int resolution() { return encoder_resolution_; };
+
+
+        JointState joint_state_;
 
     private:
         // ROS node handle, which provides the current time to compute the angular velocity from the current tick count

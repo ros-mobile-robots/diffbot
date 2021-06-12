@@ -11,8 +11,7 @@ diffbot::Encoder::Encoder(ros::NodeHandle& nh, uint8_t pin1, uint8_t pin2, int e
 
 }
 
-
-float diffbot::Encoder::angularVelocity()
+diffbot::JointState diffbot::Encoder::jointState()
 {
     long encoder_ticks = encoder.read();
     // This function calculates the motor's rotational (angular) velocity based on encoder ticks and delta time
@@ -25,12 +24,27 @@ float diffbot::Encoder::angularVelocity()
     //calculate wheel's speed (RPM)
     double delta_ticks = encoder_ticks - prev_encoder_ticks_;
     double delta_angle = ticksToAngle(delta_ticks);
-    double angular_velocity = delta_angle / dts;
+
+    joint_state_.angular_position_ += delta_angle;
+
+
+    joint_state_.angular_velocity_ = delta_angle / dts;
 
     prev_update_time_ = current_time;
     prev_encoder_ticks_ = encoder_ticks;
 
-    return angular_velocity;
+    return joint_state_;
+}
+
+double diffbot::Encoder::angularPosition()
+{
+    return joint_state_.angular_position_;
+}
+
+
+double diffbot::Encoder::angularVelocity()
+{
+    return joint_state_.angular_velocity_;
 }
 
 double diffbot::Encoder::ticksToAngle(const int &ticks) const
