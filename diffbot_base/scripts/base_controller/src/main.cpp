@@ -12,7 +12,7 @@ using namespace diffbot;
 AdafruitMotorController motor_controller_right = AdafruitMotorController(3);
 AdafruitMotorController motor_controller_left = AdafruitMotorController(4);
 
-diffbot::BaseController<AdafruitMotorController, Adafruit_MotorShield> base_controller(nh, &motor_controller_left, &motor_controller_right);
+BaseController<AdafruitMotorController, Adafruit_MotorShield> base_controller(nh, &motor_controller_left, &motor_controller_right);
 
 
 void setup()
@@ -56,12 +56,11 @@ void loop()
         // Sanity check if the IMU is connected
         if (!imu_is_initialized)
         {
-        //imu_is_initialized = initIMU();
-
-        if(imu_is_initialized)
-            nh.loginfo("IMU Initialized");
-        else
-            nh.logfatal("IMU failed to initialize. Check your IMU connection.");
+            //imu_is_initialized = initIMU();
+            if(imu_is_initialized)
+                nh.loginfo("IMU Initialized");
+            else
+                nh.logfatal("IMU failed to initialize. Check your IMU connection.");
         }
         else
         {
