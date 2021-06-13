@@ -1,12 +1,31 @@
+# http://wiki.ros.org/costmap_2d/flat
+# The default maximum distance from the robot at which an obstacle will be inserted into the cost map in meters.
+# This can be over-ridden on a per-sensor basis.
 obstacle_range: 3.0
+# The default range in meters at which to raytrace out obstacles from the map using sensor data. 
+# This can be over-ridden on a per-sensor basis.
 raytrace_range: 3.5
 
-footprint: [[-0.205, -0.155], [-0.205, 0.155], [0.077, 0.155], [0.077, -0.155]]
+# The footprint of the robot specified in the robot_base_frame coordinate frame as a list in the format: 
+# [ [x1, y1], [x2, y2], ...., [xn, yn] ]. The footprint specification assumes the center point of the robot is at 
+# (0.0, 0.0) in the robot_base_frame and that the points are specified in meters, 
+# both clockwise and counter-clockwise orderings of points are supported.
+footprint: [[-0.08, -0.075], [-0.08, 0.075], [0.105, 0.075], [0.105, -0.075]]
 #robot_radius: 0.17
 
-inflation_radius: 1.0
+# The radius in meters to which the map inflates obstacle cost values.
+inflation_radius: 0.5
+# A scaling factor to apply to cost values during inflation. 
+# The cost function is computed as follows for all cells in the costmap further than the inscribed radius distance and 
+# closer than the inflation radius distance away from an actual obstacle: 
+# exp(-1.0 * cost_scaling_factor * (distance_from_obstacle - inscribed_radius)) * (costmap_2d::INSCRIBED_INFLATED_OBSTACLE - 1), 
+# where costmap_2d::INSCRIBED_INFLATED_OBSTACLE is currently 254. 
+# NOTE: since the cost_scaling_factor is multiplied by a negative in the formula, 
+# increasing the factor will decrease the resulting cost values.
 cost_scaling_factor: 3.0
 
+# What map type to use. "voxel" or "costmap" are the supported types, 
+# with the difference between them being a 3D-view of the world vs. a 2D-view of the world.
 map_type: costmap
 
 # The "observation_sources" parameter defines a list of sensors that are going to be passing information to 
