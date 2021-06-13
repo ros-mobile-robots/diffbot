@@ -1,13 +1,35 @@
+# http://wiki.ros.org/costmap_2d/flat
 local_costmap:
+  # The global frame for the costmap to operate in.
   global_frame: odom
+  # The name of the frame for the base link of the robot.
   robot_base_frame: base_footprint
 
+  # The frequency in Hz for the map to be updated.
   update_frequency: 10.0
+  # The frequency in Hz for the map to be publish display information.
   publish_frequency: 10.0
-  transform_tolerance: 0.5  
+  # Specifies the delay in transform (tf) data that is tolerable in seconds.
+  # This parameter serves as a safeguard to losing a link in the tf tree while
+  # still allowing an amount of latency the user is comfortable with to exist in the system.
+  # For example, a transform being 0.2 seconds out-of-date may be tolerable,
+  # but a transform being 8 seconds out of date is not.
+  # If the tf transform between the coordinate frames specified by the global_frame and
+  # robot_base_frame parameters is transform_tolerance seconds older than ros::Time::now(),
+  # then the navigation stack will stop the robot.
+  transform_tolerance: 0.5
 
-  static_map: false  
+  # Whether or not to use the static map to initialize the costmap.
+  # If the rolling_window parameter is set to true, this parameter must be set to false.
+  static_map: false
+  # Whether or not to use a rolling window version of the costmap.
+  # If the static_map parameter is set to true, this parameter must be set to false.
   rolling_window: true
+  # The following parameters are overwritten if "static_map" is set to true,
+  # and their original values will be restored when "static_map" is set back to false.
+  # The width of the map in meters.
   width: 3
+  # The height of the map in meters.
   height: 3
+  # The resolution of the map in meters/cell.
   resolution: 0.05
