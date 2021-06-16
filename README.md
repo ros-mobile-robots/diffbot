@@ -261,6 +261,7 @@ Possible useful packages:
 - [`eborghi10/my_ROS_mobile_robot`](https://github.com/eborghi10/my_ROS_mobile_robot)
 - [`husky`](https://github.com/husky/husky)
 - [turtlebot3](https://github.com/ROBOTIS-GIT/turtlebot3)
+- [Linorobot](https://github.com/linorobot/linorobot)
 
 
 ## :wrench: Contributing
