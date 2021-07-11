@@ -271,4 +271,5 @@ Your contributions are more than welcome. These can be in the form of raising is
 
 ## :pencil: License
 
-TBD
+`diffbot` is licenses under the [BSD 3-Clause](./LICENSE).
+See also [open-source-license-acknowledgements-and-third-party-copyrights.md](open-source-license-acknowledgements-and-third-party-copyrights.md).
