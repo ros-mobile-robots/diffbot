@@ -9,6 +9,14 @@ DiffBot is an autonomous differential drive robot with two wheels. Its main proc
 |:-------:|:-----------------:|
 |  [<img src="https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/diffbot/diffbot-front.png" width="700">](https://youtu.be/IcYkQyzUqik) | [<img src="https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/diffbot/rplidara2.png" width="700">](https://fjp.at/projects/diffbot/) |
 
+If you are looking for a 3D printable modular base, see the [`remo_description`](https://github.com/ros-mobile-robots/remo_description) repository. You can use it directly with the software of this `diffbot` repository.
+
+| Remo | Gazebo Simulation | RViz |
+|:-------:|:-----------------:|:----:|
+|  [<img src="https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/remo/remo_front_side.jpg" width="700">](https://youtu.be/IcYkQyzUqik) | [<img src="https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/remo/remo-gazebo.png" width="700">](https://github.com/fjp/diffbot) | [<img src="https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/remo/camera_types/oak-d.png?raw=true" width="700">](https://github.com/ros-mobile-robots/diffbot) |
+
+It provides mounts for different camera modules, such as Raspi Cam v2, OAK-1, OAK-D and you can even design your own if you like. There is also support for different single board computers (Raspberry Pi and Nvidia Jetson Nano) through two changable decks. You are agin free to create your own.
+
 ## Demonstration
 
 ### SLAM and Navigation
@@ -220,7 +228,7 @@ Possible useful packages:
 - Adding instructions how to use [`rosdep`](http://wiki.ros.org/rosdep) to install required system dependencies
 
 
-## Part List
+## Part List Diffbot
 
 | SBC RPi 4B | MCU Teensy 3.2 | IMU Bosch |
 |:-------:|:-----------------:|:----:|
@@ -238,6 +246,21 @@ Possible useful packages:
 | I2C Hub | [seeedstudio.com](https://www.seeedstudio.com/Grove-I2C-Hub.html), [Amazon.de](https://amzn.to/34CGEbz) |
 | Teensy 4.0 or 3.2 | [PJRC Teensy 4.0](https://www.pjrc.com/store/teensy40.html), [PJRC Teensy 3.2](https://www.pjrc.com/store/teensy32.html) |
 | Hobby Motor with Encoder - Metal Gear (DG01D-E) | [Sparkfun](https://www.sparkfun.com/products/16413) |
+
+## Part List Remo
+
+| Part                    | Store |
+|:------------------------|:---------------------------------------------------------------------------:|
+| Raspberry Pi 4 B (4 Gb) | [Amazon.com](https://amzn.to/3ltuJUo), [Amazon.de](https://amzn.to/2IchIAc) |
+| SanDisk 64 GB SD Card Class 10 | [Amazon.com](https://amzn.to/2GLOyr0), [Amazon.de](https://amzn.to/3dcFmYE) |
+| Remo Base  | 3D printable, see [`remo_description`](https://github.com/ros-mobile-robots/remo_description) |
+| SLAMTEC RPLidar A2M8 (12 m) | [Amazon.com](https://amzn.to/3lthTFz), [Amazon.de](https://amzn.to/30MyImR) |
+| Raspi Camera Module V2, 8 MP, 1080p | [Amazon.com](https://amzn.to/2Ib9fgG), [Amazon.de](https://amzn.to/2FdVDQF) |
+| Adafruit DC Motor (+ Stepper) FeatherWing  | [adafruit.com](https://www.adafruit.com/product/2927), [Amazon.de](https://amzn.to/3km5KF3) |
+| Teensy 4.0 or 3.2 | [PJRC Teensy 4.0](https://www.pjrc.com/store/teensy40.html), [PJRC Teensy 3.2](https://www.pjrc.com/store/teensy32.html) |
+| Hobby Motor with Encoder - Metal Gear (DG01D-E) | [Sparkfun](https://www.sparkfun.com/products/16413) |
+| Powerbank (e.g 15000 mAh) | [Amazon.de](https://amzn.to/3kmkx2t) This Powerbank from Goobay has the maximum possible size (18 x 2 x 18 cm) |
+| Battery pack (for four or eight batteries) | [Amazon.de](https://amzn.to/3kiX8PH) |
 
 
 ## Additional (Optional) Equipment
