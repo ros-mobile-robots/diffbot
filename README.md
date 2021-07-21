@@ -273,7 +273,19 @@ Possible useful packages:
 
 ## Hardware Architecture and Wiring
 
+<details>
+  <summary><b>DiffBot</b></summary>
+
 ![Hardware Architecture and Wiring](https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/fritzing/diffbot_architecture.svg)
+
+</details>
+
+<details open>
+<summary><b>Remo</b></summary>
+
+![Hardware Architecture and Wiring](https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/fritzing/remo_architecture.svg)
+
+</details>
 
 ## :handshake: Acknowledgment
 
@@ -297,3 +309,5 @@ Your contributions are more than welcome. These can be in the form of raising is
 
 `diffbot` is licenses under the [BSD 3-Clause](./LICENSE).
 See also [open-source-license-acknowledgements-and-third-party-copyrights.md](open-source-license-acknowledgements-and-third-party-copyrights.md).
+The [documentation](https://ros-mobile-robots.com/) is licensed differently,
+visit its [license text](https://github.com/ros-mobile-robots/ros-mobile-robots.github.io#license) to learn more.
