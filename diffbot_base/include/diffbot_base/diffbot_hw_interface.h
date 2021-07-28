@@ -9,6 +9,8 @@
 #include <diffbot_msgs/WheelsCmdStamped.h>
 #include <diffbot_msgs/AngularVelocitiesStamped.h>
 #include <sensor_msgs/JointState.h>
+#include <sensor_msgs/Imu.h>
+#include <diffbot_msgs/IMU.h>
 
 // ROS Controls
 #include <hardware_interface/robot_hw.h>
@@ -123,6 +125,11 @@ namespace diffbot_base
 
         /** \brief Callback to receive the encoder ticks from Teensy MCU */
         void encoderTicksCallback(const diffbot_msgs::EncodersStamped::ConstPtr& msg_encoders);
+        
+        /** \brief Callback to receive the IMU from MCU */
+        void IMUDataCallback(const diffbot_msgs::IMU::ConstPtr& msg_imu);
+
+        void PublishIMUtoFilter();
 
         /** \brief Callback to receive the measured joint states from Teensy MCU */
         void measuredJointStatesCallback(const sensor_msgs::JointState::ConstPtr& msg_joint_states);
@@ -166,7 +173,8 @@ namespace diffbot_base
         std::vector<std::string> joint_names_;
         std::size_t num_joints_;
         urdf::Model *urdf_model_;
-
+        // IMU message package
+        sensor_msgs::Imu imu;
         double wheel_radius_;
         double wheel_diameter_;
         double max_velocity_;
@@ -201,6 +209,12 @@ namespace diffbot_base
         double joint_velocities_[NUM_JOINTS];
         double joint_efforts_[NUM_JOINTS];
 
+        // Data that handles IMU data from diffbot_msgs format to sensor_msgs/Imu.h
+        double orientation[4];
+        double angular_velocity[3];
+        double linear_acceleration[3];
+        int IMU_data_[10];
+
         ros::ServiceServer srv_start_;
         ros::ServiceServer srv_stop_;
 
@@ -208,9 +222,11 @@ namespace diffbot_base
         ros::Publisher pub_left_motor_value_;
         ros::Publisher pub_right_motor_value_;
 
-
         // Declare publishers for angular wheel joint velocities
         ros::Publisher pub_wheel_cmd_velocities_;
+
+        // Declare publisher for the IMU
+        ros::Publisher imu_pub_;
 
         // Declare publisher to reset the wheel encoders
         // used during first launch of hardware interface to avoid large difference in encoder ticks from a previous run
@@ -221,6 +237,9 @@ namespace diffbot_base
         // Declare subscriber for the measured joint states (absolute angular position (rad) and angular velocity (rad/s) of the wheel)
         // This subscriber receives the measured angular wheel joint velocity in the custom diffbot_msgs/AngularVelocitiesStamped message
         ros::Subscriber sub_measured_joint_states_;
+
+        // This subscriber receives the IMU data from the Microcontroller
+        ros::Subscriber sub_imu_data_;
 
         // Array to store the received encoder tick values from the \ref sub_encoder_ticks_ subscriber
         int encoder_ticks_[NUM_JOINTS];
