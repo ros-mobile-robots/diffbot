@@ -23,7 +23,7 @@
         output="screen" ns="diffbot" />
 
     <include file="$(find rplidar_ros)/launch/rplidar.launch" ns="diffbot">
-        <param name="frame_id" type="string" value="$(arg laser_frame_id)" />
+        <arg name="laser_frame_id" value="$(arg laser_frame_id)" />
     </include>
 
 </launch>
