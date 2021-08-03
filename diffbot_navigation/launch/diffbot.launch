@@ -5,12 +5,12 @@
   <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
   <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
 
-  <arg name="map_file" default="$(find diffbot_navigation)/maps/map.yaml"/>
+  <arg name="map_file" default="$(find diffbot_navigation)/maps/db_world.yaml"/>
   <arg name="open_rviz" default="true"/>
   <arg name="rvizconfig" default="$(find diffbot_navigation)/rviz/diffbot_navigation.rviz" />
   <arg name="move_forward_only" default="false"/>
   <arg name="local_planner" default="dwa" doc="Local planner can be either dwa, base, teb or pose"/>
-  <arg name="world_name" default="$(find diffbot_gazebo)/worlds/corridor.world"/>
+  <arg name="world_name" default="$(find diffbot_gazebo)/worlds/db_world.world"/>
 
   <!-- DiffBot Remote Steering TODO -->
   <!--include file="$(find diffbot_bringup)/launch/diffbot_remote.launch">
