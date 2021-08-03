@@ -1,8 +1,8 @@
 repositories:
   src/rplidar_ros:
     type: git
-    url: https://github.com/Slamtec/rplidar_ros
-    version: master
+    url: https://github.com/ros-mobile-robots/rplidar_ros
+    version: noetic-devel
 #  src/raspicam_node:
 #    type: git
 #    url: https://github.com/UbiquityRobotics/raspicam_node
