@@ -27,14 +27,14 @@ It provides mounts for different camera modules, such as Raspi Cam v2, OAK-1, OA
 
 ## :package: Package Overview
 
-- [`diffbot_base`](./diffbot_base): ROS Control hardware interface including `controller_manager` control loop for the real robot
-- [`diffbot_bringup`](./diffbot_bringup): Launch files to bring up the hardware drivers (camera, lidar, imu, ultrasonic, ...) for the real DiffBot robot
-- [`diffbot_control`](./diffbot_control): Configurations for the `diff_drive_controller` of ROS Control used in Gazebo simulation and the real robot
-- [`diffbot_description`](./diffbot_description): URDF description of DiffBot including its sensors
-- [`diffbot_gazebo`](./diffbot_gazebo): Simulation specific launch and configuration files for DiffBot
+- [`diffbot_base`](./diffbot_base): ROS Control hardware interface including `controller_manager` control loop for the real robot. The script folder of this package contains the low-level `base_controller` that is running on the Teensy microcontroller.
+- [`diffbot_bringup`](./diffbot_bringup): Launch files to bring up the hardware drivers (camera, lidar, imu, ultrasonic, ...) for the real DiffBot robot.
+- [`diffbot_control`](./diffbot_control): Configurations for the `diff_drive_controller` of ROS Control used in Gazebo simulation and the real robot.
+- [`diffbot_description`](./diffbot_description): URDF description of DiffBot including its sensors.
+- [`diffbot_gazebo`](./diffbot_gazebo): Simulation specific launch and configuration files for DiffBot.
 - [`diffbot_msgs`](./diffbot_msgs): Message definitions specific to DiffBot, for example the message for encoder data.
-- [`diffbot_navigation`](./diffbot_navigation): Navigation based on `move_base` launch and configuration files
-- [`diffbot_slam`](./diffbot_slam): Simultaneous localization and mapping using different implementations to create a map of the environment
+- [`diffbot_navigation`](./diffbot_navigation): Navigation based on [`move_base` package](http://wiki.ros.org/move_base); launch and configuration files.
+- [`diffbot_slam`](./diffbot_slam): Simultaneous localization and mapping using different implementations (e.g., [gmapping](http://wiki.ros.org/gmapping)) to create a map of the environment
 
 ## Installation
 
