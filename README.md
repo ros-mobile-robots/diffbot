@@ -47,31 +47,56 @@ The required Ubuntu packages are listed in the [documentation](./docs). Other RO
 
 ### :hammer: How to Build
 
-To build the packages in this repository, clone it in the `src` folder of your ROS Noetic [catkin workspace](http://wiki.ros.org/catkin/Tutorials/create_a_workspace):
+To build the packages in this repository including the Remo robot follow these steps:
 
-```console
-catkin_ws/src$ git clone https://github.com/fjp/diffbot.git
-```
+1. Clone this repository in the `src` folder of your ROS Noetic [catkin workspace](http://wiki.ros.org/catkin/Tutorials/create_a_workspace):
 
-After installing the required dependencies build the catkin workspace, either with [`catkin_make`](http://wiki.ros.org/catkin/commands/catkin_make):
+   ```console
+   catkin_ws/src$ git clone https://github.com/fjp/diffbot.git
+   ```
+   
+2. Execute the `vcs import` command from the root of the catkin workspace and pipe in the `diffbot_dev.repos` or `remo_robot.repos` YAML file, depending on where you execute the command, either the development PC or the SBC of Remo to clone the listed dependencies. Run the following command only on your development machine:
 
-```console
-catkin_ws$ catkin_make
-```
-or using [catkin-tools](https://catkin-tools.readthedocs.io/en/latest/):
+   ```
+   vcs import < src/diffbot/diffbot_dev.repos
+   ```
 
-```console
-catkin_ws$ catkin build
-```
-Finally source the newly built packages with the `devel/setup.*` script, depending on your used shell:
+   Run the next command on Remo robot's SBC:
 
-```console
-# For bash
-catkin_ws$ source devel/setup.bash
+   ```
+   vcs import < src/diffbot/remo_robot.repos
+   ```
+   
+3. Install the requried binary dependencies of all packages in the catkin workspace using the following [`rosdep` command](http://wiki.ros.org/rosdep#Install_dependency_of_all_packages_in_the_workspace):
 
-# For zsh
-catkin_ws$ source devel/setup.zsh
-```
+   ```
+   rosdep install --from-paths src --ignore-src -r -y
+   ```
+
+4. After installing the required dependencies build the catkin workspace, either with [`catkin_make`](http://wiki.ros.org/catkin/commands/catkin_make):
+
+   ```console
+   catkin_ws$ catkin_make
+   ```
+   or using [catkin-tools](https://catkin-tools.readthedocs.io/en/latest/):
+
+   ```console
+   catkin_ws$ catkin build
+   ```
+   
+5. Finally, source the newly built packages with the `devel/setup.*` script, depending on your used shell:
+
+   For bash use:
+
+   ```console
+   catkin_ws$ source devel/setup.bash
+   ```
+
+   For zsh use:
+
+   ```console
+   catkin_ws$ source devel/setup.zsh
+   ```
 
 ## Usage
 
@@ -302,7 +327,7 @@ Possible useful packages:
 
 ## :wrench: Contributing
 
-Your contributions are more than welcome. These can be in the form of raising issues, creating PRs to correct or add documentation and of course solving existing issues or adding new features.
+Your contributions are most welcome. These can be in the form of raising issues, creating PRs to correct or add documentation and of course solving existing issues or adding new features.
 
 
 ## :pencil: License
