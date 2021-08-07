@@ -7,7 +7,7 @@ global_costmap:
 
   # The frequency in Hz for the map to be updated.
   update_frequency: 10.0
-  # The frequency in Hz for the map to be publish display information.
+  # The frequency in Hz for the map to publish display information.
   publish_frequency: 10.0
   # Specifies the delay in transform (tf) data that is tolerable in seconds.
   # This parameter serves as a safeguard to losing a link in the tf tree while
