@@ -37,7 +37,7 @@
                             o_xyz="0 0 0"
                             o_rpy="0 0 0" />
   </link>
-  <gazebo reference="${prefix}_gpu_laser_link">
+  <gazebo reference="${prefix}_laser_link">
     <material>Gazebo/Grey</material>
   </gazebo>
 
