@@ -27,9 +27,9 @@ It provides mounts for different camera modules, such as Raspi Cam v2, OAK-1, OA
 
 ## :package: Package Overview
 
-- [`diffbot_base`](./diffbot_base): ROS Control hardware interface including `controller_manager` control loop for the real robot. The script folder of this package contains the low-level `base_controller` that is running on the Teensy microcontroller.
+- [`diffbot_base`](./diffbot_base): ROS Control hardware interface including [`controller_manager`](http://wiki.ros.org/controller_manager) control loop for the real robot. The [`scripts` folder](./diffbot_base/scripts) of this package contains the low-level `base_controller` that is running on the Teensy microcontroller.
 - [`diffbot_bringup`](./diffbot_bringup): Launch files to bring up the hardware drivers (camera, lidar, imu, ultrasonic, ...) for the real DiffBot robot.
-- [`diffbot_control`](./diffbot_control): Configurations for the `diff_drive_controller` of ROS Control used in Gazebo simulation and the real robot.
+- [`diffbot_control`](./diffbot_control): Configurations for the [`diff_drive_controller`](http://wiki.ros.org/diff_drive_controller) of ROS Control used in Gazebo simulation and the real robot.
 - [`diffbot_description`](./diffbot_description): URDF description of DiffBot including its sensors.
 - [`diffbot_gazebo`](./diffbot_gazebo): Simulation specific launch and configuration files for DiffBot.
 - [`diffbot_msgs`](./diffbot_msgs): Message definitions specific to DiffBot, for example the message for encoder data.
