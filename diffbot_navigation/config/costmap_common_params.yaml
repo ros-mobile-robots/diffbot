@@ -33,4 +33,4 @@ map_type: costmap
 observation_sources: scan
 # Definition of the "scan" observation source. Make sure to set the sensor_frame to the same 
 # name of the laser frame link that is defined in the robot_description. Otherwise the local costamp won't work.
-scan: {sensor_frame: rplidar_gpu_laser_link, data_type: LaserScan, topic: diffbot/scan, marking: true, clearing: true}
+scan: {sensor_frame: rplidar_laser_link, data_type: LaserScan, topic: diffbot/scan, marking: true, clearing: true}
