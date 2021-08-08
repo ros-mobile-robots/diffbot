@@ -2,7 +2,7 @@
     <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
     <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
     <arg name="rvizconfig" default="$(find diffbot_control)/rviz/diffbot.rviz" />
-    <arg name="world_name" default="$(find diffbot_gazebo)/worlds/corridor.world"/>
+    <arg name="world_name" default="$(find diffbot_gazebo)/worlds/db_world.world"/>
 
     <include file="$(find diffbot_gazebo)/launch/diffbot_view.launch">
         <arg name="model" value="$(arg model)" />
