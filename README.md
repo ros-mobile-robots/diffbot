@@ -107,7 +107,7 @@ The following sections describe how to run the robot simulation and how to make 
 Control the robot inside Gazebo and view what it sees in RViz using the following launch file:
 
 ```console
-roslaunch diffbot_control diffbot.launch'
+roslaunch diffbot_control diffbot.launch
 ```
 
 This will launch the default diffbot world `db_world.world`.
@@ -170,14 +170,6 @@ When you finished exploring the new world, use the [`map_saver`](http://wiki.ros
 rosrun map_server map_saver -f ~/map
 ```
 
-
-### DiffBot Control in Gazebo
-
-```console
-roslaunch diffbot_control diffbot.launch
-```
-
-![DiffBot Gazebo](https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/gazebo/diffbot.png)
 
 ### RViz
 
