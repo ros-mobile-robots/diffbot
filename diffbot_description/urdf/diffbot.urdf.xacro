@@ -63,7 +63,8 @@
 
   <!-- Sensors -->
   <xacro:laser prefix="rplidar" parent_link="base_link"
-                   sensor_prop="${sensor_prop}"> 
+                   sensor_prop="${sensor_prop}"
+                   enable_gpu="${sensor_prop['laser']['enable_gpu']}">
   </xacro:laser>
 
   <!-- Gazebo -->
