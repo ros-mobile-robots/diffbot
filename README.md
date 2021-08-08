@@ -166,7 +166,7 @@ Then explore the world with the [`teleop_twist_keyboard`](http://wiki.ros.org/te
 
 When you finished exploring the new world, use the [`map_saver`](http://wiki.ros.org/map_server#map_saver) node from the [`map_server`](http://wiki.ros.org/map_server) package to store the mapped enviornment:
 
-```
+```console
 rosrun map_server map_saver -f ~/map
 ```
 
@@ -195,45 +195,49 @@ The following video shows how to map a new environment and navigate in it
 
 [<img src="https://img.youtube.com/vi/IcYkQyzUqik/hqdefault.jpg" width="250">](https://youtu.be/IcYkQyzUqik)
 
-First, brinup the robot hardware including its laser with the following launch file in the `diffbot_bringup` package.
-Make sure to run this on the real robot (e.g. connect to it via ssh):
+Start by setting up the ROS Network, by making the development PC the rosmaster (set the `ROS_MASTER_URI` environment variable accordingly, see [ROS Network Setup](https://ros-mobile-robots.com/ros-network-setup/) for more details), 
+Then follow the steps listed below to run the real Diffbot or Remo robot hardware:
 
-```
-roslaunch diffbot_bringup diffbot_bringup_with_laser.launch
-```
+1. First, brinup the robot hardware including its laser with the following launch file from the [`diffbot_bringup`](./diffbot_bringup) package.
+Make sure to run this on the real robot (e.g. connect to it via `ssh`):
 
-then, in a new terminal on your remote/work pc (not the single board computer) run the slam gmapping with the same command as in the simulation:
+   ```console
+   roslaunch diffbot_bringup diffbot_bringup_with_laser.launch
+   ```
 
-``` 
-roslaunch diffbot_slam diffbot_slam.launch slam_method:=gmapping
-```
+2. Then, in a new terminal on your remote/work development machine (not the single board computer) run the slam gmapping with the same command as in the simulation:
 
-As you can see in the video, this should open up RViz and the [`rqt_robot_steering`](http://wiki.ros.org/rqt_robot_steering) plugin.
+   ```console
+   roslaunch diffbot_slam diffbot_slam.launch slam_method:=gmapping
+   ```
 
-Next, steer the robot around manually and save the map with the following command when you are done:
+   As you can see in the video, this should open up RViz and the [`rqt_robot_steering`](http://wiki.ros.org/rqt_robot_steering) plugin.
 
-```
-rosrun map_server map_saver -f office
-```
+3. Next, steer the robot around manually either using the `keyboard_teleop` node or using the `rqt_robot_steering` node 
+and save the map with the following command when you are done exploring:
 
-Finally it is possible to use the created map for navigation, after running the following launch files:
+   ```console
+   rosrun map_server map_saver -f office
+   ```
 
-On the single board computer (e.g. Raspberry Pi) make sure that the following is launched:
+After the mapping process it is possible to use the created map for navigation, after running the following launch files:
 
-```
-roslaunch diffbot_bringup diffbot_bringup_with_laser.launch
-```
+1. On the single board computer (e.g. Raspberry Pi) make sure that the following is launched:
 
-Then on the work/remote pc run the `diffbot_hw.lauch` from the `diffbot_navigation` package:
+   ```console
+   roslaunch diffbot_bringup diffbot_bringup_with_laser.launch
+   ```
 
-```
-roslaunch diffbot_navigation diffbot_hw.lauch
-```
+2. Then on the work/remote development machine run the `diffbot_hw.lauch` from the `diffbot_navigation` package:
 
-Among other essential navigation and map server nodes, this will also launch an instance of RViz on your work pc where you can use its tools to: 
+   ```console
+   roslaunch diffbot_navigation diffbot_hw.lauch
+   ```
 
-1. Localize the robot with the "2D Pose Estimate" tool (green arrow) in RViz
-2. Use the "2D Nav Goal" tool in RViz (red arrow) to send goals to the robot
+   Among other essential navigation and map server nodes, this will also launch an instance of RViz on your work pc where you can use its tools to: 
+
+   1. Localize the robot with the "2D Pose Estimate" tool (green arrow) in RViz
+   2. Use the "2D Nav Goal" tool in RViz (red arrow) to send goals to the robot
 
 ## :construction: Future Work
 
