@@ -107,15 +107,22 @@ The following sections describe how to run the robot simulation and how to make 
 Control the robot inside Gazebo and view what it sees in RViz using the following launch file:
 
 ```console
-roslaunch diffbot_control diffbot.launch world_name:='$(find diffbot_gazebo)/worlds/corridor.world'
+roslaunch diffbot_control diffbot.launch'
 ```
+
+This will launch the default diffbot world `db_world.world`.
 
 To run the [turtlebot3_world](https://github.com/ROBOTIS-GIT/turtlebot3_simulations/tree/master/turtlebot3_gazebo/models/turtlebot3_world) 
 make sure to download it to your `~/.gazebo/models/` folder, because the `turtlebot3_world.world` file references the `turtlebot3_world` model.
+After that you can run it with the following command:
 
-| `corridor.world` | `turtlebot3_world.world` | 
+```console
+roslaunch diffbot_control diffbot.launch world_name:='$(find diffbot_gazebo)/worlds/turtlebot3_world.world'
+```
+
+| `db_world.world` | `turtlebot3_world.world` | 
 |:-------------------------------------:|:--------------------------------:|
-| ![corridor-world](https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/control/diffbot-rplidar.png) | ![turtlebot3-world](https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/control/diffbot-turtlebot3-world.png) |
+| ![corridor-world](https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/control/diffbot_world_control.png) | ![turtlebot3-world](https://raw.githubusercontent.com/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/control/diffbot-turtlebot3-world.png) |
 
 #### Navigation
 
