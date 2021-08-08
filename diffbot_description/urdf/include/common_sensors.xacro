@@ -1,15 +1,25 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-<xacro:macro name="gpu_laser" params="prefix parent_link sensor_prop "> 
+
+<xacro:macro name="laser" params="prefix parent_link sensor_prop enable_gpu:=true"> 
 
   <xacro:property name="mesh"
-     value="${sensor_prop['gpu_laser']['mesh']}"/>
+     value="${sensor_prop['laser']['mesh']}"/>
 
-  <link name="${prefix}_gpu_laser_link">
+  <xacro:if value="${enable_gpu}">
+    <xacro:property name="plugin_name" value="libgazebo_ros_gpu_laser.so"/>
+    <xacro:property name="laser_type" value="gpu_ray"/>
+  </xacro:if>
+  <xacro:if value="${not enable_gpu}">
+    <xacro:property name="plugin_name" value="libgazebo_ros_laser.so"/>
+    <xacro:property name="laser_type" value="ray"/>
+  </xacro:if>
+
+  <link name="${prefix}_laser_link">
     <xacro:if value="${mesh != '' }" >
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <origin xyz="0 0 0" rpy="0 0 ${pi}"/>
       <geometry>
         <mesh filename="package://${package_name}/meshes/sensors/${mesh}" />
       </geometry>
@@ -20,7 +30,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-        <cylinder radius="${sensor_prop['gpu_laser']['radius']}" length="${sensor_prop['gpu_laser']['length']}"/>
+        <cylinder radius="${sensor_prop['laser']['radius']}" length="${sensor_prop['laser']['length']}"/>
       </geometry>
       <material name="red"/>
     </visual>
@@ -28,39 +38,40 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="${sensor_prop['gpu_laser']['radius']}" length="${sensor_prop['gpu_laser']['length']}"/>
+        <cylinder radius="${sensor_prop['laser']['radius']}" length="${sensor_prop['laser']['length']}"/>
       </geometry>
     </collision>
-    <xacro:cylinder_inertia m="${sensor_prop['gpu_laser']['mass']}"
-                            r="${sensor_prop['gpu_laser']['radius']}"
-                            l="${sensor_prop['gpu_laser']['length']}"
+    <xacro:cylinder_inertia m="${sensor_prop['laser']['mass']}"
+                            r="${sensor_prop['laser']['radius']}"
+                            l="${sensor_prop['laser']['length']}"
                             o_xyz="0 0 0"
                             o_rpy="0 0 0" />
   </link>
   <gazebo reference="${prefix}_laser_link">
-    <material>Gazebo/Grey</material>
+    <material>${sensor_prop['laser']['color']}</material>
   </gazebo>
 
-  <joint name="${prefix}_gpu_laser_joint" type="fixed">
+  <joint name="${prefix}_laser_joint" type="fixed">
     <parent link="${parent_link}"/>
-    <child link="${prefix}_gpu_laser_link"/>
-    <origin xyz="${sensor_prop['gpu_laser']['dx']} ${sensor_prop['gpu_laser']['dy']} ${sensor_prop['gpu_laser']['dz']}" rpy="0 0 0"/>
+    <child link="${prefix}_laser_link"/>
+    <origin xyz="${sensor_prop['laser']['dx']} ${sensor_prop['laser']['dy']} ${sensor_prop['laser']['dz']}" rpy="0 0 ${pi}"/>
     <axis xyz="0 1 0" />
   </joint>
 
   <!-- hokuyo gazebo references -->
-  <gazebo reference="${prefix}_gpu_laser_link">
-    <sensor type="gpu_ray" name="head_hokuyo_sensor">
+  <gazebo reference="${prefix}_laser_link">
+    <!-- type is either gpu_laser or laser -->
+    <sensor type="${laser_type}" name="head_hokuyo_sensor">
       <pose>0 0 0 0 0 0</pose>
       <visualize>true</visualize>
-      <update_rate>40</update_rate>
+      <update_rate>12</update_rate>
       <ray>
         <scan>
           <horizontal>
-            <samples>720</samples>
+            <samples>360</samples>
             <resolution>1</resolution>
-            <min_angle>${sensor_prop['gpu_laser']['angular_range']['min']}</min_angle>
-            <max_angle>${sensor_prop['gpu_laser']['angular_range']['max']}</max_angle>
+            <min_angle>${sensor_prop['laser']['angular_range']['min']}</min_angle>
+            <max_angle>${sensor_prop['laser']['angular_range']['max']}</max_angle>
           </horizontal>
         </scan>
         <range>
@@ -78,9 +89,10 @@
           <stddev>0.01</stddev>
         </noise>
       </ray>
-      <plugin name="gazebo_ros_head_hokuyo_controller" filename="libgazebo_ros_gpu_laser.so">
-        <topicName>/${robot_name}/scan</topicName>
-        <frameName>${prefix}_gpu_laser_link</frameName>
+      <!-- plugin_name is either libgazebo_ros_laser.so or libgazebo_ros_gpu_laser.so-->
+      <plugin name="gazebo_ros_head_hokuyo_controller" filename="${plugin_name}">
+        <topicName>/diffbot/scan</topicName>
+        <frameName>${prefix}_laser_link</frameName>
       </plugin>
     </sensor>
   </gazebo>

@@ -62,9 +62,9 @@
   </xacro:motor>
 
   <!-- Sensors -->
-  <xacro:gpu_laser prefix="rplidar" parent_link="base_link"
+  <xacro:laser prefix="rplidar" parent_link="base_link"
                    sensor_prop="${sensor_prop}"> 
-  </xacro:gpu_laser>
+  </xacro:laser>
 
   <!-- Gazebo -->
   <xacro:gazebo_ros_control robotNamespace="/diffbot">
