@@ -2,8 +2,8 @@
 Changelog for package diffbot_robot
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2021-08-13)
+------------------
 * Update package.xml
   remove grove_motor_driver exec dependency
 * Contributors: Franz Pucher

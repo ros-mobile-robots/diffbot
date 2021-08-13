@@ -2,8 +2,8 @@
 Changelog for package diffbot_bringup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2021-08-13)
+------------------
 * Update bringup_with_laser.launch
   pass laser_frame_id argument to rplidar.launch
 * rename rosserial node to rosserial_base_controller

@@ -2,8 +2,8 @@
 Changelog for package diffbot_slam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2021-08-13)
+------------------
 * Update package.xml
   add gmapping exec dependency
 * Update gmapping_params.yaml

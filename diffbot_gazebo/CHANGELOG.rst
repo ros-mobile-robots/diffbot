@@ -2,8 +2,8 @@
 Changelog for package diffbot_gazebo
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2021-08-13)
+------------------
 * use db_world as default world for diffbot_gazebo/launch/diffbot.launch
 * update rviz and gazebo view ports
 * add diffbot_world and export model

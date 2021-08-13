@@ -2,8 +2,8 @@
 Changelog for package diffbot_control
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2021-08-13)
+------------------
 * use db_world by default for diffbot_control launch file
 * Update package.xml
   update license and email

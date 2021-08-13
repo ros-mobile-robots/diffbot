@@ -2,8 +2,8 @@
 Changelog for package diffbot_msgs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2021-08-13)
+------------------
 * add AngularVelocitiesStamped.msg
 * add and refactor diffbot_msgs
   - Rename WheelCmd.msg to WheelsCmd.msg and removed Header

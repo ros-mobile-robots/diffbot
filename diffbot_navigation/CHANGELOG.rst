@@ -2,8 +2,8 @@
 Changelog for package diffbot_navigation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2021-08-13)
+------------------
 * improve amcl.launch parameters: use diff-corrected
 * fix typo in comment of costmap_global_params.yaml
 * update rviz and gazebo view ports

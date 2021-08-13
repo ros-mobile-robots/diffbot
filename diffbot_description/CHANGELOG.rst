@@ -2,8 +2,8 @@
 Changelog for package diffbot_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2021-08-13)
+------------------
 * make use of non-gpu laser by default update min/max range to fix ghost objects (`#27 <https://github.com/ros-mobile-robots/diffbot/issues/27>`_)
 * update diffbot_description: add gpu arg for laser xacro macro (`#27 <https://github.com/ros-mobile-robots/diffbot/issues/27>`_)
 * fix diffbot_description laser link name

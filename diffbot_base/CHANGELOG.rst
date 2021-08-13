@@ -2,8 +2,8 @@
 Changelog for package diffbot_base
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2021-08-13)
+------------------
 * clean CMakeLists.txt: remove dependency
 * add dependency diffbot_msgs_generate_messages_cpp to build diffbot_msgs before diffbot_base package
 * Refactor: Update interface
