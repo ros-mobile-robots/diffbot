@@ -2,6 +2,16 @@
 Changelog for package diffbot_control
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* use db_world by default for diffbot_control launch file
+* Update package.xml
+  update license and email
+* increase linear and angular velocity limits
+* update wheel_seperation parameter
+* add model arg to launch files for remo
+* Contributors: Franz Pucher
+
 0.0.2 (2021-04-30)
 ------------------
 

@@ -2,6 +2,15 @@
 Changelog for package diffbot_slam
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Update package.xml
+  add gmapping exec dependency
+* Update gmapping_params.yaml
+  improve map resolution (change delta from 0.05 to 0.01)
+* remove new lines
+* Contributors: Franz Pucher
+
 0.0.2 (2021-04-30)
 ------------------
 

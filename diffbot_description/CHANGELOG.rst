@@ -2,6 +2,26 @@
 Changelog for package diffbot_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* make use of non-gpu laser by default update min/max range to fix ghost objects (`#27 <https://github.com/ros-mobile-robots/diffbot/issues/27>`_)
+* update diffbot_description: add gpu arg for laser xacro macro (`#27 <https://github.com/ros-mobile-robots/diffbot/issues/27>`_)
+* fix diffbot_description laser link name
+* update camera sensor parameters
+* fix scale if statement in motor xacro macro
+* update motor.yaml comment
+* refactor diffbot_description
+  - move stl files
+  - use separate robot.gazebo.xacro
+  - add addon xacro macro for addon components
+  - simplify wheel and motor macros: remove top level name from yaml files
+  - move caster macro to its own xacro file
+  - add camera sensor macro
+  - add imu sensor macro
+  - refactor gpu laser macro
+  - update license to BSDv3
+* Contributors: Franz Pucher
+
 0.0.2 (2021-04-30)
 ------------------
 

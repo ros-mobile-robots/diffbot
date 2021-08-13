@@ -2,11 +2,31 @@
 Changelog for package diffbot_navigation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* improve amcl.launch parameters: use diff-corrected
+* fix typo in comment of costmap_global_params.yaml
+* update rviz and gazebo view ports
+* fix local costmap: change sensor_frame to rplidar_laser_link
+* updated diffbot_navigation rviz default settings
+* use db_world as default for navigation
+* add diffbot_world and export model
+* Update package.xml
+  add dwa and base local planner package dependencies
+* update diffbot_navigation.rviz for remo
+* add comments to costmap_local_params.yaml
+* add comments to costmap_global_params.yaml
+* update costmap_common_params.yaml for Remo
+* add model arg to launch files for remo
+* update default planner: use dwa local planner
+* change license of diffbot_navigation package to BSDv3
+* Contributors: Franz Pucher
+
 0.0.2 (2021-04-30)
 ------------------
 * Update diffbot.launch
 * fix local costmap configuration issue
-* Contributors: Franz, Franz Pucher
+* Contributors: Franz Pucher
 
 0.0.1 (2020-12-22)
 ------------------

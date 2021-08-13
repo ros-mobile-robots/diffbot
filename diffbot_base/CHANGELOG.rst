@@ -2,6 +2,81 @@
 Changelog for package diffbot_base
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* clean CMakeLists.txt: remove dependency
+* add dependency diffbot_msgs_generate_messages_cpp to build diffbot_msgs before diffbot_base package
+* Refactor: Update interface
+  - Exchange jointStates between high hw intf and low level base
+  controller
+  - Add measured_joint_state publisher in base controller
+  to let high level hw intf subscribe to it
+  - Remove encoder publisher (todo consider publishing at low rate)
+  - Update docstrings of BaseController
+  - Extend interface of diffbot::Encoder class to read jointStates
+* refactor: renamed methods due to interface change: jointStates
+* use new jointState intf between high and low level base
+* make use of diffbot namespace
+* Update base_controller documentation
+  - Update BaseController class
+  - Add E_STOP_COMMAND_RECEIVED_DURATION define in diffbot_base_config
+* update diffbot_base
+  - add diffbot namespace to base_controller library classes
+  - update docstrings
+  - run rosdoc_lite
+  - fix some rosdoc_lite warnings
+* add diffbot_base launch arg to choose robot model (for remo and diffbot)
+* add AngularVelocitiesStamped.h for rosserial
+* remove measured_vel\_ publisher in rosserial
+* add low level pid
+  - Add pid lib for arduino code
+  - make use of pid in base_controller.h
+  - update debug logging
+  - use ros::time in encoder lib
+* set motor_constant=1 (gain trim model)
+* make use of new diffbot_msgs in hardware interface and base_controller
+* feat: add debug parameter to parameter server
+  add option to enable/disable debug logging of the hw interface
+* refactor base_controller: use ros time instead of millis
+* refactor main.cpp: add base_controller class
+  - add base_controller.h with BaseController template class
+  - use class publisher and subscriber
+  - use BaseController instead of global variables
+  - read parameters from parameter server in BaseController
+* add encoder resolution to config header and getter/setter
+* add include guards to encoder.h
+* add base_controller rosserial code using rates
+* fix vector assignment of command velocity in hw intf
+* add tests for motor controllers
+* add compiled rosserial diffbot_msgs
+* add adafruit_feather_wing motor controller class header
+* moved adafruit_feather_wing.cpp to subfolder
+* add adafruit_feather_wing motor controller class
+* add author comment
+* add abstract MotorControllerInterface class
+* remove test_motors.cpp
+* update encoder lib for rosserial
+  - add doc strings to encoder.h
+  - add ticksToAngle method
+  - add angularVelocity method
+* feature: update diffbot_hw_interface
+  - add angular wheel joint velocity publisher
+  - add new WheelCmd.msg in diffbot_msgs
+  - load new hardware related parameters from
+  diffbot_base/config/base.yaml
+  - get hardware related parameters from parameter server
+  in diffbot_hw_interface
+  - add gain trim parameters to dynamic reconfigure cfg
+* refactor diffbot_msgs
+  - rename Encoder.msg  to Encoders.msg
+  - update diffbot_pase includes and method signatures
+  - update arduino script
+  - change diffbot_msgs license to BSDv3
+* add base_controller mcu scripts including tests
+* Update package.xml
+  change license and add rosserial to exec dependencies
+* Contributors: Franz Pucher
+
 0.0.2 (2021-04-30)
 ------------------
 * fix `#30 <https://github.com/fjp/diffbot/issues/30>`_: reset encoders after each new launch of hardware interface
