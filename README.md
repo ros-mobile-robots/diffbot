@@ -194,7 +194,7 @@ Then follow the steps listed below to run the real Diffbot or Remo robot hardwar
 Make sure to run this on the real robot (e.g. connect to it via `ssh`):
 
    ```console
-   roslaunch diffbot_bringup diffbot_bringup_with_laser.launch
+   roslaunch diffbot_bringup bringup_with_laser.launch
    ```
 
 2. Then, in a new terminal on your remote/work development machine (not the single board computer) run the slam gmapping with the same command as in the simulation:
@@ -217,7 +217,7 @@ After the mapping process it is possible to use the created map for navigation, 
 1. On the single board computer (e.g. Raspberry Pi) make sure that the following is launched:
 
    ```console
-   roslaunch diffbot_bringup diffbot_bringup_with_laser.launch
+   roslaunch diffbot_bringup bringup_with_laser.launch
    ```
 
 2. Then on the work/remote development machine run the `diffbot_hw.lauch` from the `diffbot_navigation` package:
