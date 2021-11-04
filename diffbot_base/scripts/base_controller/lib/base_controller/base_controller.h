@@ -14,7 +14,7 @@
 #include <sensor_msgs/JointState.h>
 
 #include "diffbot_base_config.h"
-#include "encoder.h"
+#include "encoder_diffbot.h"
 #include "adafruit_feather_wing/adafruit_feather_wing.h"
 #include "pid.h"
 

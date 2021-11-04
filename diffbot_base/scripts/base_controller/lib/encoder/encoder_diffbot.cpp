@@ -1,4 +1,4 @@
-#include "encoder.h"
+#include "encoder_diffbot.h"
 
 
 diffbot::Encoder::Encoder(ros::NodeHandle& nh, uint8_t pin1, uint8_t pin2, int encoder_resolution)
