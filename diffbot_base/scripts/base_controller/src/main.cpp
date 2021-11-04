@@ -9,8 +9,8 @@ ros::NodeHandle nh;
 
 using namespace diffbot;
 
-AdafruitMotorController motor_controller_right = AdafruitMotorController(3);
-AdafruitMotorController motor_controller_left = AdafruitMotorController(4);
+AdafruitMotorController motor_controller_right = AdafruitMotorController(MOTOR_RIGHT);
+AdafruitMotorController motor_controller_left = AdafruitMotorController(MOTOR_LEFT);
 
 BaseController<AdafruitMotorController, Adafruit_MotorShield> base_controller(nh, &motor_controller_left, &motor_controller_right);
 
