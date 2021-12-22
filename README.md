@@ -270,6 +270,7 @@ Possible useful packages:
 
 - [`vcstool`](https://github.com/dirk-thomas/vcstool) to simplify external dependency installation
 - Adding instructions how to use [`rosdep`](http://wiki.ros.org/rosdep) to install required system dependencies
+- Use [clang format](https://clang.llvm.org/docs/ClangFormat.html) together with [`.clang-format`](https://github.com/PickNikRobotics/roscpp_code_format) file for `roscpp` to comply with [ROS C++ Style Guidelines](http://wiki.ros.org/CppStyleGuide)
 
 
 ## Part List Diffbot
