@@ -10,6 +10,8 @@
  * 
  */
 
+// Include unity library
+// For details see https://docs.platformio.org/en/latest/plus/unit-testing.html#api
 #include <unity.h>
 
 // The special bit of code in this example is the use of Arduino's Wire library. 
@@ -75,6 +77,7 @@ void setup() {
   
 
   // Set the speed to start, from 0 (off) to 255 (max speed)
+  Serial.println("setSpeed(150)");
   leftMotor->setSpeed(150);
   leftMotor->run(FORWARD);
   // turn on motor
