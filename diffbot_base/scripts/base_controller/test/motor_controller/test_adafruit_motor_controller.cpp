@@ -2,13 +2,16 @@
  * Author: Franz Pucher
  */
 
+// Include unity library
+// For details see https://docs.platformio.org/en/latest/plus/unit-testing.html#api
 #include <unity.h>
 
 #include <adafruit_feather_wing/adafruit_feather_wing.h>
 
+using namespace diffbot;
 
-AdafruitMotorController AMD = AdafruitMotorController(3);
-MotorControllerIntf<Adafruit_MotorShield>* pMotorController = &AMD;
+AdafruitMotorController AMC = AdafruitMotorController(3);
+MotorControllerIntf<Adafruit_MotorShield>* pMotorController = &AMC;
 
 
 void motorSweep(MotorControllerIntf<Adafruit_MotorShield>* i_pMotorController)
@@ -49,7 +52,7 @@ void setup() {
   Serial.begin(9600);           // set up Serial library at 9600 bps
   Serial.println("AdafruitMotorController Test");
 
-  AMD.begin();  // create with the default frequency 1.6KHz
+  AMC.begin();  // create with the default frequency 1.6KHz
   //AFMS.begin(1000);  // OR with a different frequency, say 1KHz
 }
 
