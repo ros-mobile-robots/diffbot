@@ -10,6 +10,7 @@
 #include <diffbot_msgs/EncodersStamped.h>
 #include <diffbot_msgs/WheelsCmdStamped.h>
 #include <diffbot_msgs/AngularVelocities.h>
+#include <diffbot_msgs/PIDStamped.h>
 #include <std_msgs/Empty.h>
 #include <sensor_msgs/JointState.h>
 
@@ -301,6 +302,24 @@ namespace diffbot {
          */
         void resetEncodersCallback(const std_msgs::Empty& reset_msg);
 
+        /**
+         * @brief Callback method to update the PID constants for the left motor.
+         *
+         * Publish to pid_left topic to update the PID constants of the left motor.
+         *
+         * @param pid_msg message containing the new PID constants
+         */
+        void pidLeftCallback(const diffbot_msgs::PIDStamped& pid_msg);
+
+        /**
+         * @brief Callback method to update the PID constants for the right motor.
+         *
+         * Publish to pid_right topic to update the PID constants of the right motor.
+         *
+         * @param pid_msg message containing the new PID constants
+         */
+        void pidRightCallback(const diffbot_msgs::PIDStamped& pid_msg);
+
     private:
         // Reference to global node handle from main.cpp
         ros::NodeHandle& nh_;
@@ -345,7 +364,8 @@ namespace diffbot {
         int motor_cmd_left_ = 0;
         int motor_cmd_right_ = 0;
 
-
+        ros::Subscriber<diffbot_msgs::PIDStamped, BaseController<TMotorController, TMotorDriver>> sub_pid_left_;
+        ros::Subscriber<diffbot_msgs::PIDStamped, BaseController<TMotorController, TMotorDriver>> sub_pid_right_;
         PID motor_pid_left_;
         PID motor_pid_right_;
 
@@ -372,6 +392,8 @@ diffbot::BaseController<TMotorController, TMotorDriver>
     , sub_wheel_cmd_velocities_("wheel_cmd_velocities", &BC<TMotorController, TMotorDriver>::commandCallback, this)
     , last_update_time_(nh.now())
     , update_rate_(UPDATE_RATE_IMU, UPDATE_RATE_CONTROL, UPDATE_RATE_DEBUG)
+    , sub_pid_left_("pid_left", &BC<TMotorController, TMotorDriver>::pidLeftCallback, this)
+    , sub_pid_right_("pid_right", &BC<TMotorController, TMotorDriver>::pidRightCallback, this)
     , motor_pid_left_(PWM_MIN, PWM_MAX, K_P, K_I, K_D)
     , motor_pid_right_(PWM_MIN, PWM_MAX, K_P, K_I, K_D)
 {
@@ -462,6 +484,27 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::resetEncodersCallb
 
 
 template <typename TMotorController, typename TMotorDriver>
+void diffbot::BaseController<TMotorController, TMotorDriver>::pidLeftCallback(const diffbot_msgs::PIDStamped& pid_msg)
+{
+    // Callback function to update the pid values of the left motor
+    // This callback function receives diffbot_msgs::PID message object
+    // where diffbot_msgs::PID kp, ki, kd for one pid controller is stored
+    motor_pid_left_.updateConstants(pid_msg.pid.kp, pid_msg.pid.ki, pid_msg.pid.kd);
+    motor_pid_left_.updateConstants(pid_msg.pid.kp, pid_msg.pid.ki, pid_msg.pid.kd);
+}
+
+template <typename TMotorController, typename TMotorDriver>
+void diffbot::BaseController<TMotorController, TMotorDriver>::pidRightCallback(const diffbot_msgs::PIDStamped& pid_msg)
+{
+    // Callback function to update the pid values of the left motor
+    // This callback function receives diffbot_msgs::PID message object
+    // where diffbot_msgs::PID kp, ki, kd for one pid controller is stored
+    motor_pid_left_.updateConstants(pid_msg.pid.kp, pid_msg.pid.ki, pid_msg.pid.kd);
+    motor_pid_left_.updateConstants(pid_msg.pid.kp, pid_msg.pid.ki, pid_msg.pid.kd);
+}
+
+
+template <typename TMotorController, typename TMotorDriver>
 void diffbot::BaseController<TMotorController, TMotorDriver>::read()
 {
     joint_state_left_ = encoder_left_.jointState();
@@ -518,16 +561,33 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::eStop()
 template <typename TMotorController, typename TMotorDriver>
 void diffbot::BaseController<TMotorController, TMotorDriver>::printDebug()
 {
-    String log_msg = 
-            String("\nRead:\n") + 
-            String("ticks_left_ \t ticks_right_ \t measured_ang_vel_left \t measured_ang_vel_right\n") + 
-            String(ticks_left_) + String("\t") + String(ticks_right_) + String("\t") +
-            String(joint_state_left_.angular_velocity_) + String("\t") + String(joint_state_right_.angular_velocity_) +
+    /*
+    String log_msg =
+            String("\nRead:\n") +
+                String("ticks_left_ \t ticks_right_ \t measured_ang_vel_left \t measured_ang_vel_right\n") +
+                String(ticks_left_) + String("\t") + String(ticks_right_) + String("\t") +
+                String(joint_state_left_.angular_velocity_) + String("\t") + String(joint_state_right_.angular_velocity_) +
             String("\nWrite:\n") + 
-                     String("motor_cmd_left_ \t motor_cmd_right_ \t pid_left_error \t pid_right_error\n") +
-                     String(motor_cmd_left_) + String("\t") + String(motor_cmd_right_) + String("\t") +
-                     //String("pid_left \t pid_right\n") +
-                     String(motor_pid_left_.error()) + String("\t") + String(motor_pid_right_.error());
+                String("motor_cmd_left_ \t motor_cmd_right_ \t pid_left_error \t pid_right_error\n") +
+                String(motor_cmd_left_) + String("\t") + String(motor_cmd_right_) + String("\t") +
+                //String("pid_left \t pid_right\n") +
+                String(motor_pid_left_.error()) + String("\t") + String(motor_pid_right_.error());
+    */
+
+    String log_msg =
+            String("\nRead:\n") +
+                String("ticks_left_: ") + String(ticks_left_) +
+                String("\nticks_right_: ") + String(ticks_right_) +
+                String("\nmeasured_ang_vel_left: ") + String(joint_state_left_.angular_velocity_) +
+                String("\nmeasured_ang_vel_right: ") + String(joint_state_right_.angular_velocity_) +
+                String("\nwheel_cmd_velocity_left_: ") + String(wheel_cmd_velocity_left_) +
+                String("\nwheel_cmd_velocity_right_: ") + String(wheel_cmd_velocity_right_) +
+
+            String("\nWrite:\n") +
+                String("motor_cmd_left_: ") + String(motor_cmd_left_) +
+                String("\nmotor_cmd_right_: ") + String(motor_cmd_right_) +
+                String("\npid_left_errors (p, i, d): ") + String(motor_pid_left_.proportional()) + String(" ") + String(motor_pid_left_.integral()) + String(" ") + String(motor_pid_left_.derivative()) +
+                String("\npid_right_error (p, i, d): ") + String(motor_pid_right_.proportional()) + String(" ") + String(motor_pid_right_.integral()) + String(" ") + String(motor_pid_right_.derivative());
     nh_.loginfo(log_msg.c_str());
 }
 

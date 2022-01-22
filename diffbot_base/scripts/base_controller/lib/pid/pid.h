@@ -10,7 +10,10 @@ namespace diffbot {
             double compute(float setpoint, float measured_value);
             void updateConstants(float kp, float ki, float kd);
 
-            double error();
+            inline double proportional() { return proportional_; };
+            inline double integral() { return integral_; };
+            inline double derivative() { return derivative_; };
+            inline double prev_error() { return prev_error_; };
 
         private:
             float min_val_;
@@ -18,6 +21,7 @@ namespace diffbot {
             float kp_;
             float ki_;
             float kd_;
+            double proportional_;
             double integral_;
             double derivative_;
             double prev_error_;
