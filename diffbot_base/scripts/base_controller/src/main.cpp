@@ -46,6 +46,7 @@ void loop()
     command_dt = nh.now() - base_controller.lastUpdateTime().command_received;
     if (command_dt.toSec() >= ros::Duration(E_STOP_COMMAND_RECEIVED_DURATION, 0).toSec())
     {
+        nh.logwarn("Emergency STOP");
         base_controller.eStop();
     }
 
