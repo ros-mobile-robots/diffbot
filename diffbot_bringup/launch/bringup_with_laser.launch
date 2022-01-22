@@ -1,5 +1,5 @@
 <launch>
-    <arg name="laser_frame_id" default="rplidar_gpu_laser_link" />
+    <arg name="laser_frame_id" default="rplidar_laser_link" />
     <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
     <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
 
@@ -22,7 +22,7 @@
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"
         output="screen" ns="diffbot" />
 
-    <include file="$(find rplidar_ros)/launch/rplidar.launch" ns="diffbot">
+    <include file="$(find diffbot_bringup)/launch/rplidar.launch" ns="diffbot">
         <arg name="laser_frame_id" value="$(arg laser_frame_id)" />
     </include>
 
