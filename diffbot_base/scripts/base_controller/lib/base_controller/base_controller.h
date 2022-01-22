@@ -422,6 +422,9 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::setup()
     nh_.subscribe(sub_wheel_cmd_velocities_);
     nh_.subscribe(sub_reset_encoders_);
 
+    nh_.subscribe(sub_pid_left_);
+    nh_.subscribe(sub_pid_right_);
+
     while (!nh_.connected())
     {
         nh_.spinOnce();
