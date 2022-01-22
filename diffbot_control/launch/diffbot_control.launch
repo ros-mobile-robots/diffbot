@@ -10,8 +10,8 @@
     <rosparam command="load"
         file="$(find diffbot_control)/config/diffbot_control.yaml"/>
 
-    <!--rosparam command="load"
-        file="$(find diffbot_control)/config/pid.yaml"/-->
+    <rosparam command="load"
+        file="$(find diffbot_control)/config/pid.yaml"/>
 
     <!-- load the controllers -->
     <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
