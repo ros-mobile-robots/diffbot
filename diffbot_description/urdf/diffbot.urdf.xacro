@@ -10,19 +10,19 @@
   <xacro:include filename="$(find ${package_name})/urdf/include/robot.gazebo.xacro" />
 
   <xacro:property name="caster_wheel_yaml" value="$(find ${package_name})/config/${robot_name}/caster_wheel.yaml" />
-  <xacro:property name="caster_wheel_props" value="${load_yaml(caster_wheel_yaml)}"/>
+  <xacro:property name="caster_wheel_props" value="${xacro.load_yaml(caster_wheel_yaml)}"/>
 
   <xacro:property name="front_wheel_yaml" value="$(find ${package_name})/config/${robot_name}/front_wheel.yaml" />
-  <xacro:property name="front_wheel_props" value="${load_yaml(front_wheel_yaml)}"/>
+  <xacro:property name="front_wheel_props" value="${xacro.load_yaml(front_wheel_yaml)}"/>
 
   <xacro:property name="motor_yaml" value="$(find ${package_name})/config/${robot_name}/motor.yaml" />
-  <xacro:property name="motor_props" value="${load_yaml(motor_yaml)}"/>
+  <xacro:property name="motor_props" value="${xacro.load_yaml(motor_yaml)}"/>
 
   <xacro:property name="base_yaml" value="$(find ${package_name})/config/${robot_name}/base.yaml" />
-  <xacro:property name="base_props" value="${load_yaml(base_yaml)}"/>
+  <xacro:property name="base_props" value="${xacro.load_yaml(base_yaml)}"/>
 
   <xacro:property name="sensor_yaml" value="$(find ${package_name})/config/${robot_name}/sensors.yaml" />
-  <xacro:property name="sensor_prop" value="${load_yaml(sensor_yaml)}"/>
+  <xacro:property name="sensor_prop" value="${xacro.load_yaml(sensor_yaml)}"/>
 
 
   <!-- Footprint link -->
