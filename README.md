@@ -135,7 +135,7 @@ roslaunch diffbot_navigation diffbot.launch
 This uses a previously mapped map of `db_world.world` (found in [`diffbot_navigation/maps`](./diffbot_navigation/maps/)) that is served by
 the [`map_server`](http://wiki.ros.org/map_server). With this you can use the [2D Nav Goal in RViz](http://wiki.ros.org/navigation/Tutorials/Using%20rviz%20with%20the%20Navigation%20Stack#A2D_Nav_Goal) directly to let the robot drive autonomously in the `db_world.world`.
 
-[![DiffBot navigation](https://media.githubusercontent.com/media/ros-mobile-robots/ros-mobile-robots.github.io/main/docs/resources/navigation/db_world-nav.gif)](https://youtu.be/2SwFTrJ1Ofg)
+[![DiffBot navigation](https://github.com/ros-mobile-robots/ros-mobile-robots.github.io/raw/main/docs/resources/navigation/db_world-nav.gif)](https://youtu.be/2SwFTrJ1Ofg)
 
 To run the `turtlebot3_world.world` (or your own stored world and map) use the same `diffbot_navigation/launch/diffbot.launch` file but change
 the `world_name` and `map_file` arguments to your desired world and map yaml files:
