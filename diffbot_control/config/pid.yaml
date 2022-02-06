@@ -2,6 +2,10 @@ diffbot:
   gazebo_ros_control:
     pid_gains:
       front_right_wheel_joint:
-        {p: 1.5, i: 0, d: 0}
+        p: 0.06
+        i: 0.0
+        d: 0.0
       front_left_wheel_joint:
-        {p: 1.5, i: 0, d: 0}
+        p: 0.06
+        i: 0.0
+        d: 0.0
