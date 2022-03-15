@@ -6,9 +6,9 @@ global_costmap:
   robot_base_frame: base_footprint
 
   # The frequency in Hz for the map to be updated.
-  update_frequency: 10.0
+  update_frequency:  10.0
   # The frequency in Hz for the map to publish display information.
-  publish_frequency: 10.0
+  publish_frequency: 30.0
   # Specifies the delay in transform (tf) data that is tolerable in seconds.
   # This parameter serves as a safeguard to losing a link in the tf tree while
   # still allowing an amount of latency the user is comfortable with to exist in the system.
@@ -17,7 +17,7 @@ global_costmap:
   # If the tf transform between the coordinate frames specified by the global_frame and
   # robot_base_frame parameters is transform_tolerance seconds older than ros::Time::now(),
   # then the navigation stack will stop the robot.
-  transform_tolerance: 0.5
+  transform_tolerance: 1.0
 
   # Whether or not to use the static map to initialize the costmap.
   # If the rolling_window parameter is set to true, this parameter must be set to false.

@@ -10,7 +10,7 @@ raytrace_range: 3.5
 # [ [x1, y1], [x2, y2], ...., [xn, yn] ]. The footprint specification assumes the center point of the robot is at 
 # (0.0, 0.0) in the robot_base_frame and that the points are specified in meters, 
 # both clockwise and counter-clockwise orderings of points are supported.
-footprint: [[-0.08, -0.075], [-0.08, 0.075], [0.105, 0.075], [0.105, -0.075]]
+footprint: [[-0.05, -0.05], [-0.05, 0.05], [0.05, 0.05], [0.05, -0.05]]
 #robot_radius: 0.17
 
 # The radius in meters to which the map inflates obstacle cost values.

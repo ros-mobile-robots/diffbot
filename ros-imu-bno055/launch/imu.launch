@@ -1,0 +1,10 @@
+<launch>
+
+    <node ns="imu" name="imu_node" pkg="imu_bno055" type="bno055_i2c_node" respawn="true" respawn_delay="2">
+        <param name="device" type="string" value="/dev/i2c-3"/>  <!-- See: https://github.com/fivdi/i2c-bus/blob/master/doc/raspberry-pi-software-i2c.md -->
+        <param name="address" type="int" value="40"/>            <!-- i2c addr 0x28 == 40 for Adafruit BNO055 -->
+        <param name="frame_id" type="string" value="imu_sensor_link" />
+    </node>
+
+
+</launch>
