@@ -24,7 +24,7 @@ diffbot:
     type: diff_drive_controller/DiffDriveController
     publish_rate: 50
 
-    left_wheel: 'front_left_wheel_joint'
+    left_wheel:  'front_left_wheel_joint'
     right_wheel: 'front_right_wheel_joint'
 
     # Wheel separation and diameter. These are both optional.
@@ -36,11 +36,18 @@ diffbot:
     # Odometry covariances for the encoder output of the robot. These values should
     # be tuned to your robot's sample odometry data, but these values are a good place
     # to start
-    pose_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.03]
+    pose_covariance_diagonal:  [0.001, 0.001, 0.001, 0.001, 0.001, 0.03]
     twist_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.03]
 
     # Top level frame (link) of the robot description
-    base_frame_id: base_footprint
+    # Don't publish base_footprint->odom transform here it will be done by robot_localization after sensor fusion
+    # base_frame_id: base_footprint 
+
+    # Odometry fused with IMU is published by robot_localization, so
+    # no need to publish a TF based on encoders alone.
+    # This was the breakthrough that allowed sensor fusion while using differential_drive_controller
+    enable_odom_tf: false
+
 
     # Velocity and acceleration limits for the robot
     linear:
