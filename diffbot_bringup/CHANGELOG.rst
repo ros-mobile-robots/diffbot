@@ -2,6 +2,19 @@
 Changelog for package diffbot_bringup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* fix rplidar_laser_link name issue (`#40 <https://github.com/ros-mobile-robots/diffbot/issues/40>`_, `#53 <https://github.com/ros-mobile-robots/diffbot/issues/53>`_)
+  - Rename rplidar_gpu_laser_link to rplidar_laser_link in bringup_with_laser.launch
+  - Add rplidar.launch to diffbot_bringup to support framed_id argument
+  - Make use of new diffbot_bringup/launch/rplidar.launch in bringup_with_laser.launch
+  This solves issues in RViz:
+  Transform [sender=unknown_publisher]
+  For frame [rplidar_gpu_laser_link]: Frame [rplidar_gpu_laser_link] does not exist
+  and in the terminal from whic diffbot_slam is launched:
+  [ WARN] [1635345613.864692611]: MessageFilter [target=odom ]: Dropped 100.00% of messages so far. Please turn the [ros.gmapping.message_filter] rosconsole logger to DEBUG for more information.
+* Contributors: Franz Pucher
+
 1.0.0 (2021-08-13)
 ------------------
 * Update bringup_with_laser.launch

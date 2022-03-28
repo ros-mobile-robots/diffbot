@@ -2,6 +2,27 @@
 Changelog for package diffbot_base
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* fix: missing subscriber initialization (`#54 <https://github.com/ros-mobile-robots/diffbot/issues/54>`_)
+* feat: warn if eStop() is called on mcu
+* Change base config: switch motor pins
+* feat: add callbacks for low level pids on mcu `#54 <https://github.com/ros-mobile-robots/diffbot/issues/54>`_
+  For MCU firmware
+  - Add subscribers for left and right motor pid controllers using
+  diffbot_msgs::PIDStamped custom message
+  - Update debug logging message (different formatting)
+  - Update PID controller interface (provide proportional\_, integral\_ and
+  derivative\_ values)
+* fix: missing diffbot namespace in test
+* fix: test_encoders.cpp include name
+* feat: add documentation link for unity
+* Merge pull request `#42 <https://github.com/ros-mobile-robots/diffbot/issues/42>`_ from joeuser846/motor-defines
+  Use MOTOR_LEFT/RIGHT from diffbot_base_config.h instead of hardcoding pin numbers
+* Fix filenames
+* Use MOTOR_LEFT/RIGHT instead of hardcoding pin numbers
+* Contributors: Franz Pucher, Joe User
+
 1.0.0 (2021-08-13)
 ------------------
 * clean CMakeLists.txt: remove dependency

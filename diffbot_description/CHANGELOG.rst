@@ -2,6 +2,12 @@
 Changelog for package diffbot_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* fix deprecated warning using load_yaml (`#53 <https://github.com/ros-mobile-robots/diffbot/issues/53>`_)
+  Using xacro.load_yaml instead of just load_yaml
+* Contributors: Franz Pucher
+
 1.0.0 (2021-08-13)
 ------------------
 * make use of non-gpu laser by default update min/max range to fix ghost objects (`#27 <https://github.com/ros-mobile-robots/diffbot/issues/27>`_)
