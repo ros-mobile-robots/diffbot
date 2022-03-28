@@ -2,8 +2,8 @@
 Changelog for package diffbot_navigation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.1.0 (2022-03-28)
+------------------
 * Fix minor error in amcl.launch
   The "kld_err" was initialized twice, and with the wrong value. Corrected to initialize the "kld_error" parameter to 0.01 and "kld_z" to 0.99.
 * Contributors: Rodrigo Silverio

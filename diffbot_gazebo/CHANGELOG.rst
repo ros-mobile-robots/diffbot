@@ -2,8 +2,8 @@
 Changelog for package diffbot_gazebo
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.1.0 (2022-03-28)
+------------------
 * Update diffbot_gazebo/diffbot_view.launch
   Use db_world as default instead of corridor world
 * Contributors: Franz Pucher

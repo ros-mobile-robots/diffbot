@@ -2,8 +2,8 @@
 Changelog for package diffbot_base
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.1.0 (2022-03-28)
+------------------
 * fix: missing subscriber initialization (`#54 <https://github.com/ros-mobile-robots/diffbot/issues/54>`_)
 * feat: warn if eStop() is called on mcu
 * Change base config: switch motor pins

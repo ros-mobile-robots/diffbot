@@ -2,8 +2,8 @@
 Changelog for package diffbot_bringup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.1.0 (2022-03-28)
+------------------
 * fix rplidar_laser_link name issue (`#40 <https://github.com/ros-mobile-robots/diffbot/issues/40>`_, `#53 <https://github.com/ros-mobile-robots/diffbot/issues/53>`_)
   - Rename rplidar_gpu_laser_link to rplidar_laser_link in bringup_with_laser.launch
   - Add rplidar.launch to diffbot_bringup to support framed_id argument

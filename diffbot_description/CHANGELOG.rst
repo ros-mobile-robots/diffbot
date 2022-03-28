@@ -2,8 +2,8 @@
 Changelog for package diffbot_description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.1.0 (2022-03-28)
+------------------
 * fix deprecated warning using load_yaml (`#53 <https://github.com/ros-mobile-robots/diffbot/issues/53>`_)
   Using xacro.load_yaml instead of just load_yaml
 * Contributors: Franz Pucher

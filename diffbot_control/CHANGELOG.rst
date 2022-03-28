@@ -2,8 +2,8 @@
 Changelog for package diffbot_control
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.1.0 (2022-03-28)
+------------------
 * fix robot spawning in world origin using pid gains (`#57 <https://github.com/ros-mobile-robots/diffbot/issues/57>`_)
 * include pid.yaml to avoid Gazebo error messages
 * Contributors: Franz Pucher
