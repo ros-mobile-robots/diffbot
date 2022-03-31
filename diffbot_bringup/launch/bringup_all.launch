@@ -1,0 +1,39 @@
+<launch>
+    <arg name="laser_frame_id" default="rplidar_laser_link" />
+    <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
+    <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
+
+    <!-- The `minimal.launch` is used to load the DiffBot's robot descripton
+        and the controller configuration onto the ROS parameter server using the launch file from the
+        `diffbot_base` package (https://fjp.at/projects/diffbot/ros-packages/base/).
+        It will also setup the ROS controller manager (http://wiki.ros.org/controller_manager) with
+        DiffBot's hardware interface https://fjp.at/projects/diffbot/ros-packages/base/#hardware-inte>
+        For the motor driver the node `motor_driver.py` from the `grove_motor_driver` package is star>
+        And for the encoders rosserial communicates with the Teensy microcontroller to publish the en>
+    -->
+    <include file="$(find diffbot_bringup)/launch/minimal.launch">
+        <arg name="model" value="$(arg model)" />
+    </include>
+    
+    <!-- Starting SLAMTEC RPLidar A1/A2 -->
+    <include file="$(find rplidar_ros)/launch/rplidar.launch" ns="diffbot">
+        <arg name="laser_frame_id" value="$(arg laser_frame_id)" />
+    </include>
+
+    <!-- Starting Adafruit BNO055 IMU -->
+    <include file="$(find imu_bno055)/launch/imu.launch" ns="diffbot">
+    </include>
+
+    <!-- Starting robot_localization to fuse wheel encoder and IMU sensors -->
+    <include file="$(find robot_localization)/launch/ekf_template.launch" ns="diffbot">
+    </include>
+
+    <!-- Starting robot state publish which will publish tf -->
+    <!-- This is needed to publish transforms between all links -->
+    <!-- diff_drive_controller publishes only a single transform between odom and base_footprint -->
+    <!-- The robot_state_publisher reads the joint states published by ros control's joint_state_controller -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"
+        output="screen" ns="diffbot" />
+</launch>
+
+
