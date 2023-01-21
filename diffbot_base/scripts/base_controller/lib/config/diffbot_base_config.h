@@ -31,4 +31,4 @@
 
 
 #define PWM_MAX pow(2, PWM_BITS) - 1
-#define PWM_MIN -PWM_MAX
+#define PWM_MIN -(PWM_MAX)
