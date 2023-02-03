@@ -43,9 +43,9 @@ For the real robot [Ubuntu Mate 20.04](https://ubuntu-mate.org/download/arm64/fo
 
 ### Dependencies
 
-The required Ubuntu packages are listed in the [documentation](./docs). Other ROS catkin packages such as [`rplidar_ros`](https://github.com/Slamtec/rplidar_ros) need to be cloned into the catkin workspace.
+The required Ubuntu packages are listed in software package sections found in the [documentation](https://ros-mobile-robots.com/packages/packages-setup/#obtain-system-dependencies). Other ROS catkin packages such as [`rplidar_ros`](https://github.com/Slamtec/rplidar_ros) need to be cloned into the catkin workspace.
 
-For easy installation use [`vcstool`](https://github.com/dirk-thomas/vcstool), which is used in the next steps. Install it with
+For an automated and simplified dependency installation process install the [`vcstool`](https://github.com/dirk-thomas/vcstool), which is used in the next steps.
 
 ```console
 sudo apt install python3-vcstool
@@ -55,13 +55,22 @@ sudo apt install python3-vcstool
 
 To build the packages in this repository including the Remo robot follow these steps:
 
-1. Clone this repository in the `src` folder of your ROS Noetic [catkin workspace](http://wiki.ros.org/catkin/Tutorials/create_a_workspace):
+1. `cd` into an existing ROS Noetic [catkin workspace](http://wiki.ros.org/catkin/Tutorials/create_a_workspace) or create a new one:
+   ```console
+   mkdir -p catkin_ws/src
+   ```
+
+2. Clone this repository in the `src` folder of your ROS Noetic catkin workspace:
 
    ```console
-   catkin_ws/src$ git clone https://github.com/ros-mobile-robots/diffbot.git
+   cd catkin_ws/src
+   ```
+
+   ```console
+   git clone https://github.com/fjp/diffbot.git
    ```
    
-2. Execute the `vcs import` command from the root of the catkin workspace and pipe in the `diffbot_dev.repos` or `remo_robot.repos` YAML file, depending on where you execute the command, either the development PC or the SBC of Remo to clone the listed dependencies. Run the following command only on your development machine:
+3. Execute the `vcs import` command from the root of the catkin workspace and pipe in the `diffbot_dev.repos` or `remo_robot.repos` YAML file, depending on where you execute the command, either the development PC or the SBC of Remo to clone the listed dependencies. Run the following command only on your development machine:
 
    ```
    vcs import < src/diffbot/diffbot_dev.repos
@@ -73,13 +82,13 @@ To build the packages in this repository including the Remo robot follow these s
    vcs import < src/diffbot/remo_robot.repos
    ```
    
-3. Install the requried binary dependencies of all packages in the catkin workspace using the following [`rosdep` command](http://wiki.ros.org/rosdep#Install_dependency_of_all_packages_in_the_workspace):
+4. Install the requried binary dependencies of all packages in the catkin workspace using the following [`rosdep` command](http://wiki.ros.org/rosdep#Install_dependency_of_all_packages_in_the_workspace):
 
    ```
    rosdep install --from-paths src --ignore-src -r -y
    ```
 
-4. After installing the required dependencies build the catkin workspace, either with [`catkin_make`](http://wiki.ros.org/catkin/commands/catkin_make):
+5. After installing the required dependencies build the catkin workspace, either with [`catkin_make`](http://wiki.ros.org/catkin/commands/catkin_make):
 
    ```console
    catkin_ws$ catkin_make
@@ -90,7 +99,7 @@ To build the packages in this repository including the Remo robot follow these s
    catkin_ws$ catkin build
    ```
    
-5. Finally, source the newly built packages with the `devel/setup.*` script, depending on your used shell:
+6. Finally, source the newly built packages with the `devel/setup.*` script, depending on your used shell:
 
    For bash use:
 
@@ -274,8 +283,6 @@ Possible useful packages:
 
 ### Tooling
 
-- [`vcstool`](https://github.com/dirk-thomas/vcstool) to simplify external dependency installation
-- Adding instructions how to use [`rosdep`](http://wiki.ros.org/rosdep) to install required system dependencies
 - Use [clang format](https://clang.llvm.org/docs/ClangFormat.html) together with [`.clang-format`](https://github.com/PickNikRobotics/roscpp_code_format) file for `roscpp` to comply with [ROS C++ Style Guidelines](http://wiki.ros.org/CppStyleGuide)
 
 
