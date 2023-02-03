@@ -49,3 +49,8 @@ https://github.com/Slamtec/rplidar_ros/blob/master/LICENSE
 ### UbiquityRobotics/raspicam_node
 License: BSD 3-Clause
 https://github.com/UbiquityRobotics/raspicam_node/blob/kinetic/LICENSE
+
+
+### Dirk Thomas/vcstool
+License: Apache
+https://github.com/dirk-thomas/vcstool/blob/master/LICENSE
