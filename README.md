@@ -43,7 +43,13 @@ For the real robot [Ubuntu Mate 20.04](https://ubuntu-mate.org/download/arm64/fo
 
 ### Dependencies
 
-The required Ubuntu packages are listed in the [documentation](./docs). Other ROS catkin packages such as [`rplidar_ros`](https://github.com/Slamtec/rplidar_ros) need to be cloned into the catkin workspace. It is planned to use [`vcstool`](https://github.com/dirk-thomas/vcstool) in the future to automate the dependency installtions.
+The required Ubuntu packages are listed in the [documentation](./docs). Other ROS catkin packages such as [`rplidar_ros`](https://github.com/Slamtec/rplidar_ros) need to be cloned into the catkin workspace.
+
+For easy installation use [`vcstool`](https://github.com/dirk-thomas/vcstool), which is used in the next steps. Install it with
+
+```console
+sudo apt install python3-vcstool
+```
 
 ### :hammer: How to Build
 
@@ -52,7 +58,7 @@ To build the packages in this repository including the Remo robot follow these s
 1. Clone this repository in the `src` folder of your ROS Noetic [catkin workspace](http://wiki.ros.org/catkin/Tutorials/create_a_workspace):
 
    ```console
-   catkin_ws/src$ git clone https://github.com/fjp/diffbot.git
+   catkin_ws/src$ git clone https://github.com/ros-mobile-robots/diffbot.git
    ```
    
 2. Execute the `vcs import` command from the root of the catkin workspace and pipe in the `diffbot_dev.repos` or `remo_robot.repos` YAML file, depending on where you execute the command, either the development PC or the SBC of Remo to clone the listed dependencies. Run the following command only on your development machine:
