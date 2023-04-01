@@ -4,7 +4,7 @@
 name: CI
 
 # This determines when this workflow is run
-on: [push, pull_request] # on all pushes and PRs
+on: [push, pull_request, workflow_dispatch] # on all pushes and PRs
 
 # or more fine-grained
 # on:
