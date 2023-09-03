@@ -82,6 +82,6 @@ ENV DISPLAY=:0
 # Clean up
 RUN rm -rf /var/lib/apt/lists/*
 
-CMD ["/bin/bash"]               # Container will display a bash prompt
+CMD ["/bin/bash"]
 
 # Suggestion: Run one container for roscore and another for navigation (see 'docker run' examples above.)
