@@ -19,6 +19,7 @@ RUN apt install -y \
 	python3-catkin-tools \
 	python3-vcstool \
     wget \
+    git \
 # Following are optional but nice for debugging your image and containers
 # Just remember that containers are immutable so any changes are ephemeral
 # For permanent changes update this dockerfile and rebuild the image
