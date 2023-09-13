@@ -25,7 +25,7 @@
           <!-- The folder path get a folder_name global parameter -->
           <mesh filename="package://${package_name}/meshes/${robot_name}/${base_prop[addon]['mesh']}" scale="${base_prop[addon]['scale']}"/>
         </geometry>
-        <material name="white" />
+        <material name="red" />
       </visual>
     </xacro:if>
     <xacro:if value="${base_prop[addon]['mesh'] == '' }" >
