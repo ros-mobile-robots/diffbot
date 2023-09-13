@@ -62,11 +62,17 @@ namespace diffbot_base
         //Setup publisher for angular wheel joint velocity commands
         pub_wheel_cmd_velocities_ = nh_.advertise<diffbot_msgs::WheelsCmdStamped>("wheel_cmd_velocities", 10);
 
+        // Setup publisher for the IMU format transform
+        imu_pub_ = nh.advertise<sensor_msgs::Imu>("imu/processed", 50);
+        
         // Setup publisher to reset wheel encoders (used during first launch of the hardware interface)
         pub_reset_encoders_ = nh_.advertise<std_msgs::Empty>("reset", 10);
         // Setup subscriber for the wheel encoders
         sub_encoder_ticks_ = nh_.subscribe("encoder_ticks", 10, &DiffBotHWInterface::encoderTicksCallback, this);
         sub_measured_joint_states_ = nh_.subscribe("measured_joint_states", 10, &DiffBotHWInterface::measuredJointStatesCallback, this);
+
+        //setup subscriber for the IMU
+        sub_imu_data_ = nh_.subscribe("imu", 10, &DiffBotHWInterface::IMUDataCallback, this);
 
         // Initialize the hardware interface
         init(nh_, nh_);
@@ -105,9 +111,10 @@ namespace diffbot_base
 
             joint_velocity_commands_[i] = 0.0;
 
-            // Initialize encoder_ticks_ to zero because receiving meaningful
+            // Initialize encoder_ticks_ & IMU to zero because receiving meaningful
             // tick values from the microcontroller might take some time
             encoder_ticks_[i] = 0.0;
+            IMU_data_[i] = 0.0;
             measured_joint_states_[i].angular_position_ = 0.0;
             measured_joint_states_[i].angular_velocity_ = 0.0;
 
@@ -158,6 +165,9 @@ namespace diffbot_base
             ROS_INFO_STREAM(std::endl << ss.str());
             //printState();
         }
+
+        //  Publish IMU values to handle information to EKF Filter
+        PublishIMUtoFilter();
     }
 
     void DiffBotHWInterface::write(const ros::Time& time, const ros::Duration& period)
@@ -364,6 +374,55 @@ namespace diffbot_base
         ROS_DEBUG_STREAM_THROTTLE(1, "Right encoder ticks: " << encoder_ticks_[1]);
     }
 
+    /// Process updates from imu
+    void DiffBotHWInterface::IMUDataCallback(const diffbot_msgs::IMU::ConstPtr& msg_imu)
+    {
+        /// update current data from IMU
+        orientation[0] = msg_imu->imu_msg[0];
+        orientation[1] = msg_imu->imu_msg[1];
+        orientation[2] = msg_imu->imu_msg[2];
+        orientation[3] = msg_imu->imu_msg[8];
+        
+        angular_velocity[0] = msg_imu->imu_msg[6];
+        angular_velocity[1] = msg_imu->imu_msg[7];
+        angular_velocity[2] = msg_imu->imu_msg[8];
+
+        linear_acceleration[0] = msg_imu->imu_msg[3];
+        linear_acceleration[1] = msg_imu->imu_msg[4];
+        linear_acceleration[2] = msg_imu->imu_msg[5];
+
+        ROS_DEBUG_STREAM_THROTTLE(1, "x orientation: " << encoder_ticks_[0]);
+        ROS_DEBUG_STREAM_THROTTLE(1, "y orientation: " << encoder_ticks_[1]);
+        ROS_DEBUG_STREAM_THROTTLE(1, "z orientation: " << encoder_ticks_[2]);
+        ROS_DEBUG_STREAM_THROTTLE(1, "w orientation: " << encoder_ticks_[3]);
+        ROS_DEBUG_STREAM_THROTTLE(1, "x angular velocity: " << encoder_ticks_[0]);
+        ROS_DEBUG_STREAM_THROTTLE(1, "y angular velocity: " << encoder_ticks_[1]);
+        ROS_DEBUG_STREAM_THROTTLE(1, "z angular velocity: " << encoder_ticks_[2]);
+        ROS_DEBUG_STREAM_THROTTLE(1, "x linear accelaration: " << encoder_ticks_[0]);
+        ROS_DEBUG_STREAM_THROTTLE(1, "y linear accelaration: " << encoder_ticks_[1]);
+        ROS_DEBUG_STREAM_THROTTLE(1, "z linear accelaration: " << encoder_ticks_[2]);
+    }
+    
+
+    void DiffBotHWInterface::PublishIMUtoFilter()
+    {
+        imu_pub_.publish(imu);
+        imu.header.stamp = ros::Time::now();
+        imu.header.frame_id = "imu";
+
+        imu.orientation.x = orientation[0];
+        imu.orientation.y = orientation[1];
+        imu.orientation.z = orientation[2];
+        imu.orientation.w = orientation[3];
+
+        imu.angular_velocity.x = angular_velocity[0];
+        imu.angular_velocity.y = angular_velocity[1];
+        imu.angular_velocity.z = angular_velocity[2];
+
+        imu.linear_acceleration.x = linear_acceleration[0];
+        imu.linear_acceleration.y = linear_acceleration[1];
+        imu.linear_acceleration.z = linear_acceleration[2];
+    }
     void DiffBotHWInterface::measuredJointStatesCallback(const sensor_msgs::JointState::ConstPtr& msg_joint_states)
     {
         /// Update current encoder ticks in encoders array
