@@ -369,3 +369,7 @@ Your contributions are most welcome. These can be in the form of raising issues,
 See also [open-source-license-acknowledgements-and-third-party-copyrights.md](open-source-license-acknowledgements-and-third-party-copyrights.md).
 The [documentation](https://ros-mobile-robots.com/) is licensed differently,
 visit its [license text](https://github.com/ros-mobile-robots/ros-mobile-robots.github.io#license) to learn more.
+
+
+### New Docker instructions
+Instructions can be found at https://github.com/PickNikRobotics/ros_testing_templates.
