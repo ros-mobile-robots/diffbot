@@ -36,7 +36,7 @@
           <xacro:if value="${wheel_props['scale'] == '' }" >
             <mesh filename="package://${package_name}/meshes/${robot_name}/${wheel_props['mesh']}" />
           </xacro:if>
-          <xacro:if value="${wheel_props['scale'] == '' }" >
+          <xacro:if value="${wheel_props['scale'] != '' }" >
             <mesh filename="package://${package_name}/meshes/${robot_name}/${wheel_props['mesh']}" scale="${wheel_props['scale']}" />
           </xacro:if>
         </geometry>
