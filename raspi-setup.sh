@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # update & upgrade #
 sudo apt update
 sudo apt upgrade
