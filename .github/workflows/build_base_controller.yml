@@ -1,0 +1,32 @@
+name: Build base controller
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build_teensy_40:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+    
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Build PlatformIO Project
+        run: |
+          cd diffbot_base/scritps/base_controller
+          pio run
