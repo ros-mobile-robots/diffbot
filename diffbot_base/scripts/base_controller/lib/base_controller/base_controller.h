@@ -342,7 +342,7 @@ namespace diffbot {
         // Measured left and right joint states (angular position (rad) and angular velocity (rad/s))
         diffbot::JointState joint_state_left_, joint_state_right_;
 
-        unsigned long encoder_resolution_;
+        int encoder_resolution_;
 
         ros::Subscriber<std_msgs::Empty, BaseController<TMotorController, TMotorDriver>> sub_reset_encoders_;
 
