@@ -28,6 +28,5 @@ jobs:
 
       - name: Build PlatformIO Project
         run: |
-          ls
-          cd diffbot/diffbot_base/scritps/base_controller
+          cd diffbot_base/scripts/base_controller
           pio run
