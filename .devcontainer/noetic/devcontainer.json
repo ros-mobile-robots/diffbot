@@ -1,0 +1,28 @@
+{
+  "name": "DiffBot (ROS 1 Noetic)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "../.."
+  },
+  "remoteUser": "ros",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/home/ros/catkin_ws/src/diffbot,type=bind",
+  "workspaceFolder": "/home/ros/catkin_ws/src/diffbot",
+  // Host network, so ROS nodes in the container can talk to the robot and to RViz on the host
+  "runArgs": ["--network=host"],
+  // GUI apps (RViz, Gazebo, rqt) use the host's X server; on Windows this is WSLg
+  "initializeCommand": "mkdir -p /tmp/.X11-unix",
+  "mounts": ["source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind"],
+  "containerEnv": {
+    "DISPLAY": "${localEnv:DISPLAY}",
+    "QT_X11_NO_MITSHM": "1"
+  },
+  "postCreateCommand": "bash .devcontainer/noetic/setup.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools-extension-pack",
+        "ms-python.python"
+      ]
+    }
+  }
+}
