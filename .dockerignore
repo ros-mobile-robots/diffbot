@@ -1,0 +1,4 @@
+# Not needed in the image build context
+.git
+# X11 cookie written by .devcontainer/*/host-x11.sh
+.devcontainer/*/.x11

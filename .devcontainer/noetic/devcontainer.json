@@ -10,15 +10,13 @@
   // Host network, so ROS nodes in the container can talk to the robot and to RViz on the host
   "runArgs": ["--network=host"],
   // GUI apps (RViz, Gazebo, rqt) use the host's X server (on Windows: WSLg).
-  // host-x11.sh prepares the socket directory and the X11 cookie for native Linux desktops.
+  // host-x11.sh prepares the socket directory and, for native Linux desktops, the X11 cookie
+  // in .x11/xauth, which the container reads through the workspace mount.
   "initializeCommand": "bash .devcontainer/noetic/host-x11.sh",
-  "mounts": [
-    "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
-    "source=/tmp/.diffbot-${localEnv:USER}.xauth,target=/tmp/.diffbot.xauth,type=bind"
-  ],
+  "mounts": ["source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind"],
   "containerEnv": {
     "DISPLAY": "${localEnv:DISPLAY}",
-    "XAUTHORITY": "/tmp/.diffbot.xauth",
+    "XAUTHORITY": "/home/ros/catkin_ws/src/diffbot/.devcontainer/noetic/.x11/xauth",
     "QT_X11_NO_MITSHM": "1"
   },
   "postCreateCommand": "bash .devcontainer/noetic/setup.sh",

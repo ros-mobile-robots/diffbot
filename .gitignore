@@ -53,3 +53,6 @@ docs/plots
 
 # intermediate documentation
 site
+
+# X11 cookie written by .devcontainer/*/host-x11.sh
+.devcontainer/*/.x11/
