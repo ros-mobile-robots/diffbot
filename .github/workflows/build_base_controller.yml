@@ -7,11 +7,15 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  build_teensy_40:
+  build_firmware:
+    name: build (${{ matrix.env }})
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: true
-    
+      fail-fast: false
+      # Every board in platformio.ini, so none of them can break unnoticed
+      matrix:
+        env: [teensy31, teensy40]
+
     steps:
       - uses: actions/checkout@v7
       - uses: actions/cache@v6
@@ -22,11 +26,11 @@ jobs:
           key: ${{ runner.os }}-pio
       - uses: actions/setup-python@v7
         with:
-          python-version: '3.9'
+          python-version: '3.12'
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
 
       - name: Build PlatformIO Project
         run: |
           cd diffbot_base/scripts/base_controller
-          pio run
+          pio run -e ${{ matrix.env }}
