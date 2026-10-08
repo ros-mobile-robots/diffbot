@@ -1,0 +1,9 @@
+<launch>
+
+    <!-- Run the EKF Localization node -->
+    <node pkg="robot_localization" type="ekf_localization_node" name="ekf_localization">
+        <rosparam command="load" file="$(find diffbot_control)/config/ekf_localization.yaml"/>
+        <remap from="odometry/filtered" to="diffbot/mobile_base_controller/odom/filtered"/>
+    </node>
+
+</launch>

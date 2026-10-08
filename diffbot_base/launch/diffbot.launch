@@ -25,4 +25,7 @@
     <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
         output="screen" ns="diffbot" args="joint_state_controller
                                             mobile_base_controller"/>
+
+    <!-- Load EKF Filter to fuse IMU with Odometry -->
+    <include file="$(find diffbot_control)/launch/diffbot_filter.launch"/>
 </launch>

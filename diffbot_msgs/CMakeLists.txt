@@ -49,6 +49,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   FILES
   Encoders.msg
+  IMU.msg
   EncodersStamped.msg
   AngularVelocities.msg
   AngularVelocitiesStamped.msg
