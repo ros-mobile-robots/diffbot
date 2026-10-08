@@ -53,13 +53,17 @@ The quickest way to a working setup on a development PC is the dev container in 
   devcontainer exec --workspace-folder . --config .devcontainer/noetic/devcontainer.json bash
   ```
 
-Creating the container clones `rplidar_ros` and `remo_description`, installs missing dependencies with rosdep and builds the workspace in `~/catkin_ws`. Your clone of this repository is mounted at `~/catkin_ws/src/diffbot`, so edits on the host show up in the container. RViz and Gazebo open on the host's display (WSLg on Windows), and the container uses the host network to reach the robot.
+Creating the container clones `rplidar_ros` and `remo_description`, installs missing dependencies with rosdep and builds the workspace in `~/catkin_ws`. Your clone of this repository is mounted at `~/catkin_ws/src/diffbot`, so edits on the host show up in the container. The container uses the host network to reach the robot.
 
-Plain Docker works too:
+RViz and Gazebo open on the host's display. On Windows, WSLg needs no setup. On a native Linux desktop (X11 or Wayland with Xwayland), install `xauth` on the host (`sudo apt install xauth`): before the container starts, [`host-x11.sh`](./.devcontainer/noetic/host-x11.sh) copies your display's X11 cookie for the container, so `xhost +` isn't needed.
+
+Plain Docker works too. The image's user has UID 1000; with another UID, use the dev container, which adapts it.
 
 ```console
 docker build -f .devcontainer/noetic/Dockerfile -t diffbot:noetic .
-docker run -it --rm --net=host -e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix \
+bash .devcontainer/noetic/host-x11.sh
+docker run -it --rm --net=host -e DISPLAY -e XAUTHORITY=/tmp/.diffbot.xauth \
+  -v /tmp/.X11-unix:/tmp/.X11-unix -v /tmp/.diffbot-$USER.xauth:/tmp/.diffbot.xauth \
   -v "$PWD":/home/ros/catkin_ws/src/diffbot diffbot:noetic \
   bash -c "bash src/diffbot/.devcontainer/noetic/setup.sh && bash"
 ```
