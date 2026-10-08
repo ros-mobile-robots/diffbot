@@ -41,6 +41,35 @@ It provides mounts for different camera modules, such as Raspi Cam v2, OAK-1, OA
 The packages are written for and tested with [ROS 1 Noetic](http://wiki.ros.org/noetic) on [Ubuntu 20.04 Focal Fossa](https://releases.ubuntu.com/20.04/).
 For the real robot [Ubuntu Mate 20.04](https://ubuntu-mate.org/download/arm64/focal/) for arm64 is installed on the [Raspberry Pi 4 B](https://www.raspberrypi.org/products/raspberry-pi-4-model-b/) with 4GB. The communication between the mobile robot and the work pc is done by configuring the [ROS Network](http://wiki.ros.org/ROS/NetworkSetup), see also the [documentation](./docs/ros-network-setup.md).
 
+### Development Container
+
+The quickest way to a working setup on a development PC is the dev container in [`.devcontainer/noetic`](./.devcontainer/noetic): a Docker image with ROS Noetic, Gazebo 11 and all dependencies. It works on Linux and on Windows with WSL 2, and CI builds the same image.
+
+- **VS Code:** install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers), open this repository and choose **Reopen in Container**.
+- **Command line:** with the [Dev Container CLI](https://github.com/devcontainers/cli):
+
+  ```console
+  devcontainer up --workspace-folder . --config .devcontainer/noetic/devcontainer.json
+  devcontainer exec --workspace-folder . --config .devcontainer/noetic/devcontainer.json bash
+  ```
+
+Creating the container clones `rplidar_ros` and `remo_description`, installs missing dependencies with rosdep and builds the workspace in `~/catkin_ws`. Your clone of this repository is mounted at `~/catkin_ws/src/diffbot`, so edits on the host show up in the container. The container uses the host network to reach the robot.
+
+RViz and Gazebo open on the host's display. On Windows, WSLg needs no setup. On a native Linux desktop (X11 or Wayland with Xwayland), install `xauth` on the host (`sudo apt install xauth`): before the container starts, [`host-x11.sh`](./.devcontainer/noetic/host-x11.sh) copies your display's X11 cookie to `.devcontainer/noetic/.x11/` (ignored by Git), where the container reads it. So `xhost +` isn't needed.
+
+Plain Docker works too. The image's user has UID 1000; with another UID, use the dev container, which adapts it.
+
+```console
+docker build -f .devcontainer/noetic/Dockerfile -t diffbot:noetic .
+bash .devcontainer/noetic/host-x11.sh
+docker run -it --rm --net=host -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY \
+  -e XAUTHORITY=/home/ros/catkin_ws/src/diffbot/.devcontainer/noetic/.x11/xauth \
+  -v "$PWD":/home/ros/catkin_ws/src/diffbot diffbot:noetic \
+  bash -c "bash src/diffbot/.devcontainer/noetic/setup.sh && bash"
+```
+
+To set up a workspace without Docker, for example on the robot's Raspberry Pi, follow the steps below.
+
 ### Dependencies
 
 The required Ubuntu packages are listed in software package sections found in the [documentation](https://ros-mobile-robots.com/packages/packages-setup/#obtain-system-dependencies). Other ROS catkin packages such as [`rplidar_ros`](https://github.com/Slamtec/rplidar_ros) need to be cloned into the catkin workspace.

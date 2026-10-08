@@ -1,0 +1,26 @@
+# Builds the ROS 1 Noetic dev container, the same environment developers use,
+# and builds the catkin workspace inside it. This keeps .devcontainer/noetic working.
+
+name: Dev container
+
+on:
+  push:
+    branches: [noetic-devel]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  noetic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Creating the container runs .devcontainer/noetic/setup.sh, which builds the workspace
+      - uses: devcontainers/ci@v0.3
+        with:
+          configFile: .devcontainer/noetic/devcontainer.json
+          push: never
+          runCmd: >-
+            bash -c "source ~/catkin_ws/devel/setup.bash
+            && cd ~/catkin_ws
+            && catkin build --no-status --catkin-make-args run_tests
+            && catkin_test_results build"
