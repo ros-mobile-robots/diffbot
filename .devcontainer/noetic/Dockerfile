@@ -46,7 +46,7 @@ RUN apt-get update \
     && rosdep install --from-paths /tmp/manifests --ignore-src --rosdistro noetic -y \
     && rm -rf /var/lib/apt/lists/* /tmp/manifests
 
-# rosdep's package index for the user, the workspace folder, and ROS in every new shell
+# rosdep's package index for the user, the workspace folder, and ROS in every new interactive Bash shell
 USER $USERNAME
 RUN rosdep update --rosdistro noetic \
     && mkdir -p /home/$USERNAME/catkin_ws/src \
