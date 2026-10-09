@@ -20,6 +20,7 @@ ARG USER_GID=$USER_UID
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Build tools (catkin tools, vcstool) and a few tools for the shell
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3-catkin-tools \
         python3-osrf-pycommon \
@@ -45,6 +46,7 @@ RUN apt-get update \
     && rosdep install --from-paths /tmp/manifests --ignore-src --rosdistro noetic -y \
     && rm -rf /var/lib/apt/lists/* /tmp/manifests
 
+# rosdep's package index for the user, the workspace folder, and ROS in every new shell
 USER $USERNAME
 RUN rosdep update --rosdistro noetic \
     && mkdir -p /home/$USERNAME/catkin_ws/src \

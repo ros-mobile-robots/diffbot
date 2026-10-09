@@ -12,10 +12,12 @@ set -u
 
 mkdir -p /tmp/.X11-unix
 
+# Only you can read the cookie: the folder is 700, the file 600
 x11_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.x11"
 mkdir -p "$x11_dir"
 chmod 700 "$x11_dir"
 
+# Write a temporary file and rename it, so a running container never reads a half-written cookie
 tmp_file="$x11_dir/xauth.new"
 rm -f "$tmp_file"
 touch "$tmp_file"
