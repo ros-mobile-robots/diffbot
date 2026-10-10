@@ -43,7 +43,9 @@ For the real robot [Ubuntu Mate 20.04](https://ubuntu-mate.org/download/arm64/fo
 
 ### Development Container
 
-The quickest way to a working setup on a development PC is the dev container in [`.devcontainer/noetic`](./.devcontainer/noetic): a Docker image with ROS Noetic, Gazebo 11 and all dependencies. It works on Linux and on Windows with WSL 2, and CI builds the same image.
+The quickest way to a working setup on a development PC is the dev container in [`.devcontainer/noetic`](./.devcontainer/noetic): a Docker image with ROS Noetic, Gazebo 11 and everything the DiffBot packages need. It works on Linux and on Windows with WSL 2, and CI builds the same image.
+
+The full guide is on the documentation site: [Use the Dev Container](https://ros-mobile-robots.com/development/dev-container/) (setup on Linux and Windows, usage, updating, troubleshooting) and [How the Dev Container Works](https://ros-mobile-robots.com/development/dev-container-internals/).
 
 - **VS Code:** install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers), open this repository and choose **Reopen in Container**.
 - **Command line:** with the [Dev Container CLI](https://github.com/devcontainers/cli):
@@ -231,7 +233,7 @@ The following video shows how to map a new environment and navigate in it
 
 [<img src="https://img.youtube.com/vi/IcYkQyzUqik/hqdefault.jpg" width="250">](https://youtu.be/IcYkQyzUqik)
 
-Start by setting up the ROS Network, by making the development PC the rosmaster (set the `ROS_MASTER_URI` environment variable accordingly, see [ROS Network Setup](https://ros-mobile-robots.com/ros-network-setup/) for more details), 
+Start by setting up the ROS Network, by making the development PC the rosmaster (set the `ROS_MASTER_URI` environment variable accordingly, see [ROS Network Setup](https://ros-mobile-robots.com/processing_units/ros-network-setup/) for more details), 
 Then follow the steps listed below to run the real Diffbot or Remo robot hardware:
 
 1. First, brinup the robot hardware including its laser with the following launch file from the [`diffbot_bringup`](./diffbot_bringup) package.
