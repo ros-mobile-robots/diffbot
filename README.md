@@ -43,7 +43,7 @@ For the real robot [Ubuntu Mate 20.04](https://ubuntu-mate.org/download/arm64/fo
 
 ### Development Container
 
-The quickest way to a working setup on a development PC is the dev container in [`.devcontainer/noetic`](./.devcontainer/noetic): a Docker image with ROS Noetic, Gazebo 11 and all dependencies. It works on Linux and on Windows with WSL 2, and CI builds the same image.
+The quickest way to a working setup on a development PC is the dev container in [`.devcontainer/noetic`](./.devcontainer/noetic): a Docker image with ROS Noetic, Gazebo 11 and everything the DiffBot packages need. It works on Linux and on Windows with WSL 2, and CI builds the same image.
 
 The full guide is on the documentation site: [Use the Dev Container](https://ros-mobile-robots.com/development/dev-container/) (setup on Linux and Windows, usage, updating, troubleshooting) and [How the Dev Container Works](https://ros-mobile-robots.com/development/dev-container-internals/).
 
