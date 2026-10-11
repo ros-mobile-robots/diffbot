@@ -12,8 +12,8 @@
 # .gitignore and .dockerignore exclude .x11, so the cookie never ends up in Git or in the image.
 # Native Linux desktops (X11 or Xwayland) need xauth installed. WSLg accepts programs without a
 # cookie, so the file stays empty there.
-# Only programs that have the cookie (yours and the container's) can use your display;
-# `xhost +`, which many Docker guides use instead, would let every program on the machine use it.
+# The cookie gives access only to programs that have it, such as the container's; `xhost +`,
+# which many Docker guides use instead, would let every program on the machine use your display.
 # The method comes from the ROS tutorial http://wiki.ros.org/docker/Tutorials/GUI and from
 # rocker, OSRF's tool for running ROS in Docker: https://github.com/osrf/rocker
 set -u
