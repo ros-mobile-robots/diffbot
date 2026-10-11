@@ -3,10 +3,13 @@
 # It contains ROS, Gazebo 11 and the dependencies of all DiffBot packages, but not the
 # workspace itself: that is built when the container is created (setup.sh).
 
-# Stage 1: copy only the package.xml files out of the repository. The step that installs the
-# dependencies (stage 2) then reruns only when a package.xml changes, not on every code change.
+# Stage 1, named manifests (ROS calls a package.xml the package manifest): copy only the
+# package.xml files out of the repository. The step that installs the dependencies (stage 2)
+# then reruns only when a package.xml changes, not on every code change.
 FROM ubuntu:20.04 AS manifests
 COPY . /src
+# Find every package.xml and copy it with its folder path to /manifests,
+# e.g. /manifests/diffbot_control/package.xml
 RUN mkdir /manifests \
     && cd /src \
     && find . -name package.xml -not -path './.git/*' -exec cp --parents {} /manifests \;
@@ -14,7 +17,7 @@ RUN mkdir /manifests \
 # Stage 2: start from the official ROS image with ROS Noetic, Gazebo 11 and RViz (desktop-full)
 FROM osrf/ros:noetic-desktop-full
 
-# Name and IDs of the user in the image; the dev container changes the IDs to match yours
+# Name and IDs of the user that is created below
 ARG USERNAME=ros
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
@@ -37,15 +40,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         net-tools \
     && rm -rf /var/lib/apt/lists/*
 
-# Create the user ros, who may use sudo without a password. The dev container changes the
-# user's UID to yours, so files created in the container belong to you on the host.
+# Create the user ros with UID 1000, the usual UID of the first user on Linux, who may use sudo
+# without a password. If your UID differs, VS Code and the Dev Container CLI change the user's
+# UID to yours when they create the container, so files created in it belong to you on the host.
 RUN groupadd --gid $USER_GID $USERNAME \
     && useradd --uid $USER_UID --gid $USER_GID --create-home --shell /bin/bash $USERNAME \
     && echo "$USERNAME ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
 
-# Install what the DiffBot packages need: rosdep reads their dependencies from the
-# package.xml files of stage 1 and installs the matching Ubuntu and ROS packages
+# Install what the DiffBot packages need: copy the package.xml files from stage 1 to
+# /tmp/manifests; rosdep reads the dependencies from them and installs the matching Ubuntu
+# and ROS packages. Then delete apt's package lists and the copied files.
 COPY --from=manifests /manifests /tmp/manifests
 RUN apt-get update \
     && rosdep install --from-paths /tmp/manifests --ignore-src --rosdistro noetic -y \

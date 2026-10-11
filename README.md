@@ -47,7 +47,7 @@ The quickest way to a working setup on a development PC is the dev container in 
 
 The full guide is on the documentation site: [Use the Dev Container](https://ros-mobile-robots.com/development/dev-container/) (setup on Linux and Windows, usage, updating, troubleshooting) and [How the Dev Container Works](https://ros-mobile-robots.com/development/dev-container-internals/).
 
-- **VS Code:** install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers), open this repository and choose **Reopen in Container**.
+- **VS Code:** install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers), open your clone of this repository and choose **Reopen in Container**.
 - **Command line:** with the [Dev Container CLI](https://github.com/devcontainers/cli):
 
   ```console
