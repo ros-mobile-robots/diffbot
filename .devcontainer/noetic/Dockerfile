@@ -12,21 +12,17 @@ COPY . /src
 # e.g. /manifests/diffbot_control/package.xml
 RUN mkdir /manifests \
     && cd /src \
-    && find . -name package.xml -not -path './.git/*' -exec cp --parents {} /manifests \;
+    && find . -name package.xml -exec cp --parents {} /manifests \;
 
 # Stage 2: start from the official ROS image with ROS Noetic, Gazebo 11 and RViz (desktop-full)
 FROM osrf/ros:noetic-desktop-full
-
-# Name and IDs of the user that is created below
-ARG USERNAME=ros
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
 
 # Let apt install packages without asking questions
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install the build tools (catkin tools, vcstool) and a few tools for the shell
-# (git, sudo, an editor, ping), then delete apt's package lists to keep the image small
+# (git, sudo, the editors nano and vim, ping), then delete apt's package lists to keep the
+# image small
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3-catkin-tools \
         python3-osrf-pycommon \
@@ -36,6 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         bash-completion \
         less \
         nano \
+        vim \
         iputils-ping \
         net-tools \
     && rm -rf /var/lib/apt/lists/*
@@ -43,6 +40,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create the user ros with UID 1000, the usual UID of the first user on Linux, who may use sudo
 # without a password. If your UID differs, VS Code and the Dev Container CLI change the user's
 # UID to yours when they create the container, so files created in it belong to you on the host.
+ARG USERNAME=ros
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
 RUN groupadd --gid $USER_GID $USERNAME \
     && useradd --uid $USER_UID --gid $USER_GID --create-home --shell /bin/bash $USERNAME \
     && echo "$USERNAME ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \

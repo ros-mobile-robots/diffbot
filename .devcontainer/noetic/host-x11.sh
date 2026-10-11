@@ -21,10 +21,13 @@ set -u
 # Create the X socket folder if it's missing, so mounting it into the container never fails
 mkdir -p /tmp/.X11-unix
 
-# Create the folder .x11 next to this script: BASH_SOURCE[0] is the script's path, dirname its
-# folder, and cd + pwd make that absolute, wherever the script is called from. Only you can read
-# the folder and the cookie in it (folder 700, file 600).
-x11_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.x11"
+# The folder of this script as an absolute path, wherever the script is called from:
+# BASH_SOURCE[0] is the script's path, dirname its folder, and cd + pwd make that absolute
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Create the folder .x11 next to this script; only you can read it and the cookie in it
+# (folder 700, file 600)
+x11_dir="$script_dir/.x11"
 mkdir -p "$x11_dir"
 chmod 700 "$x11_dir"
 
