@@ -8,10 +8,10 @@ set -eo pipefail
 source /opt/ros/noetic/setup.bash
 cd ~/catkin_ws
 
-# Clone the other repositories listed in diffbot_dev.repos with vcstool: rplidar_ros and
-# remo_description (its STL meshes are empty placeholders, see its README). Folders that
-# already exist are kept.
-vcs import --skip-existing src < src/diffbot/diffbot_dev.repos
+# Clone the other repositories listed in diffbot_dev.repos with vcstool into src (the paths in
+# the file start with src/): rplidar_ros and remo_description (its STL meshes are empty
+# placeholders, see its README). Folders that already exist are kept.
+vcs import --skip-existing < src/diffbot/diffbot_dev.repos
 
 # Install dependencies of packages that were added since the image was built
 sudo apt-get update

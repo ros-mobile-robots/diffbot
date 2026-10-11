@@ -24,14 +24,14 @@
   // - DISPLAY: the host's DISPLAY variable (localEnv), such as :0; desktop sessions and WSLg set it
   // - XAUTHORITY: where X programs look for the cookie: the file host-x11.sh writes, which the
   //   container sees through the mount of your clone above
-  // - QT_X11_NO_MITSHM is an old Qt 4 setting that turns off shared memory with the X server;
-  //   the Qt 5 programs here ignore it and stop using shared memory by themselves when it fails
+  // - QT_XCB_NO_MITSHM stops Qt programs from sharing memory with the X server: the container
+  //   has its own shared memory (IPC namespace), which the X server can't use
   "initializeCommand": "bash .devcontainer/noetic/host-x11.sh",
   "mounts": ["source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind"],
   "containerEnv": {
     "DISPLAY": "${localEnv:DISPLAY}",
     "XAUTHORITY": "/home/ros/catkin_ws/src/diffbot/.devcontainer/noetic/.x11/xauth",
-    "QT_X11_NO_MITSHM": "1"
+    "QT_XCB_NO_MITSHM": "1"
   },
   // Run setup.sh once per new container: clone rplidar_ros and remo_description, install missing
   // dependencies, build the workspace
