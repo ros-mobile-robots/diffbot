@@ -196,6 +196,12 @@ include_directories(
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 # )
 
+# Install the package's files, so it also works from an install space (industrial_ci tests from
+# one, and a binary install would need them too)
+install(DIRECTORY config launch rviz
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
+
 #############
 ## Testing ##
 #############

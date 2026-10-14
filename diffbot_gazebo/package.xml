@@ -61,8 +61,8 @@
   <test_depend>geometry_msgs</test_depend>
   <test_depend>gazebo_msgs</test_depend>
   <test_depend>nav_msgs</test_depend>
-  <!-- The Remo test needs the Remo model; it isn't a released package (see diffbot_dev.repos) -->
-  <test_depend>remo_description</test_depend>
+  <!-- The Remo test also needs remo_description, which isn't a released ROS package and can't be
+       declared here: the dev container and CI clone it with diffbot_dev.repos -->
 
 
   <!-- The export tag contains other, unspecified, tags -->
