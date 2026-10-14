@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
-# Sets up the robot's Raspberry Pi 4 B with Ubuntu MATE 20.04 in one go: I2C, ROS Noetic, rosdep,
-# and the catkin workspace ~/catkin_ws with this repository and the robot's other repositories.
+# Sets up Remo's Raspberry Pi 4 B with Ubuntu MATE 20.04 in one go: I2C, ROS Noetic, rosdep, and
+# the catkin workspace ~/catkin_ws with this repository and Remo's other repositories.
 # The docs explain each step: https://ros-mobile-robots.com/processing_units/ros-setup/ and
 # https://ros-mobile-robots.com/packages/packages-setup/
 #
-# Run it on the robot, for Remo (the default) or DiffBot:
-#   bash raspi-setup.sh [remo|diffbot]
+# Run it on the robot:
+#   bash raspi-setup.sh
 # Running it again is safe: steps that are already done are skipped or repeated without harm.
+#
+# DiffBot isn't supported yet: its camera driver, raspicam_node, needs the Raspberry Pi's camera
+# libraries, which this script doesn't set up. For DiffBot, follow the pages above and
+# https://ros-mobile-robots.com/packages/raspicam_node/
 
 # Stop at the first command that fails (-e), also inside a pipe (pipefail)
 set -eo pipefail
 
-# Which robot: remo_robot.repos or diffbot_robot.repos lists its other repositories
-robot="${1:-remo}"
-case "$robot" in
-    remo|diffbot) ;;
-    *) echo "Usage: bash $0 [remo|diffbot]" >&2; exit 1 ;;
-esac
+if [ $# -gt 0 ]; then
+    echo "Usage: bash $0 (sets up Remo; for DiffBot, see https://ros-mobile-robots.com/packages/packages-setup/)" >&2
+    exit 1
+fi
 
 # Robots set up with the old instructions have the ROS source in ros-latest.list, with the key
 # that expired in June 2025: apt update fails while it's there, so remove it and the old key first
@@ -37,8 +39,13 @@ fi
 # The ROS package source and its signing key, with the ros-apt-source package, as the ROS signing
 # key migration guide recommends since the key expired in June 2025:
 # https://discourse.openrobotics.org/t/ros-signing-key-migration-guide/43937
-ROS_APT_SOURCE_VERSION=$(curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F "tag_name" | awk -F\" '{print $4}')
-curl -L -o /tmp/ros-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo "$VERSION_CODENAME")_all.deb"
+ROS_APT_SOURCE_VERSION=$(curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F "tag_name" | awk -F\" '{print $4}') || true
+# GitHub answers 60 such requests per hour from one IP address; without an answer, stop here
+if [ -z "$ROS_APT_SOURCE_VERSION" ]; then
+    echo "Couldn't get the latest ros-apt-source version from GitHub. Try again in an hour." >&2
+    exit 1
+fi
+curl -fL -o /tmp/ros-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo "$VERSION_CODENAME")_all.deb"
 sudo dpkg -i /tmp/ros-apt-source.deb
 
 # ROS for the robot, without the GUI tools (they run on the PC, in the dev container), and the
@@ -60,18 +67,18 @@ grep -qxF "source /opt/ros/noetic/setup.bash" ~/.bashrc \
     || echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
 source /opt/ros/noetic/setup.bash
 
-# The workspace: this repository, and the robot's other repositories with vcstool (the paths in
-# the .repos files start with src/). Folders that already exist are kept.
+# The workspace: this repository, and Remo's other repositories with vcstool (the paths in
+# remo_robot.repos start with src/). Folders that already exist are kept.
 mkdir -p ~/catkin_ws/src
 cd ~/catkin_ws
 if [ ! -d src/diffbot ]; then
     git clone https://github.com/ros-mobile-robots/diffbot.git src/diffbot
 fi
-vcs import --skip-existing < "src/diffbot/${robot}_robot.repos"
+vcs import --skip-existing < src/diffbot/remo_robot.repos
 
-# Install the dependencies the packages list in their package.xml, then build on top of
-# (extending) the ROS installation in /opt/ros/noetic
-rosdep install --from-paths src --ignore-src --rosdistro noetic -r -y
+# Install the dependencies the packages list in their package.xml (rosdep stops if it can't
+# resolve one), then build on top of (extending) the ROS installation in /opt/ros/noetic
+rosdep install --from-paths src --ignore-src --rosdistro noetic -y
 catkin config --extend /opt/ros/noetic
 catkin build
 
