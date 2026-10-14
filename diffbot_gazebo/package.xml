@@ -61,6 +61,7 @@
   <test_depend>geometry_msgs</test_depend>
   <test_depend>gazebo_msgs</test_depend>
   <test_depend>nav_msgs</test_depend>
+  <test_depend>tf</test_depend>
   <!-- The Remo test also needs remo_description, which isn't a released ROS package and can't be
        declared here: the dev container and CI clone it with diffbot_dev.repos -->
 

@@ -19,31 +19,42 @@ import rostest
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
+from tf.transformations import euler_from_quaternion
 
-CMD_VEL = '/diffbot/mobile_base_controller/cmd_vel'
-ODOM = '/diffbot/mobile_base_controller/odom'
-MODEL_STATES = '/gazebo/model_states'
-MODEL = 'diffbot'  # name of the spawned model in Gazebo, for DiffBot and Remo (diffbot_view.launch)
-
-
-def yaw_of(orientation):
-    """Yaw angle (rad) of a geometry_msgs/Quaternion."""
-    q = orientation
-    return math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+CMD_VEL_TOPIC = '/diffbot/mobile_base_controller/cmd_vel'
+ODOM_TOPIC = '/diffbot/mobile_base_controller/odom'
+MODEL_STATES_TOPIC = '/gazebo/model_states'
+# Name of the spawned model in Gazebo, the same for DiffBot and Remo (diffbot_view.launch)
+MODEL_NAME = 'diffbot'
 
 
 def planar(pose):
-    """x, y and yaw of a geometry_msgs/Pose."""
-    return pose.position.x, pose.position.y, yaw_of(pose.orientation)
+    """x, y and yaw (rad) of a geometry_msgs/Pose. The robot drives on flat ground, so roll and
+    pitch stay about 0."""
+    q = pose.orientation
+    _, _, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
+    return pose.position.x, pose.position.y, yaw
 
 
-def change(before, after):
-    """Pose change in the starting frame: forward and left (m), and the turned angle (rad)."""
-    x0, y0, yaw0 = before
-    x1, y1, yaw1 = after
+def moved(start, end):
+    """How the robot moved between two planar poses (x, y, yaw), seen from the start pose:
+    forward and to the left (m), and the angle it turned (rad, positive to the left).
+
+    The odometry and Gazebo give poses in different frames: the odometry starts at 0, 0, 0 where
+    the controller started, while Gazebo's world frame has the robot spawned at x = -2, y = -0.5.
+    So the poses can't be compared directly, but the moves can, relative to the start pose.
+    """
+    x0, y0, yaw0 = start
+    x1, y1, yaw1 = end
+    # The move in the frame of the poses (odometry or Gazebo world)
     dx, dy = x1 - x0, y1 - y0
+    # The same move in the robot's frame at the start, by rotating it by -yaw0: forward is its
+    # part along the robot's heading (cos yaw0, sin yaw0), left its part along the robot's left
+    # side (-sin yaw0, cos yaw0)
     forward = dx * math.cos(yaw0) + dy * math.sin(yaw0)
     left = -dx * math.sin(yaw0) + dy * math.cos(yaw0)
+    # The difference of the yaw angles, wrapped to -pi..pi, because yaw jumps from pi to -pi
+    # when the robot turns past 180 degrees
     turned = math.atan2(math.sin(yaw1 - yaw0), math.cos(yaw1 - yaw0))
     return forward, left, turned
 
@@ -55,12 +66,12 @@ class TestDrive(unittest.TestCase):
         rospy.init_node('test_drive')
         cls.odom = None
         cls.truth = None
-        cls.cmd_vel = rospy.Publisher(CMD_VEL, Twist, queue_size=1)
-        rospy.Subscriber(ODOM, Odometry, cls.on_odom)
-        rospy.Subscriber(MODEL_STATES, ModelStates, cls.on_model_states, queue_size=1)
+        cls.cmd_vel = rospy.Publisher(CMD_VEL_TOPIC, Twist, queue_size=1)
+        rospy.Subscriber(ODOM_TOPIC, Odometry, cls.on_odom)
+        rospy.Subscriber(MODEL_STATES_TOPIC, ModelStates, cls.on_model_states, queue_size=1)
         # Gazebo and the controllers take a while to start, especially in CI
-        rospy.wait_for_message(ODOM, Odometry, timeout=120)
-        rospy.wait_for_message(MODEL_STATES, ModelStates, timeout=30)
+        rospy.wait_for_message(ODOM_TOPIC, Odometry, timeout=120)
+        rospy.wait_for_message(MODEL_STATES_TOPIC, ModelStates, timeout=30)
 
     @classmethod
     def on_odom(cls, msg):
@@ -68,8 +79,8 @@ class TestDrive(unittest.TestCase):
 
     @classmethod
     def on_model_states(cls, msg):
-        if MODEL in msg.name:
-            cls.truth = planar(msg.pose[msg.name.index(MODEL)])
+        if MODEL_NAME in msg.name:
+            cls.truth = planar(msg.pose[msg.name.index(MODEL_NAME)])
 
     def drive(self, linear, angular, seconds):
         """Sends the velocity for the given simulation time and stops. Returns the change of the
@@ -78,6 +89,8 @@ class TestDrive(unittest.TestCase):
         cmd = Twist()
         cmd.linear.x = linear
         cmd.angular.z = angular
+        # Send the command repeatedly: the controller stops the robot when no command arrives for
+        # 0.5 s (diff_drive_controller's default cmd_vel_timeout)
         rate = rospy.Rate(20)
         end = rospy.Time.now() + rospy.Duration(seconds)
         while rospy.Time.now() < end and not rospy.is_shutdown():
@@ -85,12 +98,16 @@ class TestDrive(unittest.TestCase):
             rate.sleep()
         self.cmd_vel.publish(Twist())
         rospy.sleep(1.0)  # let the robot stop
-        odom, truth = change(odom0, self.odom), change(truth0, self.truth)
+        odom, truth = moved(odom0, self.odom), moved(truth0, self.truth)
         for name, (forward, left, turned) in (('odometry', odom), ('true pose', truth)):
             rospy.loginfo('%s: forward %.3f m, left %.3f m, turned %.3f rad', name, forward, left, turned)
         return odom, truth
 
-    def test_1_forward(self):
+    # unittest runs the test methods in alphabetical order, here forward and then turn. Each one
+    # checks only its own move, from wherever the robot is when it starts, so neither depends on
+    # the other
+
+    def test_forward(self):
         # 0.2 m/s for 3 s is 0.6 m, a bit less with the controller's acceleration limit
         odom, truth = self.drive(0.2, 0.0, 3.0)
         for forward, left, turned in (odom, truth):
@@ -102,7 +119,7 @@ class TestDrive(unittest.TestCase):
         # wheel radius doesn't match the model: 20 % too big gave 0.09 m
         self.assertAlmostEqual(odom[0], truth[0], delta=0.05)
 
-    def test_2_turn(self):
+    def test_turn(self):
         # 0.5 rad/s for 3 s is 1.5 rad, turning on the spot. The wheels don't always reach the
         # commanded speed when turning on the spot (Remo turned about 1.1 rad), so this only
         # checks that the robot turns left, by a clear amount

@@ -27,6 +27,9 @@
         <!-- param name="publish_frequency" type="double" value="30.0" /-->
     </node>
 
+    <!-- Only started when the rqt_robot_steering argument is true (the default). It opens a window,
+         so the simulation tests (diffbot_gazebo/test/sim_drive.launch) set it to false: they run
+         without a display and send the velocity commands themselves -->
     <node if="$(arg rqt_robot_steering)" name="rqt_robot_steering" pkg="rqt_robot_steering" type="rqt_robot_steering">
         <param name="default_topic" value="/diffbot/mobile_base_controller/cmd_vel"/>
     </node>
