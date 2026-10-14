@@ -192,8 +192,10 @@ include_directories(
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 # )
 
-# Install the package's files, so it also works from an install space (industrial_ci tests from
-# one, and a binary install would need them too)
+# Copy these folders into the install space as well (catkin config --install or
+# catkin_make install). Without this rule only package.xml and the CMake files land there,
+# and launch files and xacro can't find their files. industrial_ci builds and tests from
+# the install space by default, and a binary package (.deb) is built from it too.
 install(DIRECTORY config launch meshes rviz urdf
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
