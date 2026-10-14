@@ -1,0 +1,22 @@
+<launch>
+    <!-- Starts the remo model in Gazebo and runs two tests on it: publishtest checks that the
+         controllers publish, test_drive.py drives the robot and checks its odometry -->
+    <include file="$(find diffbot_gazebo)/test/sim_drive.launch">
+        <arg name="model" value="remo"/>
+        <arg name="gazebo_port" value="11352"/>
+    </include>
+
+    <test test-name="publish_remo" pkg="rostest" type="publishtest" time-limit="120">
+        <rosparam>
+            topics:
+              - name: /diffbot/joint_states
+                timeout: 90
+                negative: False
+              - name: /diffbot/mobile_base_controller/odom
+                timeout: 90
+                negative: False
+        </rosparam>
+    </test>
+
+    <test test-name="drive_remo" pkg="diffbot_gazebo" type="test_drive.py" time-limit="180"/>
+</launch>

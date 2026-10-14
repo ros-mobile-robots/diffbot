@@ -200,3 +200,14 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+
+#############
+## Testing ##
+#############
+
+if(CATKIN_ENABLE_TESTING)
+  find_package(rostest REQUIRED)
+  # Drive DiffBot and Remo in Gazebo without a GUI and check their odometry (test/test_drive.py)
+  add_rostest(test/sim_drive_diffbot.test)
+  add_rostest(test/sim_drive_remo.test)
+endif()

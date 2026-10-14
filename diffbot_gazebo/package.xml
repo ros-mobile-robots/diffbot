@@ -56,6 +56,13 @@
   <exec_depend>diffbot_control</exec_depend>
   <exec_depend>diffbot_description</exec_depend>
   <exec_depend>xacro</exec_depend>
+  <test_depend>rostest</test_depend>
+  <test_depend>rospy</test_depend>
+  <test_depend>geometry_msgs</test_depend>
+  <test_depend>gazebo_msgs</test_depend>
+  <test_depend>nav_msgs</test_depend>
+  <!-- The Remo test needs the Remo model; it isn't a released package (see diffbot_dev.repos) -->
+  <test_depend>remo_description</test_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
