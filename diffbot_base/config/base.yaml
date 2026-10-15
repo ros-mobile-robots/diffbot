@@ -8,5 +8,5 @@ diffbot:
   motor_constant: 1.0 #27.0
   pwm_limit: 1.0
   debug:
-    hardware_interface: false
+    hardware_interface: true
     base_controller: true
