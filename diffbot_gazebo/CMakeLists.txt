@@ -188,6 +188,14 @@ include_directories(
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 # )
 
+# Copy these folders into the install space as well (catkin config --install or
+# catkin_make install). Without this rule only package.xml and the CMake files land there,
+# and launch files and xacro can't find their files. industrial_ci builds and tests from
+# the install space by default, and a binary package (.deb) is built from it too.
+install(DIRECTORY launch models worlds
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
+
 #############
 ## Testing ##
 #############
@@ -200,3 +208,14 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+
+#############
+## Testing ##
+#############
+
+if(CATKIN_ENABLE_TESTING)
+  find_package(rostest REQUIRED)
+  # Drive DiffBot and Remo in Gazebo without a GUI and check their odometry (test/test_drive.py)
+  add_rostest(test/sim_drive_diffbot.test)
+  add_rostest(test/sim_drive_remo.test)
+endif()

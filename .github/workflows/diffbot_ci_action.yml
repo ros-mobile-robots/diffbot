@@ -24,6 +24,9 @@ jobs:
           - {ROS_DISTRO: noetic, ROS_REPO: main}
     env:
       CCACHE_DIR: /github/home/.ccache # Directory for ccache (and how we enable ccache in industrial_ci)
+      # The simulation tests in diffbot_gazebo also drive Remo, whose model (remo_description) isn't
+      # a released ROS package: build it from source, with the repositories the dev container uses
+      UPSTREAM_WORKSPACE: diffbot_dev.repos
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
