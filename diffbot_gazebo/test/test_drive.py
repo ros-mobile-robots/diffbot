@@ -30,6 +30,17 @@ MODEL_STATES_TOPIC = '/gazebo/model_states'
 # Name of the spawned model in Gazebo, the same for DiffBot and Remo (diffbot_view.launch)
 MODEL_NAME = 'diffbot'
 
+# The two tests' commands, each sent for DURATION seconds of simulation time
+DURATION = 3.0  # s
+FORWARD_VELOCITY = 0.2  # m/s
+TURN_VELOCITY = 0.5  # rad/s
+# How often drive() sends the command. The controller stops the robot when no command arrives
+# for 0.5 s (diff_drive_controller's default cmd_vel_timeout), and drive() checks the end time
+# once per cycle, so the robot drives up to one cycle too long: here at most 1 cm or 0.025 rad
+COMMAND_RATE = 20  # Hz
+# The direction of a shorter translation is noise, see relative_motion()
+MIN_TRANS = 0.01  # m
+
 
 class Pose2D(NamedTuple):
     """A pose on the ground: position x and y (m), heading theta (rad, 0 along the x axis)."""
@@ -88,7 +99,7 @@ def relative_motion(start_pose: Pose2D, end_pose: Pose2D) -> Motion:
     # When the robot turns on the spot, its position hardly changes, and the direction of such a
     # short translation is noise: then rot1 is 0 and rot2 is the whole turn, as in ROS amcl's
     # odometry model (amcl_odom.cpp)
-    rot1 = wrap(math.atan2(y1 - y0, x1 - x0) - theta0) if trans >= 0.01 else 0.0
+    rot1 = wrap(math.atan2(y1 - y0, x1 - x0) - theta0) if trans >= MIN_TRANS else 0.0
     rot2 = wrap(theta1 - theta0 - rot1)
     return Motion(rot1, trans, rot2)
 
@@ -126,6 +137,9 @@ class TestDrive(unittest.TestCase):
 
     @classmethod
     def on_model_states(cls, msg: ModelStates) -> None:
+        # The message lists every model in the world, here the ground plane and the robot, with
+        # the poses in the same order as the names. Gazebo publishes it before the robot is
+        # spawned, so the first messages don't contain the robot
         if MODEL_NAME in msg.name:
             cls.true_pose = planar(msg.pose[msg.name.index(MODEL_NAME)])
 
@@ -134,9 +148,8 @@ class TestDrive(unittest.TestCase):
         cmd = Twist()
         cmd.linear.x = linear_velocity
         cmd.angular.z = angular_velocity
-        # Send the command repeatedly: the controller stops the robot when no command arrives for
-        # 0.5 s (diff_drive_controller's default cmd_vel_timeout)
-        rate = rospy.Rate(20)
+        # Send the command repeatedly, so the controller doesn't stop the robot (see COMMAND_RATE)
+        rate = rospy.Rate(COMMAND_RATE)
         end_time = rospy.Time.now() + rospy.Duration(duration)
         while rospy.Time.now() < end_time and not rospy.is_shutdown():
             self.cmd_vel.publish(cmd)
@@ -161,33 +174,38 @@ class TestDrive(unittest.TestCase):
 
     # unittest runs the test methods in alphabetical order, here forward and then turn. Each one
     # checks only its own motion, from wherever the robot is when it starts, so neither depends
-    # on the other
+    # on the other. Each check compares a measured value with the expected one, within a
+    # tolerance that lies between what the robot measures in Gazebo and what a mistake would give
 
     def test_forward(self) -> None:
-        # 0.2 m/s for 3 s is 0.6 m, a bit less with the controller's acceleration limit
-        odom, truth = self.measure_motion(linear_velocity=0.2, angular_velocity=0.0, duration=3.0)
+        odom, truth = self.measure_motion(
+            linear_velocity=FORWARD_VELOCITY, angular_velocity=0.0, duration=DURATION)
+        # v * t = 0.6 m straight ahead. The controller's acceleration limit costs 3 cm when the
+        # robot starts and gives them back when it brakes; 0.58 to 0.62 m measured. A robot that
+        # doesn't move, or drives much too slow or too fast, fails
+        expected_trans = FORWARD_VELOCITY * DURATION
         for motion in (odom, truth):
-            self.assertGreater(motion.trans, 0.4)
-            self.assertLess(motion.trans, 0.75)
-            # Straight ahead: it moved in the direction it faced (0.002 rad measured), and its
-            # heading didn't change
-            self.assertLess(abs(motion.rot1), 0.15)
-            self.assertLess(abs(turned(motion)), 0.2)
+            self.assertAlmostEqual(motion.trans, expected_trans, delta=0.1)
+            # In the direction it faced (0.002 rad measured), and without turning
+            self.assertAlmostEqual(motion.rot1, 0.0, delta=0.15)
+            self.assertAlmostEqual(turned(motion), 0.0, delta=0.2)
         # The odometry agrees with the true distance (about 0.01 m apart) unless the controller's
         # wheel radius doesn't match the model: 20 % too big gave 0.09 m
         self.assertAlmostEqual(odom.trans, truth.trans, delta=0.05)
 
     def test_turn(self) -> None:
-        # 0.5 rad/s for 3 s is 1.5 rad, turning on the spot. In Gazebo the robots turn less
-        # (DiffBot about 1.3 rad, Remo 1.0 to 1.2 rad): Gazebo's wheel velocity controller
+        odom, truth = self.measure_motion(
+            linear_velocity=0.0, angular_velocity=TURN_VELOCITY, duration=DURATION)
+        # w * t = 1.5 rad to the left, on the spot. In Gazebo the robots turn less (DiffBot about
+        # 1.3 rad, Remo 0.92 to 1.2 rad): Gazebo's wheel velocity controller
         # (diffbot_control/config/pid.yaml) has only a P gain, which leaves Remo's wheels at about
-        # 80 % of the commanded speed, and the wheels slip. Until the gains are tuned (#116),
-        # this only checks that the robot turns left, by a clear amount
-        odom, truth = self.measure_motion(linear_velocity=0.0, angular_velocity=0.5, duration=3.0)
+        # 80 % of the commanded speed, and the wheels slip. Until the gains are tuned (#116), the
+        # tolerance is wide; a robot that turns right or not at all still fails
+        expected_turn = TURN_VELOCITY * DURATION
         for motion in (odom, truth):
-            self.assertGreater(turned(motion), 0.5)
-            self.assertLess(turned(motion), 2.0)
-            self.assertLess(motion.trans, 0.15)
+            self.assertAlmostEqual(turned(motion), expected_turn, delta=1.0)
+            # On the spot: its center drifts 2 to 4 cm in Gazebo
+            self.assertAlmostEqual(motion.trans, 0.0, delta=0.15)
         # The wheels slip a little when turning on the spot (0.02 to 0.11 rad apart); a wheel
         # radius 20 % too big gave up to 0.31 rad
         self.assertAlmostEqual(turned(odom), turned(truth), delta=0.25)
