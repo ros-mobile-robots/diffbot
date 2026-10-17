@@ -493,17 +493,15 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::pidLeftCallback(co
     // This callback function receives diffbot_msgs::PID message object
     // where diffbot_msgs::PID kp, ki, kd for one pid controller is stored
     motor_pid_left_.updateConstants(pid_msg.pid.kp, pid_msg.pid.ki, pid_msg.pid.kd);
-    motor_pid_left_.updateConstants(pid_msg.pid.kp, pid_msg.pid.ki, pid_msg.pid.kd);
 }
 
 template <typename TMotorController, typename TMotorDriver>
 void diffbot::BaseController<TMotorController, TMotorDriver>::pidRightCallback(const diffbot_msgs::PIDStamped& pid_msg)
 {
-    // Callback function to update the pid values of the left motor
+    // Callback function to update the pid values of the right motor
     // This callback function receives diffbot_msgs::PID message object
     // where diffbot_msgs::PID kp, ki, kd for one pid controller is stored
-    motor_pid_left_.updateConstants(pid_msg.pid.kp, pid_msg.pid.ki, pid_msg.pid.kd);
-    motor_pid_left_.updateConstants(pid_msg.pid.kp, pid_msg.pid.ki, pid_msg.pid.kd);
+    motor_pid_right_.updateConstants(pid_msg.pid.kp, pid_msg.pid.ki, pid_msg.pid.kd);
 }
 
 
