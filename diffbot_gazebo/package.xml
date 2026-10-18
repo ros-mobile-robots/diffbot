@@ -62,8 +62,12 @@
   <test_depend>gazebo_msgs</test_depend>
   <test_depend>nav_msgs</test_depend>
   <test_depend>tf</test_depend>
-  <!-- The Remo test also needs remo_description, which isn't a released ROS package and can't be
-       declared here: the dev container and CI clone it with diffbot_dev.repos -->
+  <!-- The Remo test also needs remo_description. It isn't declared here: it isn't a released ROS
+       package, so rosdep can't install it, and rosdep install would fail wherever it isn't
+       cloned, for example in the dev container's Dockerfile, which installs the dependencies
+       before the repositories are cloned, and on DiffBot's SBC (diffbot_robot.repos). The dev
+       container (setup.sh) and CI (UPSTREAM_WORKSPACE in diffbot_ci_action.yml) clone it with
+       diffbot_dev.repos -->
 
 
   <!-- The export tag contains other, unspecified, tags -->

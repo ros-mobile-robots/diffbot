@@ -2,11 +2,14 @@
 """Drives the simulated robot with velocity commands and checks where it went.
 
 The rostest files next to this script start the robot in Gazebo without a GUI, with the diff
-drive controller from diffbot_control. Each motion is checked twice: with the controller's
+drive controller from diffbot_control. Each motion is measured twice: with the controller's
 odometry, which it computes from the wheel joints and its configuration, and with the robot's
-true pose in Gazebo (/gazebo/model_states). Only the true pose shows mistakes that the odometry
-repeats, for example swapped wheel joints, which make the robot turn the wrong way while the
-odometry still reports the commanded turn.
+true pose in Gazebo (/gazebo/model_states). Both have to match the command, and the odometry has
+to agree with the true pose:
+- Only the true pose shows mistakes that the odometry repeats, for example swapped wheel joints,
+  which make the robot turn the wrong way while the odometry still reports the commanded turn.
+- The odometry agrees with the true pose only if the controller's configuration matches the
+  model, for example its wheel radius.
 
 Durations are simulation time, so the expected distances don't depend on how fast the computer
 runs the simulation.
@@ -52,8 +55,10 @@ class Pose2D(NamedTuple):
 class RelativePose(NamedTuple):
     """A pose relative to an earlier one, in the robot's frame at the earlier pose.
 
-    forward and left (m) are along the robot's x and y axes at the earlier pose, and turned (rad)
-    is the change of its heading, positive to the left.
+    They are the x, y and theta of the later pose in that frame, named after the directions of a
+    robot's axes in ROS (REP 103): forward and left (m) are along the robot's x axis, which points
+    forward, and its y axis, which points to the left. turned (rad) is the change of its heading,
+    positive to the left.
     """
 
     forward: float
