@@ -179,27 +179,31 @@ class TestDrive(unittest.TestCase):
     # unittest runs the test methods in alphabetical order, here forward and then turn. Each one
     # checks only its own motion, from wherever the robot is when it starts, so neither depends
     # on the other. Each check compares a measured value with the expected one, within a
-    # tolerance that lies between what the robot measures in Gazebo and what a mistake would give
+    # tolerance that allows what the robots measure in Gazebo and rejects the mistakes that were
+    # tried on purpose. msg=motions adds both measured motions to a check's failure message,
+    # because CI shows the message but not the logged motions
 
     def test_forward(self) -> None:
         odom_motion, true_motion = self.measure_motion(
             linear_velocity=FORWARD_VELOCITY, angular_velocity=0.0, duration=DURATION)
+        motions = f'odometry {odom_motion}, true pose {true_motion}'
         # v * t = 0.6 m straight ahead. The controller's acceleration limit costs 3 cm when the
-        # robot starts and gives them back when it brakes; 0.57 to 0.62 m measured. A robot that
+        # robot starts and gives them back when it brakes; 0.56 to 0.62 m measured. A robot that
         # doesn't move, or drives much too slow or too fast, fails
         expected_forward = FORWARD_VELOCITY * DURATION
         for motion in (odom_motion, true_motion):
-            self.assertAlmostEqual(motion.forward, expected_forward, delta=0.1)
+            self.assertAlmostEqual(motion.forward, expected_forward, delta=0.1, msg=motions)
             # Straight ahead (about 1 mm to the side measured), and without turning
-            self.assertAlmostEqual(motion.left, 0.0, delta=0.1)
-            self.assertAlmostEqual(motion.turned, 0.0, delta=0.2)
+            self.assertAlmostEqual(motion.left, 0.0, delta=0.1, msg=motions)
+            self.assertAlmostEqual(motion.turned, 0.0, delta=0.2, msg=motions)
         # The odometry and the true distance are 0.010 to 0.011 m apart. A wheel_radius in
         # diffbot_control.yaml 10 % bigger or smaller than now gave about 0.044 m and 0.076 m
-        self.assertAlmostEqual(odom_motion.forward, true_motion.forward, delta=0.03)
+        self.assertAlmostEqual(odom_motion.forward, true_motion.forward, delta=0.03, msg=motions)
 
     def test_turn(self) -> None:
         odom_motion, true_motion = self.measure_motion(
             linear_velocity=0.0, angular_velocity=TURN_VELOCITY, duration=DURATION)
+        motions = f'odometry {odom_motion}, true pose {true_motion}'
         # w * t = 1.5 rad to the left, on the spot. In Gazebo the robots turn less (DiffBot about
         # 1.3 rad, Remo 0.92 to 1.34 rad): Gazebo's wheel velocity controller
         # (diffbot_control/config/pid.yaml) has only a P gain, which leaves Remo's wheels at about
@@ -207,12 +211,13 @@ class TestDrive(unittest.TestCase):
         # tolerance is wide; a robot that turns right or not at all still fails
         expected_turn = TURN_VELOCITY * DURATION
         for motion in (odom_motion, true_motion):
-            self.assertAlmostEqual(motion.turned, expected_turn, delta=1.0)
+            self.assertAlmostEqual(motion.turned, expected_turn, delta=1.0, msg=motions)
             # On the spot: its center drifts 2 to 4 cm in Gazebo
-            self.assertAlmostEqual(math.hypot(motion.forward, motion.left), 0.0, delta=0.15)
+            self.assertAlmostEqual(math.hypot(motion.forward, motion.left), 0.0, delta=0.15,
+                                   msg=motions)
         # The wheels slip a little when turning on the spot (0.02 to 0.11 rad apart). With a
         # wheel_radius 15 % bigger than now, DiffBot's were 0.27 rad apart, but Remo's only 0.11
-        self.assertAlmostEqual(odom_motion.turned, true_motion.turned, delta=0.25)
+        self.assertAlmostEqual(odom_motion.turned, true_motion.turned, delta=0.25, msg=motions)
 
 
 if __name__ == '__main__':
