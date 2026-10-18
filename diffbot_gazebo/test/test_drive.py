@@ -8,8 +8,8 @@ true pose in Gazebo (/gazebo/model_states). Both have to match the command, and 
 to agree with the true pose:
 - Only the true pose shows mistakes that the odometry repeats, for example swapped wheel joints,
   which make the robot turn the wrong way while the odometry still reports the commanded turn.
-- The odometry agrees with the true pose only if the controller's configuration matches the
-  model, for example its wheel radius.
+- Comparing the odometry with the true pose can reveal a controller configuration that differs
+  from the model, for example its wheel radius.
 
 Durations are simulation time, so the expected distances don't depend on how fast the computer
 runs the simulation.
@@ -193,9 +193,9 @@ class TestDrive(unittest.TestCase):
             # Straight ahead (about 1 mm to the side measured), and without turning
             self.assertAlmostEqual(motion.left, 0.0, delta=0.1)
             self.assertAlmostEqual(motion.turned, 0.0, delta=0.2)
-        # The odometry agrees with the true distance (about 0.01 m apart) unless the controller's
-        # wheel radius doesn't match the model: 20 % too big gave 0.09 m
-        self.assertAlmostEqual(odom_motion.forward, true_motion.forward, delta=0.05)
+        # The odometry and the true distance are 0.010 to 0.011 m apart. A wheel_radius in
+        # diffbot_control.yaml 10 % bigger or smaller than now gave about 0.044 m and 0.076 m
+        self.assertAlmostEqual(odom_motion.forward, true_motion.forward, delta=0.03)
 
     def test_turn(self) -> None:
         odom_motion, true_motion = self.measure_motion(
@@ -210,8 +210,8 @@ class TestDrive(unittest.TestCase):
             self.assertAlmostEqual(motion.turned, expected_turn, delta=1.0)
             # On the spot: its center drifts 2 to 4 cm in Gazebo
             self.assertAlmostEqual(math.hypot(motion.forward, motion.left), 0.0, delta=0.15)
-        # The wheels slip a little when turning on the spot (0.02 to 0.11 rad apart); a wheel
-        # radius 20 % too big gave up to 0.31 rad
+        # The wheels slip a little when turning on the spot (0.02 to 0.11 rad apart). With a
+        # wheel_radius 15 % bigger than now, DiffBot's were 0.27 rad apart, but Remo's only 0.11
         self.assertAlmostEqual(odom_motion.turned, true_motion.turned, delta=0.25)
 
 
