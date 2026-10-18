@@ -38,8 +38,6 @@ TURN_VELOCITY = 0.5  # rad/s
 # for 0.5 s (diff_drive_controller's default cmd_vel_timeout), and drive() checks the end time
 # once per cycle, so the robot drives up to one cycle too long: here at most 1 cm or 0.025 rad
 COMMAND_RATE = 20  # Hz
-# The direction of a shorter translation is noise, see relative_motion()
-MIN_TRANS = 0.01  # m
 
 
 class Pose2D(NamedTuple):
@@ -50,16 +48,20 @@ class Pose2D(NamedTuple):
     theta: float
 
 
-class Motion(NamedTuple):
-    """A relative motion: rotate by rot1 (rad), drive straight for trans (m), rotate by rot2."""
+class RelativePose(NamedTuple):
+    """A pose relative to an earlier one, in the robot's frame at the earlier pose.
 
-    rot1: float
-    trans: float
-    rot2: float
+    forward and left (m) are along the robot's x and y axes at the earlier pose, and turned (rad)
+    is the change of its heading, positive to the left.
+    """
+
+    forward: float
+    left: float
+    turned: float
 
 
-def planar(pose: Pose) -> Pose2D:
-    """Return the 2D pose of a geometry_msgs/Pose.
+def to_pose2d(pose: Pose) -> Pose2D:
+    """Convert a geometry_msgs/Pose to a Pose2D.
 
     ROS messages give the orientation as a quaternion. euler_from_quaternion converts it to roll,
     pitch and yaw, the rotations about the x, y and z axes. The robot drives on flat ground, so
@@ -75,38 +77,31 @@ def wrap(angle: float) -> float:
 
     theta jumps from pi to -pi when the robot turns past 180 degrees, so a difference of two
     headings can be off by 2 pi. sin and cos don't change by 2 pi, and atan2 returns the angle
-    of the point (cos, sin) in -pi..pi. ROS amcl normalizes its angles the same way.
+    of the point (cos, sin) in -pi..pi.
     """
     return math.atan2(math.sin(angle), math.cos(angle))
 
 
-def relative_motion(start_pose: Pose2D, end_pose: Pose2D) -> Motion:
-    """Return the motion between two poses, as in the odometry motion model.
-
-    The model (Thrun, Burgard, Fox, section 5.4) describes the motion as a rotation rot1
-    towards the end position, a straight translation trans to it, and a rotation rot2 to the
-    end heading.
+def relative_pose(start_pose: Pose2D, end_pose: Pose2D) -> RelativePose:
+    """Return the end pose relative to the start pose, in the robot's frame at the start pose.
 
     The odometry and Gazebo give poses in different frames: the odometry starts at 0, 0, 0 where
     the controller started, while Gazebo's world frame has the robot spawned at x = -2, y = -0.5.
-    The relative motion is the same in both frames, so the two can be compared.
+    The relative pose is the same in both frames, so the two can be compared. With homogeneous
+    transforms, it is inv(T_start) @ T_end (Corke, Robotics, Vision and Control, chapter 2).
     """
-    x0, y0, theta0 = start_pose
-    x1, y1, theta1 = end_pose
-    # The straight-line distance, sqrt((x1 - x0)**2 + (y1 - y0)**2): hypot is the length of the
-    # hypotenuse of a right triangle with these two sides
-    trans = math.hypot(x1 - x0, y1 - y0)
-    # When the robot turns on the spot, its position hardly changes, and the direction of such a
-    # short translation is noise: then rot1 is 0 and rot2 is the whole turn, as in ROS amcl's
-    # odometry model (amcl_odom.cpp)
-    rot1 = wrap(math.atan2(y1 - y0, x1 - x0) - theta0) if trans >= MIN_TRANS else 0.0
-    rot2 = wrap(theta1 - theta0 - rot1)
-    return Motion(rot1, trans, rot2)
-
-
-def turned(motion: Motion) -> float:
-    """Return the angle the robot turned in total (rad, positive to the left)."""
-    return wrap(motion.rot1 + motion.rot2)
+    # The displacement in the frame of the poses (odometry or Gazebo world)
+    dx = end_pose.x - start_pose.x
+    dy = end_pose.y - start_pose.y
+    # The same displacement in the robot's frame at the start, rotated by -theta: forward is its
+    # part along the robot's heading (cos theta, sin theta), left its part along the robot's left
+    # side (-sin theta, cos theta)
+    cos_theta = math.cos(start_pose.theta)
+    sin_theta = math.sin(start_pose.theta)
+    forward = dx * cos_theta + dy * sin_theta
+    left = -dx * sin_theta + dy * cos_theta
+    turned = wrap(end_pose.theta - start_pose.theta)
+    return RelativePose(forward, left, turned)
 
 
 class TestDrive(unittest.TestCase):
@@ -133,7 +128,7 @@ class TestDrive(unittest.TestCase):
 
     @classmethod
     def on_odom(cls, msg: Odometry) -> None:
-        cls.odom_pose = planar(msg.pose.pose)
+        cls.odom_pose = to_pose2d(msg.pose.pose)
 
     @classmethod
     def on_model_states(cls, msg: ModelStates) -> None:
@@ -141,7 +136,7 @@ class TestDrive(unittest.TestCase):
         # the poses in the same order as the names. Gazebo publishes it before the robot is
         # spawned, so the first messages don't contain the robot
         if MODEL_NAME in msg.name:
-            cls.true_pose = planar(msg.pose[msg.name.index(MODEL_NAME)])
+            cls.true_pose = to_pose2d(msg.pose[msg.name.index(MODEL_NAME)])
 
     def drive(self, linear_velocity: float, angular_velocity: float, duration: float) -> None:
         """Send the velocity command (m/s, rad/s) for duration seconds of simulation time."""
@@ -161,16 +156,19 @@ class TestDrive(unittest.TestCase):
         rospy.sleep(1.0)
 
     def measure_motion(self, linear_velocity: float, angular_velocity: float,
-                       duration: float) -> Tuple[Motion, Motion]:
-        """Measure the relative motion of a drive with the odometry and with the true pose."""
+                       duration: float) -> Tuple[RelativePose, RelativePose]:
+        """Drive, and return the motion measured with the odometry and with the true pose.
+
+        Each motion is the end pose relative to the start pose.
+        """
         odom_start, true_start = self.odom_pose, self.true_pose
         self.drive(linear_velocity, angular_velocity, duration)
         self.stop()
-        odom = relative_motion(odom_start, self.odom_pose)
-        truth = relative_motion(true_start, self.true_pose)
-        for source, motion in (('odometry', odom), ('true pose', truth)):
-            rospy.loginfo('%s: rot1 %.3f rad, trans %.3f m, rot2 %.3f rad', source, *motion)
-        return odom, truth
+        odom_motion = relative_pose(odom_start, self.odom_pose)
+        true_motion = relative_pose(true_start, self.true_pose)
+        for source, motion in (('odometry', odom_motion), ('true pose', true_motion)):
+            rospy.loginfo('%s: forward %.3f m, left %.3f m, turned %.3f rad', source, *motion)
+        return odom_motion, true_motion
 
     # unittest runs the test methods in alphabetical order, here forward and then turn. Each one
     # checks only its own motion, from wherever the robot is when it starts, so neither depends
@@ -178,37 +176,37 @@ class TestDrive(unittest.TestCase):
     # tolerance that lies between what the robot measures in Gazebo and what a mistake would give
 
     def test_forward(self) -> None:
-        odom, truth = self.measure_motion(
+        odom_motion, true_motion = self.measure_motion(
             linear_velocity=FORWARD_VELOCITY, angular_velocity=0.0, duration=DURATION)
         # v * t = 0.6 m straight ahead. The controller's acceleration limit costs 3 cm when the
-        # robot starts and gives them back when it brakes; 0.58 to 0.62 m measured. A robot that
+        # robot starts and gives them back when it brakes; 0.57 to 0.62 m measured. A robot that
         # doesn't move, or drives much too slow or too fast, fails
-        expected_trans = FORWARD_VELOCITY * DURATION
-        for motion in (odom, truth):
-            self.assertAlmostEqual(motion.trans, expected_trans, delta=0.1)
-            # In the direction it faced (0.002 rad measured), and without turning
-            self.assertAlmostEqual(motion.rot1, 0.0, delta=0.15)
-            self.assertAlmostEqual(turned(motion), 0.0, delta=0.2)
+        expected_forward = FORWARD_VELOCITY * DURATION
+        for motion in (odom_motion, true_motion):
+            self.assertAlmostEqual(motion.forward, expected_forward, delta=0.1)
+            # Straight ahead (about 1 mm to the side measured), and without turning
+            self.assertAlmostEqual(motion.left, 0.0, delta=0.1)
+            self.assertAlmostEqual(motion.turned, 0.0, delta=0.2)
         # The odometry agrees with the true distance (about 0.01 m apart) unless the controller's
         # wheel radius doesn't match the model: 20 % too big gave 0.09 m
-        self.assertAlmostEqual(odom.trans, truth.trans, delta=0.05)
+        self.assertAlmostEqual(odom_motion.forward, true_motion.forward, delta=0.05)
 
     def test_turn(self) -> None:
-        odom, truth = self.measure_motion(
+        odom_motion, true_motion = self.measure_motion(
             linear_velocity=0.0, angular_velocity=TURN_VELOCITY, duration=DURATION)
         # w * t = 1.5 rad to the left, on the spot. In Gazebo the robots turn less (DiffBot about
-        # 1.3 rad, Remo 0.92 to 1.2 rad): Gazebo's wheel velocity controller
+        # 1.3 rad, Remo 0.92 to 1.34 rad): Gazebo's wheel velocity controller
         # (diffbot_control/config/pid.yaml) has only a P gain, which leaves Remo's wheels at about
         # 80 % of the commanded speed, and the wheels slip. Until the gains are tuned (#116), the
         # tolerance is wide; a robot that turns right or not at all still fails
         expected_turn = TURN_VELOCITY * DURATION
-        for motion in (odom, truth):
-            self.assertAlmostEqual(turned(motion), expected_turn, delta=1.0)
+        for motion in (odom_motion, true_motion):
+            self.assertAlmostEqual(motion.turned, expected_turn, delta=1.0)
             # On the spot: its center drifts 2 to 4 cm in Gazebo
-            self.assertAlmostEqual(motion.trans, 0.0, delta=0.15)
+            self.assertAlmostEqual(math.hypot(motion.forward, motion.left), 0.0, delta=0.15)
         # The wheels slip a little when turning on the spot (0.02 to 0.11 rad apart); a wheel
         # radius 20 % too big gave up to 0.31 rad
-        self.assertAlmostEqual(turned(odom), turned(truth), delta=0.25)
+        self.assertAlmostEqual(odom_motion.turned, true_motion.turned, delta=0.25)
 
 
 if __name__ == '__main__':
