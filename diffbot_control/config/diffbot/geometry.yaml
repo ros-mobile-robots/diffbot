@@ -1,0 +1,10 @@
+# DiffBot's wheel geometry for diff_drive_controller, the hardware interface (diffbot_base) and the
+# Teensy firmware. The values are measured on the robot and are the same as in its URDF:
+# - wheel_radius: radius in diffbot_description/config/diffbot/front_wheel.yaml
+# - wheel_separation: the distance between the wheel centers, base y_size 0.08 + 2 * (y_offset
+#   0.015 + length / 2 0.0125), from base.yaml and front_wheel.yaml
+# The launch files load it after diffbot_control.yaml, with the model argument
+diffbot:
+  mobile_base_controller:
+    wheel_radius: 0.0331      # m
+    wheel_separation: 0.135   # m

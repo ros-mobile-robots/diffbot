@@ -27,11 +27,8 @@ diffbot:
     left_wheel: 'front_left_wheel_joint'
     right_wheel: 'front_right_wheel_joint'
 
-    # Wheel separation and diameter. These are both optional.
-    # diff_drive_controller will attempt to read either one or both from the
-    # URDF if not specified as a parameter
-    wheel_separation : 0.145
-    wheel_radius : 0.0325
+    # wheel_radius and wheel_separation differ between the robots: they are in
+    # config/<model>/geometry.yaml, which the launch files load after this file
 
     # Odometry covariances for the encoder output of the robot. These values should
     # be tuned to your robot's sample odometry data, but these values are a good place
