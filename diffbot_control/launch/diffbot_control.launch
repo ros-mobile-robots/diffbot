@@ -15,8 +15,9 @@
     <rosparam command="load"
         file="$(find diffbot_control)/config/$(arg model)/geometry.yaml"/>
 
+    <!-- Gazebo's wheel velocity gains for this robot -->
     <rosparam command="load"
-        file="$(find diffbot_control)/config/pid.yaml"/>
+        file="$(find diffbot_control)/config/$(arg model)/pid.yaml"/>
 
     <!-- load the controllers -->
     <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"

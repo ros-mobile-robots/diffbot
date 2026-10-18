@@ -1,0 +1,17 @@
+# Gazebo only: the gains of the PID that gazebo_ros_control's DefaultRobotHWSim uses to turn each
+# wheel's velocity command into a torque. On the real robot, the Teensy firmware controls the
+# wheel speed. diffbot_control.launch loads this file with the model argument.
+# - The I term removes the steady speed error that a P gain alone leaves when turning on the spot.
+#   control_toolbox limits it to +-i_clamp (N m), and antiwindup stops the integral from growing
+#   beyond that limit.
+# - DiffBot's wheels (0.5 kg) allow a P gain up to about 0.5 at Gazebo's 1 ms step (#116)
+diffbot:
+  gazebo_ros_control:
+    pid_gains:
+      front_right_wheel_joint: &wheel
+        p: 0.06
+        i: 0.6
+        d: 0.0
+        i_clamp: 0.05
+        antiwindup: true
+      front_left_wheel_joint: *wheel
