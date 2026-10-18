@@ -1,6 +1,7 @@
 <launch>
-    <!-- For the simulation tests: the robot in Gazebo without a GUI (headless also works without a
-         display, as in CI), on the empty world, with its controllers from diffbot_control -->
+    <!-- For the simulation tests: the robot in Gazebo without a GUI, only the Gazebo server, which
+         needs no display (as in CI), on the empty world, with its controllers from diffbot_control.
+         Noetic's empty_world.launch ignores its headless argument, so it isn't set here -->
     <arg name="model" doc="model type [diffbot, remo]"/>
     <!-- catkin runs the test files in parallel, each with its own ROS master; each Gazebo server
          also needs its own port, and none uses Gazebo's default 11345, which a simulation that's
@@ -11,7 +12,6 @@
     <include file="$(find diffbot_gazebo)/launch/diffbot_view.launch">
         <arg name="model" value="$(arg model)"/>
         <arg name="gui" value="false"/>
-        <arg name="headless" value="true"/>
         <arg name="world_name" value="$(find diffbot_gazebo)/worlds/diffbot_empty.world"/>
     </include>
 

@@ -36,7 +36,8 @@ FORWARD_VELOCITY = 0.2  # m/s
 TURN_VELOCITY = 0.5  # rad/s
 # How often drive() sends the command. The controller stops the robot when no command arrives
 # for 0.5 s (diff_drive_controller's default cmd_vel_timeout), and drive() checks the end time
-# once per cycle, so the robot drives up to one cycle too long: here at most 1 cm or 0.025 rad
+# once per cycle, so the robot drives nominally up to one cycle too long, here 1 cm or 0.025 rad.
+# A late wake-up or message can add more; the tolerances leave room for it
 COMMAND_RATE = 20  # Hz
 
 
