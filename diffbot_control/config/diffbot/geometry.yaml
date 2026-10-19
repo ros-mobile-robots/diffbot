@@ -1,6 +1,6 @@
 # DiffBot's wheel geometry for diff_drive_controller, the hardware interface (diffbot_base) and the
 # Teensy firmware, measured on the robot, the same values as in its URDF:
-# - wheel_radius: the mean of the two wheels' diameters, 66.3 and 66.8 mm
+# - wheel_radius: half the mean of the two wheels' diameters, 66.3 and 66.8 mm
 #   (radius in diffbot_description/config/diffbot/front_wheel.yaml)
 # - wheel_separation: from the middle of one tire to the middle of the other (in the URDF: base
 #   y_size 0.08 + 2 * (y_offset 0.0165 + length / 2 0.0125), base.yaml and front_wheel.yaml)
