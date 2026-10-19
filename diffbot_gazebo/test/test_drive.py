@@ -204,18 +204,17 @@ class TestDrive(unittest.TestCase):
         odom_motion, true_motion = self.measure_motion(
             linear_velocity=0.0, angular_velocity=TURN_VELOCITY, duration=DURATION)
         motions = f'odometry {odom_motion}, true pose {true_motion}'
-        # w * t = 1.5 rad to the left, on the spot. The robots turn less in Gazebo, DiffBot about
-        # 1.31 rad and Remo 0.97 to 1.16 rad, because Gazebo's wheel velocity controller
-        # (diffbot_control/config/pid.yaml) has only a P gain and leaves the wheels slower than
-        # commanded. Until that is fixed (#116), the tolerance is wide; even so, a robot that turns
-        # right or not at all fails
+        # w * t = 1.5 rad to the left, on the spot. With the wheel gains in
+        # diffbot_control/config/<model>/pid.yaml, both robots' odometry shows 1.50 rad and their
+        # true pose 1.47 to 1.48 rad. The tolerance stays wide until Remo's wheel contacts are
+        # fixed (#116); even so, a robot that turns right or not at all fails
         expected_turn = TURN_VELOCITY * DURATION
         for motion in (odom_motion, true_motion):
             self.assertAlmostEqual(motion.turned, expected_turn, delta=1.0, msg=motions)
             # On the spot: its center drifts 2 to 4 cm in Gazebo
             self.assertAlmostEqual(math.hypot(motion.forward, motion.left), 0.0, delta=0.15,
                                    msg=motions)
-        # The odometry and the true turn are 0.01 to 0.03 rad apart. A wrong wheel_radius or
+        # The odometry and the true turn are 0.02 to 0.03 rad apart. A wrong wheel_radius or
         # wheel_separation can increase the disagreement; until #116 narrows this tolerance, it
         # only catches large errors
         self.assertAlmostEqual(odom_motion.turned, true_motion.turned, delta=0.25, msg=motions)
