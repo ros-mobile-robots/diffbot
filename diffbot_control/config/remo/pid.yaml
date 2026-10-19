@@ -5,7 +5,7 @@
 #   control_toolbox limits it to +-i_clamp (N m), and antiwindup stops the integral from growing
 #   beyond that limit.
 # - P must stay below about 0.035: Remo's wheels weigh 32 g, and when a wheel doesn't touch the
-#   ground (at spawn) or slips, P * 0.001 s / its inertia 1.75e-5 kg m^2 must stay below 2, or the
+#   ground (at spawn) or slips, P * 0.001 s / its inertia 1.74e-5 kg m^2 must stay below 2, or the
 #   velocity loop becomes unstable and the model explodes (#57, #116)
 diffbot:
   gazebo_ros_control:
