@@ -52,11 +52,11 @@
         <material name="red"/>
       </visual>
     </xacro:if>
-      <!-- A sphere with the wheel's radius, so the wheel touches the ground at one point in its
-           center plane. With the cylinder, Gazebo put DiffBot's contacts at the wheels' outer
-           edges, which made the wheel separation one wheel width larger (0.163 instead of
-           0.138 m): the robot turned 15 % less than its wheels and its odometry
-           (ros-mobile-robots/diffbot#118). The visual stays a cylinder -->
+      <!-- A sphere with the wheel's radius instead of a cylinder, for the collision only: on flat
+           ground, a sphere touches at one point in the wheel's center plane, so the simulated
+           wheel separation is the one in the URDF and the controller configuration. Gazebo can
+           put a cylinder's contacts at its outer edge, which makes the robot turn less than its
+           odometry says (see ros-mobile-robots/diffbot#118). The visual stays a cylinder -->
       <collision>
         <geometry>
           <sphere radius="${wheel_props['radius']}"/>
