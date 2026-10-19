@@ -16,6 +16,10 @@
     <rosparam command="load" 
               file="$(find diffbot_control)/config/diffbot_control.yaml"/>
 
+    <!-- The robot's wheel radius and separation -->
+    <rosparam command="load"
+              file="$(find diffbot_control)/config/$(arg model)/geometry.yaml"/>
+
     <!-- Load base config to the parameter server -->
     <rosparam command="load" 
               file="$(find diffbot_base)/config/base.yaml"/>
