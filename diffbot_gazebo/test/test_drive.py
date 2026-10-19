@@ -196,7 +196,7 @@ class TestDrive(unittest.TestCase):
             # Straight ahead (about 1 mm to the side measured), and without turning
             self.assertAlmostEqual(motion.left, 0.0, delta=0.1, msg=motions)
             self.assertAlmostEqual(motion.turned, 0.0, delta=0.2, msg=motions)
-        # The odometry and the true distance are at most 0.001 m apart. A wheel_radius in
+        # The odometry and the true distance are at most 0.002 m apart. A wheel_radius in
         # config/<model>/geometry.yaml 10 % bigger or smaller gave about 0.053 m and 0.064 m
         self.assertAlmostEqual(odom_motion.forward, true_motion.forward, delta=0.03, msg=motions)
 
