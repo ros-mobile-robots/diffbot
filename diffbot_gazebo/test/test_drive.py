@@ -204,21 +204,19 @@ class TestDrive(unittest.TestCase):
         odom_motion, true_motion = self.measure_motion(
             linear_velocity=0.0, angular_velocity=TURN_VELOCITY, duration=DURATION)
         motions = f'odometry {odom_motion}, true pose {true_motion}'
-        # w * t = 1.5 rad to the left, on the spot. In Gazebo the robots turn less (DiffBot 1.13 to
-        # 1.14 rad, Remo 1.14 to 1.16 rad): Gazebo's wheel velocity controller
-        # (diffbot_control/config/pid.yaml) has only a P gain, which leaves Remo's wheels at about
-        # 80 % of the commanded speed, and DiffBot's wheels touch the ground at their outer edges
-        # (#118). Until the gains are tuned (#116), the tolerance is wide; a robot that turns right
-        # or not at all still fails
+        # w * t = 1.5 rad to the left, on the spot. In Gazebo the robots turn less (DiffBot about
+        # 1.31 rad, Remo 0.97 to 1.16 rad): Gazebo's wheel velocity controller
+        # (diffbot_control/config/pid.yaml) has only a P gain, which leaves the wheels slower than
+        # commanded when turning, Remo's at about 80 %. Until the gains are tuned (#116), the
+        # tolerance is wide; a robot that turns right or not at all still fails
         expected_turn = TURN_VELOCITY * DURATION
         for motion in (odom_motion, true_motion):
             self.assertAlmostEqual(motion.turned, expected_turn, delta=1.0, msg=motions)
             # On the spot: its center drifts 2 to 4 cm in Gazebo
             self.assertAlmostEqual(math.hypot(motion.forward, motion.left), 0.0, delta=0.15,
                                    msg=motions)
-        # DiffBot turns 15 % less than its odometry (0.20 to 0.21 rad apart): Gazebo puts its
-        # wheels' contacts at their outer edges (#118). Remo's are about 0.01 rad apart. A
-        # wheel_radius 10 % bigger gave 0.31 rad for DiffBot, but Remo's only 0.11
+        # The odometry and the true turn are 0.01 to 0.03 rad apart. A wheel_radius 10 % bigger
+        # gave 0.11 rad for Remo
         self.assertAlmostEqual(odom_motion.turned, true_motion.turned, delta=0.25, msg=motions)
 
 
