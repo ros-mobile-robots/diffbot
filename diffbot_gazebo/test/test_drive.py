@@ -216,7 +216,7 @@ class TestDrive(unittest.TestCase):
         # The odometry and the true turn are 0.02 to 0.06 rad apart. A wrong wheel_radius or
         # wheel_separation in geometry.yaml can increase the disagreement: in the tested cases, a
         # radius 10 % off gave 0.10 to 0.19 rad and a separation 5 % too small 0.10 to 0.13 rad. A
-        # separation 10 % too big gave 0.12 rad for DiffBot, but only 0.09 rad for Remo, which passes
+        # separation 10 % too big gave 0.12 rad for DiffBot, but Remo's 0.09 rad still passes
         self.assertAlmostEqual(odom_motion.turned, true_motion.turned, delta=0.1, msg=motions)
 
 
