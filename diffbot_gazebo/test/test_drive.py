@@ -205,7 +205,7 @@ class TestDrive(unittest.TestCase):
             linear_velocity=0.0, angular_velocity=TURN_VELOCITY, duration=DURATION)
         motions = f'odometry {odom_motion}, true pose {true_motion}'
         # w * t = 1.5 rad to the left, on the spot. Both robots' odometry shows 1.50 rad and their
-        # true pose 1.44 to 1.48 rad. A robot that turns 20 % too slow or too fast, turns right or
+        # true pose 1.47 to 1.50 rad. A robot that turns 20 % too slow or too fast, turns right or
         # doesn't turn fails
         expected_turn = TURN_VELOCITY * DURATION
         for motion in (odom_motion, true_motion):
@@ -213,10 +213,10 @@ class TestDrive(unittest.TestCase):
             # On the spot: its center drifts 2 to 5 cm in Gazebo
             self.assertAlmostEqual(math.hypot(motion.forward, motion.left), 0.0, delta=0.15,
                                    msg=motions)
-        # The odometry and the true turn are 0.02 to 0.06 rad apart. A wrong wheel_radius or
+        # The odometry and the true turn are at most 0.03 rad apart. A wrong wheel_radius or
         # wheel_separation in geometry.yaml can increase the disagreement: in the tested cases, a
-        # radius 10 % off gave 0.10 to 0.19 rad and a separation 5 % too small 0.10 to 0.13 rad. A
-        # separation 10 % too big gave 0.12 rad for DiffBot, but Remo's 0.09 rad still passes
+        # radius 10 % off gave 0.14 to 0.17 rad and a separation 10 % too big 0.12 to 0.15 rad. A
+        # separation 5 % too small gave 0.10 rad for DiffBot, but Remo's 0.075 rad still passes
         self.assertAlmostEqual(odom_motion.turned, true_motion.turned, delta=0.1, msg=motions)
 
 
