@@ -52,10 +52,14 @@
         <material name="red"/>
       </visual>
     </xacro:if>
+      <!-- Use a sphere with the wheel radius for collision. On flat ground, an upright wheel's
+           contact stays in its center plane. This avoids the outer-edge cylinder contacts that
+           can increase DiffBot's effective wheel separation and reduce its true turn relative
+           to odometry. The wheel visual and cylinder inertia are unchanged.
+           See https://github.com/ros-mobile-robots/diffbot/pull/120 -->
       <collision>
-        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
         <geometry>
-          <cylinder radius="${wheel_props['radius']}" length="${wheel_props['length']}"/>
+          <sphere radius="${wheel_props['radius']}"/>
         </geometry>
       </collision>
       <xacro:cylinder_inertia m="${wheel_props['mass']}"
