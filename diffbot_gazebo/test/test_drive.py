@@ -196,28 +196,31 @@ class TestDrive(unittest.TestCase):
             # Straight ahead (about 1 mm to the side measured), and without turning
             self.assertAlmostEqual(motion.left, 0.0, delta=0.1, msg=motions)
             self.assertAlmostEqual(motion.turned, 0.0, delta=0.2, msg=motions)
-        # The odometry and the true distance are at most 0.002 m apart. A wheel_radius in
-        # config/<model>/geometry.yaml 10 % bigger or smaller gave about 0.053 m and 0.064 m
+        # The odometry and the true distance are at most 0.002 m apart. With the wheel_radius in
+        # geometry.yaml 10 % too big or too small, they were about 0.053 or 0.063 m apart: fails
         self.assertAlmostEqual(odom_motion.forward, true_motion.forward, delta=0.03, msg=motions)
 
     def test_turn(self) -> None:
         odom_motion, true_motion = self.measure_motion(
             linear_velocity=0.0, angular_velocity=TURN_VELOCITY, duration=DURATION)
         motions = f'odometry {odom_motion}, true pose {true_motion}'
-        # w * t = 1.5 rad to the left, on the spot. With the wheel gains in
-        # diffbot_control/config/<model>/pid.yaml, both robots' odometry shows 1.50 rad and their
-        # true pose 1.47 to 1.48 rad. The tolerance stays wide until Remo's wheel contacts are
-        # fixed (#116); even so, a robot that turns right or not at all fails
+        # w * t = 1.5 rad to the left, on the spot. Both robots' odometry shows 1.50 rad and their
+        # true pose 1.47 to 1.50 rad. A robot that turns 20 % too slow or too fast, turns right or
+        # doesn't turn fails
         expected_turn = TURN_VELOCITY * DURATION
         for motion in (odom_motion, true_motion):
-            self.assertAlmostEqual(motion.turned, expected_turn, delta=1.0, msg=motions)
-            # On the spot: its center drifts 2 to 4 cm in Gazebo
+            self.assertAlmostEqual(motion.turned, expected_turn, delta=0.3, msg=motions)
+            # The robot turns about its axle's midpoint. base_footprint, whose pose is measured, is
+            # 1.85 cm (DiffBot) or 3.6 cm (Remo) behind it, so its true pose ends up 2.6 or 4.9 cm
+            # from the start. The odometry treats it as the turning point and shows below 1 cm
             self.assertAlmostEqual(math.hypot(motion.forward, motion.left), 0.0, delta=0.15,
                                    msg=motions)
-        # The odometry and the true turn are 0.02 to 0.03 rad apart. A wrong wheel_radius or
-        # wheel_separation can increase the disagreement; until #116 narrows this tolerance, it
-        # only catches large errors
-        self.assertAlmostEqual(odom_motion.turned, true_motion.turned, delta=0.25, msg=motions)
+        # The odometry and the true turn are at most 0.03 rad apart. A wrong wheel_radius or
+        # wheel_separation in geometry.yaml increases the gap: a radius 10 % off gave 0.14 to 0.17
+        # rad, a separation 10 % too big 0.12 to 0.15 rad. A separation off by e (0.05 for 5 %)
+        # gives a gap of about e * 1.5 rad, so errors below about 7 % can pass: a separation 5 %
+        # too small gave Remo 0.075 rad
+        self.assertAlmostEqual(odom_motion.turned, true_motion.turned, delta=0.1, msg=motions)
 
 
 if __name__ == '__main__':
