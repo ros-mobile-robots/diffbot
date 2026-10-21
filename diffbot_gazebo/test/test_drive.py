@@ -210,13 +210,13 @@ class TestDrive(unittest.TestCase):
         expected_turn = TURN_VELOCITY * DURATION
         for motion in (odom_motion, true_motion):
             self.assertAlmostEqual(motion.turned, expected_turn, delta=0.3, msg=motions)
-            # On the spot: its center drifts 2 to 5 cm in Gazebo
+            # It pivots on its axle's center, 2 to 4 cm from base_footprint, which moves 3 to 5 cm
             self.assertAlmostEqual(math.hypot(motion.forward, motion.left), 0.0, delta=0.15,
                                    msg=motions)
         # The odometry and the true turn are at most 0.03 rad apart. A wrong wheel_radius or
-        # wheel_separation in geometry.yaml can increase the disagreement: in the tested cases, a
-        # radius 10 % off gave 0.14 to 0.17 rad and a separation 10 % too big 0.12 to 0.15 rad. A
-        # separation 5 % too small gave 0.10 rad for DiffBot, but Remo's 0.075 rad still passes
+        # wheel_separation in geometry.yaml increases the gap: a radius 10 % off gave 0.14 to 0.17
+        # rad, a separation 10 % too big 0.12 to 0.15 rad. A separation error e gives about
+        # 1.5 rad * e, so errors below about 7 % can pass: 5 % too small gave Remo 0.075 rad
         self.assertAlmostEqual(odom_motion.turned, true_motion.turned, delta=0.1, msg=motions)
 
 
