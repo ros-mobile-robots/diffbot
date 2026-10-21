@@ -24,7 +24,7 @@ catkin build --catkin-make-args run_tests && catkin_test_results build   # all t
 rostest diffbot_gazebo sim_drive_diffbot.test                            # or sim_drive_remo.test
 ```
 
-The firmware needs PlatformIO, which isn't in the dev container: `pip install platformio` on the host, as CI does, then `pio run -e teensy31 && pio run -e teensy40` in `diffbot_base/scripts/base_controller`.
+The firmware needs PlatformIO, which isn't in the dev container. On the host, install it with PlatformIO's installer script or in a virtual environment (CONTRIBUTING.md shows one), not with `pip` into the system Python; then run `pio run -e teensy31 && pio run -e teensy40` in `diffbot_base/scripts/base_controller` of the host's clone.
 
 Without a display, Gazebo runs headless in the tests. Expect about a minute per robot for the simulation test.
 
@@ -45,8 +45,8 @@ Without a display, Gazebo runs headless in the tests. Expect about a minute per 
 ## Commits and pull requests
 
 - One feature or fix per pull request and per commit; branch `feat/…`, `fix/…`, `docs/…` or `chore/…`.
-- Squash-merged: the title is the commit subject, `Area: what changed`, at most about 65 characters. The description starts with what and why in two or three sentences, then how it was tested, then `Closes #N`. Use the pull request template.
+- Squash-merged: the title is the commit subject, `Area: what changed`, 65 characters or fewer before GitHub's PR-number suffix. The whole description becomes the commit message: what and why in two or three sentences, then how it was tested, then `Closes #N`. Use the pull request template.
 - Code comments explain why, not what changed or how it was before.
-- A feature also needs its page on ros-mobile-robots.com: a pull request in ros-mobile-robots.github.io.
+- A feature also needs a new or updated page on ros-mobile-robots.com: a pull request in ros-mobile-robots.github.io.
 - No attribution lines for AI tools in commits or pull requests (`Co-Authored-By:` for a tool, "Generated with …"). No disclosure of AI use is needed.
 - Write descriptions and review replies so that a maintainer can check them quickly: specific, short, no claims you didn't verify.
