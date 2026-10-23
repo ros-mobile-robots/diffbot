@@ -28,6 +28,7 @@
 
   <!-- Move base -->
   <include file="$(find diffbot_mbf)/launch/includes/move_base.launch.xml">
+    <arg name="model" value="$(arg model)" />
     <arg name="local_planner" value="$(arg local_planner)" />
     <arg name="move_forward_only" value="$(arg move_forward_only)"/>
   </include>

@@ -210,10 +210,10 @@ class TestDrive(unittest.TestCase):
         expected_turn = TURN_VELOCITY * DURATION
         for motion in (odom_motion, true_motion):
             self.assertAlmostEqual(motion.turned, expected_turn, delta=0.3, msg=motions)
-            # The robot turns about its axle's midpoint. base_footprint, whose pose is measured, is
-            # 1.85 cm (DiffBot) or 3.6 cm (Remo) behind it, so its true pose ends up 2.6 or 4.9 cm
-            # from the start. The odometry treats it as the turning point and shows below 1 cm
-            self.assertAlmostEqual(math.hypot(motion.forward, motion.left), 0.0, delta=0.15,
+            # The robot turns about its axle's midpoint, where base_footprint is: the odometry and
+            # the true pose move it less than 1 mm. A base_footprint 1.5 cm or more off the axle
+            # would move about 1.36 times that, 2 cm or more, on this turn, and fail
+            self.assertAlmostEqual(math.hypot(motion.forward, motion.left), 0.0, delta=0.02,
                                    msg=motions)
         # The odometry and the true turn are at most 0.03 rad apart. A wrong wheel_radius or
         # wheel_separation in geometry.yaml increases the gap: a radius 10 % off gave 0.14 to 0.17

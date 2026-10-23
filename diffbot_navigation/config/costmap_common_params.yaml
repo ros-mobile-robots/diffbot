@@ -6,12 +6,8 @@ obstacle_range: 3.0
 # This can be over-ridden on a per-sensor basis.
 raytrace_range: 3.5
 
-# The footprint of the robot specified in the robot_base_frame coordinate frame as a list in the format: 
-# [ [x1, y1], [x2, y2], ...., [xn, yn] ]. The footprint specification assumes the center point of the robot is at 
-# (0.0, 0.0) in the robot_base_frame and that the points are specified in meters, 
-# both clockwise and counter-clockwise orderings of points are supported.
-footprint: [[-0.08, -0.075], [-0.08, 0.075], [0.105, 0.075], [0.105, -0.075]]
-#robot_radius: 0.17
+# The robot's footprint differs between the robots: it's in config/<model>/costmap_footprint.yaml,
+# which the launch files load after this file
 
 # The radius in meters to which the map inflates obstacle cost values.
 inflation_radius: 0.5
