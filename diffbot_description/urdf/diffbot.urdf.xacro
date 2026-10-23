@@ -28,8 +28,10 @@
   <!-- Footprint link -->
   <xacro:footprint wheel_props="${front_wheel_props}" />
 
-  <!-- Base link -->
-  <xacro:base base_prop="${base_props}" mesh="${base_props['base']['mesh']}" >
+  <!-- Base link at the drive axle's midpoint, and the chassis around it. The wheels sit
+       x_offset behind the base plate's front edge, the same position the wheel macro uses -->
+  <xacro:property name="axle_x" value="${base_props['base']['x_size']/2 - front_wheel_props['x_offset']}"/>
+  <xacro:base base_prop="${base_props}" axle_x="${axle_x}" mesh="${base_props['base']['mesh']}" >
     <origin xyz="0 0 0" rpy="0 0 0" />
   </xacro:base>
 
@@ -62,7 +64,7 @@
   </xacro:motor>
 
   <!-- Sensors -->
-  <xacro:laser prefix="rplidar" parent_link="base_link"
+  <xacro:laser prefix="rplidar" parent_link="chassis_link"
                    sensor_prop="${sensor_prop}"
                    enable_gpu="${sensor_prop['laser']['enable_gpu']}">
   </xacro:laser>

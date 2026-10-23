@@ -14,9 +14,11 @@
     <rosparam file="$(find diffbot_navigation)/config/move_base_params.yaml" command="load" />
     <!-- global costmap params -->
     <rosparam file="$(find diffbot_navigation)/config/costmap_common_params.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find diffbot_navigation)/config/$(arg model)/costmap_footprint.yaml" command="load" ns="global_costmap" />
     <rosparam file="$(find diffbot_navigation)/config/costmap_global_params.yaml" command="load" />
     <!-- local costmap params -->
     <rosparam file="$(find diffbot_navigation)/config/costmap_common_params.yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find diffbot_navigation)/config/$(arg model)/costmap_footprint.yaml" command="load" ns="local_costmap" />
     <rosparam file="$(find diffbot_navigation)/config/costmap_local_params.yaml" command="load" />
     <!-- remappings -->
     <remap from="cmd_vel" to="$(arg cmd_vel_topic)"/>

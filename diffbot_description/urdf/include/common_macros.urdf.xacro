@@ -76,7 +76,7 @@
 
     <joint name="${prefix}_wheel_joint" type="continuous">
       <axis xyz="0 1 0" rpy="0 0 0" />
-      <parent link="base_link"/>
+      <parent link="chassis_link"/>
       <child link="${prefix}_wheel"/>
       <origin xyz="${pos_x_joint} ${reflect* pos_y_joint} ${pos_z_joint}" rpy="0 0 0"/>
     </joint>
@@ -153,7 +153,7 @@
     </link>
 
     <joint name="${prefix}_motor_joint" type="fixed">
-      <parent link="base_link"/>
+      <parent link="chassis_link"/>
       <child link="${prefix}_motor"/>
       <origin xyz="${pos_x_joint} ${reflect* pos_y_joint} ${pos_z_joint}" rpy="0 ${-pi/2.0*(reflect - 1)} 0"/>
       <axis xyz="0 1 0" rpy="0 0 0" />
@@ -174,13 +174,25 @@
 
   params:
   - base_props [dictionary]: base link properties;
+  - axle_x [float]: how far the drive axle's midpoint (base_link) lies in front of the base
+    plate's center (chassis_link), in m;
   - mesh [string]: file name of the link mesh;
     - DEFAULT Value -> Empty string  
   - origin [block]: origin, position and orientation of the link;
 -->
   <xacro:macro name="base"
-               params="base_prop mesh:='' scale:='' *origin ">
-    <link name="base_link">
+               params="base_prop axle_x mesh:='' scale:='' *origin ">
+    <!-- base_link is the robot's reference frame: the midpoint between the drive wheels, where
+         diff_drive_controller's odometry puts the robot. The chassis' geometry, mass and all
+         attached parts are defined around chassis_link, the center of the base plate, which lies
+         axle_x behind it. -->
+    <link name="base_link" />
+    <joint name="chassis_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="chassis_link"/>
+      <origin xyz="${-axle_x} 0 0" rpy="0 0 0"/>
+    </joint>
+    <link name="chassis_link">
     <xacro:box_inertia m="${base_prop['base']['mass']}" 
                        x="${base_prop['base']['x_size']}" 
                        y="${base_prop['base']['y_size']}"
