@@ -57,5 +57,5 @@ body:
     id: logs
     attributes:
       label: Relevant logs
-      description: The output around the error. It's shown as code, so put screenshots in the first field.
+      description: The output around the error. It's shown as code, so put screenshots in "What happened, and what you expected".
       render: shell
