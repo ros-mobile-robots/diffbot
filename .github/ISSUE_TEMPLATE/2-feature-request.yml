@@ -1,0 +1,20 @@
+name: Feature request
+description: An idea that would make DiffBot or Remo more useful.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Suggest a feature here; for help with your build, ask in [Discussions](https://github.com/ros-mobile-robots/diffbot/discussions/categories/q-a).
+        For a larger change, the approach can be agreed here before you write the code.
+  - type: textarea
+    id: what-and-why
+    attributes:
+      label: What would help, and why
+      description: The problem it solves, or what it would let you do.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered

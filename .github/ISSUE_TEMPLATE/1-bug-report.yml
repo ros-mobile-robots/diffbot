@@ -1,0 +1,61 @@
+name: Bug report
+description: Something in DiffBot or Remo doesn't work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Report a bug here; for help with your build, ask in [Discussions](https://github.com/ros-mobile-robots/diffbot/discussions/categories/q-a).
+        A bug in Remo's model belongs in [remo_description](https://github.com/ros-mobile-robots/remo_description/issues),
+        one in the documentation in [ros-mobile-robots.github.io](https://github.com/ros-mobile-robots/ros-mobile-robots.github.io/issues).
+  - type: dropdown
+    id: robot
+    attributes:
+      label: Robot
+      description: Choose "Both" only if you saw it on both.
+      options:
+        - DiffBot
+        - Remo
+        - Both
+        - Not robot-specific, or unsure
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where it happens
+      multiple: true
+      options:
+        - Gazebo simulation
+        - Real robot
+        - Dev container or build
+        - Teensy firmware
+        - Other, or unsure
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what you expected
+      description: Screenshots and other files can go here too.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: The commands or launch files you ran, and the steps. If it only happens sometimes, describe when.
+      placeholder: |
+        1. roslaunch diffbot_gazebo diffbot.launch
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: Version and setup
+      description: >-
+        The commit or tag (`git rev-parse --short HEAD`, or "unknown"), the dev container or your OS,
+        and any configuration you changed. For a firmware or hardware problem, also the Teensy model.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: The output around the error. It's shown as code, so put screenshots in the first field.
+      render: shell
