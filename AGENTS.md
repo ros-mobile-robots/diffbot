@@ -37,7 +37,7 @@ Without a display, Gazebo runs headless in the tests. Expect about a minute per 
 ## Things that are easy to get wrong
 
 - **The wheel geometry is in two places:** the URDF (`diffbot_description/config/diffbot/front_wheel.yaml`, Remo's in remo_description) and the controller (`diffbot_control/config/<model>/geometry.yaml`). Change both, or the odometry and the simulated robot disagree.
-- **Gazebo's wheel gains depend on the wheel's inertia and the physics step:** keep P below 2J/h, with J the wheel's inertia about its axle and h Gazebo's step (the comment in each `pid.yaml` explains it). A higher P can make a light wheel's model explode at spawn, and a change of the wheel mass changes the limit.
+- **A wheel's mass limits Gazebo's wheel gain:** if you change a wheel's mass or inertia in the URDF, check the P gain in `diffbot_control/config/<model>/pid.yaml` against the comment there.
 - **The documentation quotes this code** at a pinned commit, by line ranges, for example `test_drive.py` on the Simulation Test page. If you add or remove lines there, say so in the PR, so the docs can be repinned.
 - **Units and frames** follow [REP 103](https://www.ros.org/reps/rep-0103.html); `base_footprint` is the robot's reference frame.
 - **The real robot reads the same configuration** as the simulation (the hardware interface and the firmware read `wheel_radius`). A configuration change affects both.
