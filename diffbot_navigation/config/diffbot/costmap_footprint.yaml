@@ -3,4 +3,4 @@
 # empty), rounded outwards to 1 mm: from the rear, the caster wheel, 126.5 mm behind the axle, to
 # the base plate, 79 mm in front of it; sideways the wheels at their 25 mm width, not the wider
 # spheres they collide as in Gazebo. Not measured on the robot.
-footprint: [[-0.127, -0.083], [-0.127, 0.083], [0.080, 0.083], [0.080, -0.083]]
+footprint: [[-0.127, -0.082], [-0.127, 0.082], [0.079, 0.082], [0.079, -0.082]]
