@@ -10,7 +10,8 @@ repositories:
   src/remo_description:
     type: git
     url: https://github.com/ros-mobile-robots/remo_description
-    # A commit, not main: a change of Remo's model reaches diffbot and its CI only through a pull
-    # request here that moves this pin, tested with diffbot's code. diffbot_dev.repos and
-    # remo_robot.repos pin the same commit.
+    # Pinned to one version of Remo's model instead of main. A new version reaches this workspace
+    # and the diffbot repository's CI only through a pull request in the diffbot repository that
+    # moves the pin, so the diffbot packages are tested with it first. diffbot_dev.repos and
+    # remo_robot.repos pin the same version.
     version: e6232d05226e35b367dfe064caac477adf4ae967

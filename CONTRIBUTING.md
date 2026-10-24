@@ -8,7 +8,7 @@ The documentation's [Contributing](https://ros-mobile-robots.com/development/) s
 
 ## Set up
 
-The quickest working setup is the dev container in [`.devcontainer/noetic`](.devcontainer/noetic): open your clone in VS Code and choose **Reopen in Container**. It has ROS Noetic, Gazebo 11 and everything the packages need, clones `remo_description`, at the commit pinned in [`diffbot_dev.repos`](diffbot_dev.repos), and `rplidar_ros`, and builds the workspace in `~/catkin_ws`. CI builds the same image. Without the container, follow the [installation steps](README.md#installation) in the README.
+The quickest working setup is the dev container in [`.devcontainer/noetic`](.devcontainer/noetic): open your clone in VS Code and choose **Reopen in Container**. It has ROS Noetic, Gazebo 11 and everything the packages need, clones `remo_description`, at the version pinned in [`diffbot_dev.repos`](diffbot_dev.repos), and `rplidar_ros`, and builds the workspace in `~/catkin_ws`. CI builds the same image. Without the container, follow the [installation steps](README.md#installation) in the README.
 
 ## Build and test
 
