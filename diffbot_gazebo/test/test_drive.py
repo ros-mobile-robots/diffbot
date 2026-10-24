@@ -211,8 +211,8 @@ class TestDrive(unittest.TestCase):
         for motion in (odom_motion, true_motion):
             self.assertAlmostEqual(motion.turned, expected_turn, delta=0.3, msg=motions)
             # The robot turns about its axle's midpoint, where base_footprint is: the odometry and
-            # the true pose move it less than 1 mm. A base_footprint 1.5 cm or more off the axle
-            # would move about 1.36 times that, 2 cm or more, on this turn, and fail
+            # the true pose move it less than 1 mm. On the nominal 1.5 rad turn, a base_footprint
+            # 1.5 cm off the axle would move about 2 cm and fail
             self.assertAlmostEqual(math.hypot(motion.forward, motion.left), 0.0, delta=0.02,
                                    msg=motions)
         # The odometry and the true turn are at most 0.03 rad apart. A wrong wheel_radius or
