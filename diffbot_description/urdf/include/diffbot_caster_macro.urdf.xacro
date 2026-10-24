@@ -61,7 +61,7 @@
     <joint name="${prefix}_caster_base_joint" type="fixed">
       <origin xyz="${wheel_props['base']['dx']} ${-wheel_props['base']['dy'] * locationright} ${wheel_props['base']['dz']}" 
               rpy="0 0 0" />
-      <parent link="base_link" />
+      <parent link="chassis_link" />
       <child link="${prefix}_caster_base_link" />
       <axis xyz="0 0 1" />
       <dynamics damping="0.01" friction="0.0"/>
@@ -113,7 +113,7 @@
     <joint name="${prefix}_caster_rotation_joint" type="continuous">
       <origin xyz="${wheel_props['hub']['dx']} ${-wheel_props['hub']['dy'] * locationright} ${wheel_props['hub']['dz']}"
               rpy="0 0 0" />
-      <parent link="base_link" />
+      <parent link="chassis_link" />
       <child link="${prefix}_caster_rotation_link" />
       <axis xyz="0 0 1" />
       <dynamics damping="0.01" friction="0.0"/>
