@@ -1,0 +1,6 @@
+# The robot's footprint for the costmaps, in base_footprint: the drive axle's midpoint on the
+# ground. It's the outline of the model's parts (collision shapes, and meshes where they aren't
+# empty), rounded outwards to 1 mm: from the rear, the lidar platform, 118 mm behind the axle, to
+# the camera mount, 74 mm in front of it; sideways the wheels at their 25 mm width, not the wider
+# spheres they collide as in Gazebo. Not measured on the robot.
+footprint: [[-0.118, -0.085], [-0.118, 0.085], [0.075, 0.085], [0.075, -0.085]]
