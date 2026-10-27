@@ -1,4 +1,4 @@
-mass: 0.1          # Motor mass in Kg
+mass: 0.041        # Motor mass in kg: 41 g, weighed on Remo, which has the same DG01D-E motor
 x_size: 0.07       # Motor dimension in x axis
 y_size: 0.0225     # Motor dimension in y axis
 z_size: 0.0188     # Motor dimension in z axis

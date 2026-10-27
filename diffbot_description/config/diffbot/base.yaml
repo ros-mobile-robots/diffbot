@@ -1,5 +1,8 @@
 base:
-  mass: 0.8               # Base mass in Kg
+  mass: 0.771             # Base mass in kg: everything not modeled separately (plates, Raspberry Pi, AA battery
+                          # pack, power bank, electronics, cables, screws). 705 g weighed without the lidar and the
+                          # power bank, minus the drive wheels, motors and caster (521 g), plus 250 g for the power
+                          # bank, the value of Remo's model for the same power bank
   x_size: 0.195           # Dimension in x axis
   y_size: 0.08            # Dimension in y axis
   z_size: 0.005           # Dimension in z axis
