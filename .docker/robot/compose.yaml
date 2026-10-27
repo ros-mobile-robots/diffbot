@@ -2,12 +2,13 @@
 #   docker compose -f .docker/robot/compose.yaml up --build             # the bringup
 #   docker compose -f .docker/robot/compose.yaml --profile lidar up     # the bringup and the lidar
 # Settings come from the shell or from a .env file next to this file (see README.md):
-#   ROBOT_MODEL     remo (default) or diffbot; REPOS: remo_robot.repos (default) or diffbot_robot.repos
+#   ROBOT_MODEL     remo (default) or diffbot
 #   TEENSY_DEVICE   the Teensy's stable name on the host (default /dev/teensy, see 99-diffbot-robot.rules)
 #   LIDAR_DEVICE    the lidar's (default /dev/rplidar)
 #   DIALOUT_GID     the numeric ID of the host's group that owns the serial devices (default 20, dialout)
 #   ROS_MASTER_URI, ROS_IP, ROS_HOSTNAME   as on ROS Network Setup; without them, roslaunch starts its own master
-#   ROBOT_DATA      a host folder for ROS logs and bags (default ./data, next to this file)
+#   ROBOT_DATA      a host folder for ROS logs and bags (default ~/robot-data). It must exist and
+#                   belong to UID 1000, the user ros in the container: mkdir ~/robot-data
 
 name: diffbot-robot
 
@@ -24,8 +25,14 @@ x-robot: &robot
     - ROS_MASTER_URI
     - ROS_IP
     - ROS_HOSTNAME
+  # ROS logs and bags in a host folder. The long syntax doesn't create a missing folder: Docker
+  # would create it for root, and the user ros couldn't write its logs.
   volumes:
-    - ${ROBOT_DATA:-./data}:/home/ros/.ros
+    - type: bind
+      source: ${ROBOT_DATA:-${HOME}/robot-data}
+      target: /home/ros/.ros
+      bind:
+        create_host_path: false
 
 services:
   # The hardware interface, the controllers and rosserial to the Teensy, which drives the motors
@@ -35,8 +42,6 @@ services:
     build:
       context: ../..
       dockerfile: .docker/robot/Dockerfile
-      args:
-        REPOS: ${REPOS:-remo_robot.repos}
     devices:
       - ${TEENSY_DEVICE:-/dev/teensy}:/dev/ttyACM0
     command: roslaunch diffbot_bringup bringup.launch model:=${ROBOT_MODEL:-remo}

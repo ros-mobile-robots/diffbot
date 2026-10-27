@@ -45,3 +45,15 @@ jobs:
           docker run --rm
           -v "$PWD/.docker/robot/smoke_test.sh:/smoke_test.sh:ro"
           diffbot-robot:noetic bash /smoke_test.sh
+      # The same test through compose.yaml, with its mounts and groups: the log folder must be
+      # writable for the user ros. The runner's user isn't UID 1000, so the folder is opened up
+      # here; /dev/null stands in for the Teensy.
+      - name: Smoke test through Docker Compose
+        env:
+          ROBOT_DATA: ${{ runner.temp }}/robot-data
+          TEENSY_DEVICE: /dev/null
+        run: |
+          mkdir -p "$ROBOT_DATA" && chmod a+rwx "$ROBOT_DATA"
+          docker compose -f .docker/robot/compose.yaml run --rm \
+            -v "$PWD/.docker/robot/smoke_test.sh:/smoke_test.sh:ro" bringup bash /smoke_test.sh
+          ls "$ROBOT_DATA/log"

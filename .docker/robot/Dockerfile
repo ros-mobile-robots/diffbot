@@ -39,18 +39,17 @@ ARG USER_GID=$USER_UID
 RUN groupadd --gid $USER_GID $USERNAME \
     && useradd --uid $USER_UID --gid $USER_GID --create-home --shell /bin/bash $USERNAME
 
-# Which robot: the .repos file with the other repositories of its workspace (remo_robot.repos or
-# diffbot_robot.repos), and the packages to build. These are the packages that the bringup and
-# the lidar need; diffbot_gazebo, the navigation and SLAM packages stay out.
-ARG REPOS=remo_robot.repos
+# The packages to build: the ones that the bringup and the lidar need, for both robots (the image
+# has DiffBot's and Remo's models); diffbot_gazebo, the navigation and SLAM packages stay out.
 ARG PACKAGES="diffbot_bringup diffbot_base diffbot_control diffbot_description diffbot_msgs remo_description rplidar_ros"
 ENV DIFFBOT_PACKAGES=$PACKAGES
 
-# Fetch the other repositories with vcstool. The paths in the .repos file start with src/. This
-# layer reruns only when the .repos file changes.
+# Fetch the other repositories with vcstool: remo_robot.repos has the lidar driver and Remo's
+# model. (diffbot_robot.repos would add the legacy camera driver, which this image can't use,
+# see #111.) The paths in the file start with src/. This layer reruns only when it changes.
 USER $USERNAME
 WORKDIR /home/$USERNAME/catkin_ws
-COPY --chown=$USERNAME $REPOS /tmp/robot.repos
+COPY --chown=$USERNAME remo_robot.repos /tmp/robot.repos
 RUN mkdir src && vcs import --input /tmp/robot.repos .
 
 # Install the dependencies of the packages to build with rosdep, from their package.xml files:
