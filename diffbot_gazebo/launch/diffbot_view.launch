@@ -29,6 +29,10 @@
   <!-- Load the URDF into the ROS Parameter Server -->
   <param name="diffbot/robot_description" command="$(arg urdf_file)"/>
 
+  <!-- The simulated IMU publishes imu/gazebo; this node republishes it as imu/data_raw, without
+       the orientation, as the real robot's firmware publishes it (scripts/imu_raw_adapter.py) -->
+  <node name="imu_raw_adapter" pkg="diffbot_gazebo" type="imu_raw_adapter.py" ns="diffbot" output="screen"/>
+
   <!-- Run a python script to the send a service call to gazebo_ros to spawn a URDF robot -->
   <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
     args="-urdf -model diffbot -param /diffbot/robot_description -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) "/>

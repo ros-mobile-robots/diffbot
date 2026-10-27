@@ -56,8 +56,10 @@
   <exec_depend>diffbot_control</exec_depend>
   <exec_depend>diffbot_description</exec_depend>
   <exec_depend>xacro</exec_depend>
+  <!-- scripts/imu_raw_adapter.py -->
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
   <test_depend>rostest</test_depend>
-  <test_depend>rospy</test_depend>
   <test_depend>geometry_msgs</test_depend>
   <test_depend>gazebo_msgs</test_depend>
   <test_depend>nav_msgs</test_depend>
