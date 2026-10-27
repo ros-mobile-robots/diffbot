@@ -218,4 +218,7 @@ if(CATKIN_ENABLE_TESTING)
   # Drive DiffBot and Remo in Gazebo without a GUI and check their odometry (test/test_drive.py)
   add_rostest(test/sim_drive_diffbot.test)
   add_rostest(test/sim_drive_remo.test)
+  # Each robot's URDF and its geometry.yaml agree on the wheel radius and separation, as the
+  # simulation's and the real robot's launch files load them (test/test_geometry_consistency.py)
+  catkin_add_nosetests(test/test_geometry_consistency.py)
 endif()
