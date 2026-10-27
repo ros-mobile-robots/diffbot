@@ -1,0 +1,47 @@
+# Builds the robot image (.docker/robot) for arm64, the Raspberry Pi's architecture, and for
+# amd64, each on a GitHub runner of that architecture, and runs the smoke test in it. The smoke
+# test needs no hardware; a test on the real robot is still needed after a change.
+
+name: Robot container
+
+on:
+  push:
+    branches: [noetic-devel]
+    paths:
+      - .docker/robot/**
+      - .github/workflows/robot_container.yml
+      - diffbot_base/**
+      - diffbot_bringup/**
+      - diffbot_control/**
+      - diffbot_description/**
+      - diffbot_msgs/**
+      - remo_robot.repos
+  pull_request:
+    paths:
+      - .docker/robot/**
+      - .github/workflows/robot_container.yml
+      - diffbot_base/**
+      - diffbot_bringup/**
+      - diffbot_control/**
+      - diffbot_description/**
+      - diffbot_msgs/**
+      - remo_robot.repos
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        # ubuntu-24.04-arm: GitHub's arm64 runner, free for public repositories
+        runner: [ubuntu-24.04-arm, ubuntu-24.04]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the robot image
+        run: docker build -f .docker/robot/Dockerfile -t diffbot-robot:noetic .
+      - name: Smoke test, without hardware
+        run: >-
+          docker run --rm
+          -v "$PWD/.docker/robot/smoke_test.sh:/smoke_test.sh:ro"
+          diffbot-robot:noetic bash /smoke_test.sh

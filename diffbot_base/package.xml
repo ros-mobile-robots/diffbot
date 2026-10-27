@@ -83,6 +83,8 @@
   <exec_depend>diffbot_msgs</exec_depend>
   <exec_depend>rosparam_shortcuts</exec_depend>
   <exec_depend>rosserial</exec_depend>
+  <!-- launch/diffbot.launch expands the robot model with xacro -->
+  <exec_depend>xacro</exec_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
