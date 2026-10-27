@@ -1,5 +1,5 @@
 base:
-  mass: 0.02
+  mass: 0.010     # Caster base mass in kg: an estimated share of the whole caster's 38 g (weighed as one part)
   size:
     x: 0.04
     y: 0.04
@@ -10,7 +10,7 @@ base:
   mesh: 'caster_base.stl'
 
 hub:
-  mass: 0.02
+  mass: 0.010     # Caster hub mass in kg: an estimated share of the whole caster's 38 g
   size:
     x: 0.04
     y: 0.04
@@ -22,7 +22,7 @@ hub:
 
 wheel:
   #  <xacro:property name="caster_wheel_mass" value="0.5" /> <!-- in kg-->
-  mass: 0.5        # Wheel mass in Kg
+  mass: 0.018      # Caster wheel mass in kg: an estimated share of the whole caster's 38 g
   radius: 0.015     # Wheel radius in m
   length: 0.01      # Wheel length in m, considering is as a cylinder
   mesh: 'caster_wheel.stl'          # Name of the mesh files. Leave it empty ('') to have a red wheel

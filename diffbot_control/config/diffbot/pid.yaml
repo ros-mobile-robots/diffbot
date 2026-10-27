@@ -4,12 +4,16 @@
 # - The I term removes the steady speed error that a P gain alone leaves when turning on the spot.
 #   control_toolbox limits it to +-i_clamp (N m), and antiwindup stops the integral from growing
 #   beyond that limit.
-# - DiffBot's wheels (0.5 kg) allow a P gain up to about 0.5 at Gazebo's 1 ms step (#116)
+# - P stays below about 0.035, an estimate for a free wheel: DiffBot's 32 g wheel (inertia
+#   1.77e-5 kg m^2) and Gazebo's 1 ms step need P * 0.001 s / 1.77e-5 kg m^2 < 2, or the velocity
+#   loop becomes unstable. P 0.01, 0.02 and 0.03 tracked equally well with the compliant wheel
+#   contacts; 0.02 keeps more distance to that limit. See
+#   https://github.com/ros-mobile-robots/diffbot/issues/118
 diffbot:
   gazebo_ros_control:
     pid_gains:
       front_right_wheel_joint: &wheel
-        p: 0.06
+        p: 0.02
         i: 0.6
         d: 0.0
         i_clamp: 0.05

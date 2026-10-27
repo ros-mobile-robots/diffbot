@@ -125,10 +125,11 @@
 
     <!-- caster wheel -->
     <link name="${prefix}_caster_wheel_link">
+      <!-- Rotated like the collision, so that the cylinder's axis, and its 1/2 m r^2, is the rolling axis y -->
       <xacro:cylinder_inertia m="${wheel_props['wheel']['mass']}"
                               r="${wheel_props['wheel']['radius']}"
-                              l="${wheel_props['wheel']['length']}">
-        <!-- TODO unused block error?: origin xyz="0 0 0" rpy="${pi/2} 0 0" /-->
+                              l="${wheel_props['wheel']['length']}"
+                              o_rpy="${pi/2} 0 0">
       </xacro:cylinder_inertia>
       <xacro:if value="${wheel_props['wheel']['mesh'] != '' }" >
         <visual>
@@ -168,7 +169,13 @@
       <child link="${prefix}_caster_wheel_link" />
       <axis xyz="0 1 0" />
     </joint>
+    <!-- Compliant, damped contact for the light caster wheel, like the drive wheels': with Gazebo's
+         stiff default (kp 1e12), the 18 g wheel made the drive wheels' speeds jitter when the
+         robot turned on the spot to the right. Friction stays at its default of 1.
+         See https://github.com/ros-mobile-robots/diffbot/issues/118 -->
     <gazebo reference="${prefix}_caster_wheel_link">
+      <kp>10000000.0</kp>         <!-- Contact stiffness, N/m (default 1e12) -->
+      <kd>1.0</kd>                <!-- Contact damping, N s/m (default 1) -->
       <material>Gazebo/DarkGrey</material>
     </gazebo>
   </xacro:macro>

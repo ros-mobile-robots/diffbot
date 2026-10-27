@@ -69,7 +69,19 @@
                               o_rpy="${pi/2.0} 0.0 0.0" >
       </xacro:cylinder_inertia> 
     </link>
+    <!-- Drive-wheel contacts in Gazebo, for the sphere collision above, as on Remo: friction 1 and
+         compliant, damped contacts. With Gazebo's stiff default (kp 1e12), the light 32 g wheels
+         missed their speed commands and the robot turned only 0.42 to 0.77 of what its odometry
+         said. minDepth 0: with compliant contacts, a positive minDepth lets the wheels creep into
+         the ground. No fdir1: Gazebo turns it with the sphere's spinning frame.
+         See https://github.com/ros-mobile-robots/diffbot/issues/118 -->
     <gazebo reference="${prefix}_wheel">
+      <mu1>1.0</mu1>              <!-- Coefficient of friction (default 1) -->
+      <mu2>1.0</mu2>              <!-- Second coefficient of friction (default 1) -->
+      <kp>10000000.0</kp>         <!-- Contact stiffness, N/m (default 1e12) -->
+      <kd>1.0</kd>                <!-- Contact damping, N s/m (default 1) -->
+      <minDepth>0</minDepth>      <!-- Penetration allowance before correction, m (default 0) -->
+      <maxVel>0.01</maxVel>       <!-- Maximum correction velocity, m/s (default 0.01) -->
       <material>Gazebo/Grey</material>
     </gazebo>
     

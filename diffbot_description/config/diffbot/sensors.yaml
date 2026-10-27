@@ -1,5 +1,5 @@
 laser:
-  mass: 0.1          # Motor mass in Kg
+  mass: 0.190        # Lidar mass in kg: 190 g, typical for the RPLidar A2M8 in its datasheet
   radius: 0.015     # Wheel radius in m
   length: 0.01      # Wheel length in m, considering is as a cylinder
   mesh: 'rplidar-a2.stl'  # Name of the mesh files. Leave it empty ('') to have a red wheel
