@@ -134,8 +134,8 @@ class TestEkfSynthetic(unittest.TestCase):
         """Publishes one step's inputs, stamped with the current time, then advances the clock.
 
         imu: (stamp offset in s, yaw rate, reason) per sample; reason None for a sample the gate
-        has to pass on, else the reason it has to drop it for. output: whether the EKF publishes
-        for this step. Returns the EKF's output, or None.
+        has to pass on, else the reason it has to drop it for. output: True if the EKF has to
+        publish for this step, False if it may not. Returns the EKF's output, or None.
         """
         stamp = cls.now
         received = len(cls.outputs)
@@ -154,13 +154,15 @@ class TestEkfSynthetic(unittest.TestCase):
         time.sleep(DELIVERY)
         cls.now = stamp + STEP
         cls.clock.publish(Clock(cls.now))
-        if not output:
-            time.sleep(DELIVERY)
-            return None
 
         def new_output():
             return any(m.header.stamp >= stamp for m in cls.outputs[received:])
-        wait_for(new_output, "no EKF output for the step at {:.2f} s".format(stamp.to_sec()))
+        if output:
+            wait_for(new_output, "no EKF output for the step at {:.2f} s".format(stamp.to_sec()))
+        else:
+            time.sleep(10 * DELIVERY)
+            if not new_output():
+                return None
         return [m for m in cls.outputs[received:] if m.header.stamp >= stamp][-1]
 
     @classmethod
@@ -213,9 +215,16 @@ class TestEkfSynthetic(unittest.TestCase):
         cls.now = RESTART
         cls.clock.publish(Clock(cls.now))
         time.sleep(0.5)
-        # The first step after the reset initializes the filter; robot_localization doesn't
-        # publish it, because its stamp is older than the last one it published
-        cls.step(WHEEL_RATE, [(0.0, IMU_RATE, None)], output=False)
+        # The first measurement after the reset initializes the filter, and robot_localization
+        # doesn't publish that estimate, because its stamp is older than the last one it
+        # published. The measurement that showed the jump is dropped, and so can be the other
+        # one of its step: the reset clears the node's callback queue. So the outputs start
+        # again within a few steps
+        for _ in range(5):
+            if cls.step(WHEEL_RATE, [(0.0, IMU_RATE, None)], output=False) is not None:
+                break
+        else:
+            self.fail("no EKF output within 5 steps after the clock went back")
         outputs = cls.run_steps(100, WHEEL_RATE, [(0.0, IMU_RATE, None)])
         print("after the clock went back to {:.0f} s: estimate {:.4f} rad/s at {:.2f} s".format(
             RESTART.to_sec(), outputs[-1].twist.twist.angular.z, outputs[-1].header.stamp.to_sec()))

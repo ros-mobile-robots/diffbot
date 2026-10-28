@@ -85,10 +85,10 @@ class TestEkf(unittest.TestCase):
         cls.imu_samples += 1
 
     def test_1_only_the_ekf_publishes_odom_tf(self):
-        self.assertFalse(rospy.get_param("/diffbot/mobile_base_controller/enable_odom_tf"))
         counts = self.publishers.observe(self)
         print("odom → base_footprint published by: {}".format(counts))
         self.assertEqual([EKF_NODE], list(counts), "publishers of odom → base_footprint: {}".format(counts))
+        self.assertFalse(rospy.get_param("/diffbot/mobile_base_controller/enable_odom_tf"))
 
     def test_2_ekf_follows_the_true_turn(self):
         separation = rospy.get_param("/diffbot/mobile_base_controller/wheel_separation")
