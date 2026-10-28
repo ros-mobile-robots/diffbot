@@ -58,7 +58,7 @@
   <exec_depend>joint_state_publisher</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>rviz</exec_depend>
-  <!-- The robot model is a xacro file -->
+  <!-- The robot model is a .urdf.xacro file: its launch files run xacro to turn it into a URDF -->
   <exec_depend>xacro</exec_depend>
 
 

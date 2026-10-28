@@ -4,6 +4,11 @@
 
 name: Robot container
 
+# When it runs: on pushes to noetic-devel and on pull requests, but only if one of the files under
+# paths changed. These are the image's folder, this workflow, the packages built into the image, and
+# the list of the repositories it fetches. ** matches every file in a folder and its subfolders.
+# Changes elsewhere, such as Gazebo or navigation, don't affect the image. workflow_dispatch adds a
+# button to run it by hand, in the repository's Actions tab.
 on:
   push:
     branches: [noetic-devel]

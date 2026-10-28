@@ -39,8 +39,9 @@ x-robot: &robot
       target: /home/ros/.ros
       bind:
         create_host_path: false
-  # The containers' output (docker compose logs) in Docker's local log format, which rotates its
-  # files (5 files of 20 MB per container), so it can't fill the SD card
+  # The containers' output (docker compose logs) in Docker's local log format. By default it keeps
+  # 5 files of 20 MB per container and deletes the oldest, so it can't fill the SD card. Docker's
+  # default format, json-file, keeps everything.
   logging:
     driver: local
 

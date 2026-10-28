@@ -1,8 +1,9 @@
 #!/bin/bash
-# Smoke test of the robot image, without hardware (CI runs it, see .github/workflows/robot_container.yml):
-# the packages are built, roscore starts, the robot models expand, the launch files parse, and the
-# programs that talk to the hardware are there. It can't show that the Teensy or the lidar work.
-# Run it in the image:
+# Smoke test of the robot image, without hardware. It runs inside a container of the image, not on
+# the host: CI starts it there (.github/workflows/robot_container.yml), directly and through
+# compose.yaml. It checks that the packages are built, roscore starts, the robot models expand,
+# the launch files parse, and the programs that talk to the hardware are there. It can't show that
+# the Teensy or the lidar work. To run it in a container of the image, from the repository's root:
 #   docker run --rm -v "$PWD/.docker/robot/smoke_test.sh:/smoke_test.sh:ro" diffbot-robot:noetic bash /smoke_test.sh
 set -eo pipefail
 

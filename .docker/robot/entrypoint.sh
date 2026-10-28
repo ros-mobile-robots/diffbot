@@ -10,4 +10,7 @@ set -e
 
 source /opt/ros/noetic/setup.bash
 source "$HOME/catkin_ws/devel/setup.bash"
+# "$@" is the command that Docker passes to this script: compose.yaml's command, the Dockerfile's
+# CMD, or the rest of a docker run or exec line. exec runs it in place of this script, in the same
+# process, so the command gets Docker's stop signal itself and can shut its nodes down cleanly.
 exec "$@"

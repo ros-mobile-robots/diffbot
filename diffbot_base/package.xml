@@ -83,7 +83,8 @@
   <exec_depend>diffbot_msgs</exec_depend>
   <exec_depend>rosparam_shortcuts</exec_depend>
   <exec_depend>rosserial</exec_depend>
-  <!-- launch/diffbot.launch expands the robot model with xacro -->
+  <!-- launch/diffbot.launch runs xacro to turn the robot model, a .urdf.xacro file, into the
+       URDF that it loads into robot_description -->
   <exec_depend>xacro</exec_depend>
 
 
