@@ -4,11 +4,13 @@ samples on a stepped clock, and checks its estimate of the yaw rate (ekf_synthet
 
 The test publishes /clock itself (use_sim_time) and advances it in 20 ms steps, the period of the
 controller's odometry and of the IMU. Each step publishes that step's inputs, stamped with the
-current time, waits on the wall clock until the IMU gate has passed on the samples that should
-pass, and then advances the clock, which lets the EKF's 50 Hz update process them; the step ends
-with the EKF's output for them. So the inputs reach the filter in the same order in every run,
-however fast the computer is. Both inputs show in the estimate: the forward speed comes only from
-the wheels, the yaw rate mostly from the IMU.
+current time, waits on the wall clock until the IMU gate's output reaches the test (the EKF gets
+it at the same time) and 20 ms more, and then advances the clock, which lets the EKF's 50 Hz
+update process them; the step ends with an EKF output for that step, waited for with a time
+limit. These windows don't prove that the EKF's callbacks ran before the clock moved, but they
+make it very likely, and the checks don't depend on it: a late input is fused one step later.
+Both inputs show in the estimate: the forward speed comes only from the wheels, the yaw rate
+mostly from the IMU.
 
 The scenarios run one after the other on one filter, from its start:
 1. Fusion: the wheels report 0.4 rad/s, as with a wheel separation that is too large, the IMU

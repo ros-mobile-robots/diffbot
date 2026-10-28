@@ -105,6 +105,41 @@ class TestImuGate(unittest.TestCase):
         self.assertEqual(imu_gate.TOO_OLD, self.gate.check(sample(restart - seconds(1)), restart))
 
 
+class TestHealth(unittest.TestCase):
+    """seconds_since_pass(), which the gate's diagnostics report."""
+
+    def setUp(self):
+        self.gate = imu_gate.ImuGate("imu_link", max_age=0.1, max_future=0.02)
+
+    def test_none_before_the_first_sample(self):
+        self.assertIsNone(self.gate.seconds_since_pass(NOW))
+
+    def test_time_since_the_last_passed_sample(self):
+        self.assertIsNone(self.gate.check(sample(), NOW))
+        self.assertAlmostEqual(1.5, self.gate.seconds_since_pass(NOW + seconds(1.5)))
+
+    def test_dropped_samples_dont_count(self):
+        self.assertIsNone(self.gate.check(sample(), NOW))
+        later = NOW + seconds(3)
+        self.assertEqual(imu_gate.TOO_OLD, self.gate.check(sample(NOW + seconds(1)), later))
+        self.assertAlmostEqual(3.0, self.gate.seconds_since_pass(later))
+
+    def test_clock_back_then_silence(self):
+        self.assertIsNone(self.gate.check(sample(), NOW))
+        self.assertIsNone(self.gate.seconds_since_pass(rospy.Time(50, 0)))
+        self.assertIsNone(self.gate.seconds_since_pass(rospy.Time(55, 0)))
+
+    def test_clock_back_then_only_dropped_samples(self):
+        self.assertIsNone(self.gate.check(sample(), NOW))
+        restart = rospy.Time(50, 0)
+        self.assertEqual(imu_gate.FROM_THE_FUTURE, self.gate.check(sample(NOW + seconds(0.02)), restart))
+        self.assertEqual(imu_gate.WRONG_FRAME, self.gate.check(sample(restart, frame_id="base_link"), restart))
+        self.assertIsNone(self.gate.seconds_since_pass(restart + seconds(1)))
+        self.assertIsNone(self.gate.check(sample(restart + seconds(2)), restart + seconds(2)))
+        self.assertAlmostEqual(0.5, self.gate.seconds_since_pass(restart + seconds(2.5)))
+
+
 if __name__ == "__main__":
     import rosunit
     rosunit.unitrun("diffbot_control", "test_imu_gate", TestImuGate)
+    rosunit.unitrun("diffbot_control", "test_imu_gate_health", TestHealth)

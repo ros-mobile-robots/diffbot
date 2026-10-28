@@ -50,7 +50,9 @@ class TestEkfSwitch(unittest.TestCase):
         nodes, params = load(package, launch_file, ekf="false", **args)
         for name in (EKF, GATE):
             self.assertNotIn(name, nodes, "{} starts {} without ekf:=true".format(launch_file, name))
-        self.assertNotIn(ODOM_TF, params, "the controller should keep its default, its own odom transform")
+        # Set, not left out: roslaunch writes each parameter at each start, so a false value from
+        # an earlier run with the EKF on the same ROS master doesn't remain
+        self.assertIs(True, params.get(ODOM_TF), "the controller should publish its odom transform")
 
         nodes, params = load(package, launch_file, ekf="true", **args)
         self.assertEqual(("robot_localization", "ekf_localization_node"), (nodes[EKF].package, nodes[EKF].type))

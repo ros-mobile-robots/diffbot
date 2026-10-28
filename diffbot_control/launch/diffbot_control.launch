@@ -20,8 +20,10 @@
     <rosparam command="load"
         file="$(find diffbot_control)/config/$(arg model)/pid.yaml"/>
 
-    <!-- With the EKF, it publishes the transform odom → base_footprint, not the controller -->
-    <param if="$(arg ekf)" name="/diffbot/mobile_base_controller/enable_odom_tf" value="false"/>
+    <!-- With the EKF, it publishes the transform odom → base_footprint, not the controller. Set in
+         both positions: a value left on the parameter server by an earlier run with the EKF would
+         otherwise keep the controller's transform off -->
+    <param name="/diffbot/mobile_base_controller/enable_odom_tf" type="bool" value="$(eval not arg('ekf'))"/>
     <include if="$(arg ekf)" file="$(find diffbot_control)/launch/ekf.launch"/>
 
     <!-- load the controllers -->

@@ -63,6 +63,7 @@ class ImuGate:
         self.max_future = rospy.Duration.from_sec(max_future)
         self.last_stamp = None
         self.last_now = None
+        self.last_passed = None  # ROS time at which the last sample passed
 
     def check(self, message, now):
         """Returns None if the EKF can use message at ROS time now, else the reason why not.
@@ -90,7 +91,18 @@ class ImuGate:
         if self.last_stamp is not None and stamp <= self.last_stamp:
             return NOT_NEWER
         self.last_stamp = stamp
+        self.last_passed = now
         return None
+
+    def seconds_since_pass(self, now):
+        """How long ago (s of ROS time) the last sample passed; None if none passed since the
+        clock last went back, or none at all. A sample that passed before the clock went back
+        doesn't count: it says nothing about the IMU in the new time."""
+        if self.last_passed is not None and now < self.last_passed:
+            self.last_passed = None
+        if self.last_passed is None:
+            return None
+        return (now - self.last_passed).to_sec()
 
 
 class ImuGateNode:
@@ -102,7 +114,6 @@ class ImuGateNode:
         self.passed = 0
         self.dropped = collections.Counter()
         self.reported_drops = 0
-        self.last_passed = None  # ROS time of the last sample passed on, at its arrival
         self.publisher = rospy.Publisher("imu/data_validated", Imu, queue_size=10)
         rospy.Subscriber("imu/data_raw", Imu, self.callback, queue_size=10)
         self.updater = diagnostic_updater.Updater()
@@ -117,7 +128,6 @@ class ImuGateNode:
         reason = self.gate.check(message, now)
         if reason is None:
             self.passed += 1
-            self.last_passed = now
             self.publisher.publish(message)
         else:
             self.dropped[reason] += 1
@@ -129,12 +139,11 @@ class ImuGateNode:
         for reason in sorted(self.dropped):
             status.add("Dropped, " + reason, self.dropped[reason])
         dropped = sum(self.dropped.values())
-        now = rospy.Time.now()
-        if self.last_passed is None:
-            status.summary(DiagnosticStatus.ERROR, "no IMU sample passed on yet")
-        elif (now - self.last_passed).to_sec() > 1.0:
-            status.summary(DiagnosticStatus.ERROR, "no IMU sample passed on for {:.1f} s".format(
-                (now - self.last_passed).to_sec()))
+        since_pass = self.gate.seconds_since_pass(rospy.Time.now())
+        if since_pass is None:
+            status.summary(DiagnosticStatus.ERROR, "no IMU sample passed on yet, or since the clock went back")
+        elif since_pass > 1.0:
+            status.summary(DiagnosticStatus.ERROR, "no IMU sample passed on for {:.1f} s".format(since_pass))
         elif dropped > self.reported_drops:
             status.summary(DiagnosticStatus.WARN, "dropped {} samples since the last report".format(
                 dropped - self.reported_drops))

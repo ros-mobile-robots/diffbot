@@ -5,9 +5,11 @@ controller, which runs inside Gazebo (/gazebo); with the EKF (ekf:=true), the EK
 (/diffbot/ekf_localization), and the controller doesn't publish it. Two publishers of the same
 transform would make the robot's pose jump between their two estimates.
 
-It listens from its start, before the controllers run, so the start-up counts too, and then for
-OBSERVE seconds of simulation time after the first such transform. test_ekf.py uses the same
-check in its simulation.
+It counts from its own start until OBSERVE seconds of simulation time after the first such
+transform. rostest starts it after the simulation's nodes, and /tf doesn't repeat old messages: a
+transform published before it subscribed isn't counted. The controller and the EKF usually start
+seconds later, after Gazebo has spawned the robot, but that isn't guaranteed. test_ekf.py uses
+the same check in its simulation.
 """
 
 import collections
