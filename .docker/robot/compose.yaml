@@ -27,10 +27,6 @@ x-robot: &robot
     - ROS_MASTER_URI
     - ROS_IP
     - ROS_HOSTNAME
-    # Without a terminal, Python and rosconsole buffer what the nodes print, so docker compose
-    # logs would show it late, in blocks. These two make them write each line at once.
-    - PYTHONUNBUFFERED=1
-    - ROSCONSOLE_STDOUT_LINE_BUFFERED=1
   # ROS logs and bags in a host folder. The long syntax doesn't create a missing folder: Docker
   # would create it for root, and the user ros couldn't write its logs.
   volumes:
@@ -41,7 +37,7 @@ x-robot: &robot
         create_host_path: false
   # The containers' output (docker compose logs) in Docker's local log format. By default it keeps
   # 5 files of 20 MB per container and deletes the oldest, so it can't fill the SD card. Docker's
-  # default format, json-file, keeps everything.
+  # default format, json-file, keeps everything unless rotation is configured.
   logging:
     driver: local
 

@@ -71,6 +71,11 @@ RUN . /opt/ros/noetic/setup.sh \
     && catkin config --extend /opt/ros/noetic \
     && catkin build --no-status $PACKAGES
 
+# Without a terminal, Python and rosconsole buffer what the nodes print, so docker logs would
+# show it late, in blocks. These two make them write each line at once.
+ENV PYTHONUNBUFFERED=1 \
+    ROSCONSOLE_STDOUT_LINE_BUFFERED=1
+
 # Load ROS and the workspace before every command, also when Docker starts the container
 COPY .docker/robot/entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
