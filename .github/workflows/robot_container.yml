@@ -36,6 +36,13 @@ on:
       - diffbot_msgs/**
       - remo_robot.repos
   workflow_dispatch:
+    inputs:
+      first_publication:
+        description: >-
+          First publication: only if the first publication on noetic-devel stopped because the
+          registry didn't let it read the package that doesn't exist yet
+        type: boolean
+        default: false
 
 # Read-only, except for the publish job
 permissions:
@@ -111,7 +118,8 @@ jobs:
           retention-days: 1
 
   # Publishes the images that passed both smoke tests, on noetic-devel only, never for a pull
-  # request: .docker/robot/publish_image.sh explains the tags.
+  # request: .docker/robot/publish_image.sh explains the tags. If it fails, rerun it while the
+  # archives exist (one day), or else the whole workflow.
   publish:
     needs: build
     if: >-
@@ -122,7 +130,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    # One publication at a time, in the order the runs arrive, none cancelled
+    # One publication at a time, up to 100 waiting, none cancelled
     concurrency:
       group: robot-image-publish
       queue: max
@@ -141,6 +149,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish the tested images
+        env:
+          FIRST_PUBLICATION: ${{ inputs.first_publication }}
         run: >-
           .docker/robot/publish_image.sh ghcr.io/ros-mobile-robots/diffbot-robot
           "$GITHUB_SHA" "$RUNNER_TEMP/robot-images"
