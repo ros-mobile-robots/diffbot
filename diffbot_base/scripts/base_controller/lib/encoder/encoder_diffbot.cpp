@@ -5,7 +5,7 @@ diffbot::Encoder::Encoder(ros::NodeHandle& nh, uint8_t pin1, uint8_t pin2, int e
   : nh_(nh)
   , encoder(pin1, pin2)
   , encoder_resolution_(encoder_resolution)
-  , prev_update_time_(0, 0)
+  , prev_update_us_(0)
   , prev_encoder_ticks_(0)
 {
 
@@ -14,12 +14,13 @@ diffbot::Encoder::Encoder(ros::NodeHandle& nh, uint8_t pin1, uint8_t pin2, int e
 diffbot::JointState diffbot::Encoder::jointState()
 {
     long encoder_ticks = encoder.read();
-    // This function calculates the motor's rotational (angular) velocity based on encoder ticks and delta time
-    ros::Time current_time = nh_.now();
-    ros::Duration dt = current_time - prev_update_time_;
+    // This function calculates the motor's rotational (angular) velocity based on encoder ticks and delta time.
+    // The time is the Teensy's micros(), not ROS time, which can jump (see BaseController::LastUpdateTime);
+    // the unsigned difference stays right when micros() wraps after 71 minutes
+    uint32_t current_us = micros();
 
     // Convert the delta time to seconds
-    double dts = dt.toSec();
+    double dts = (current_us - prev_update_us_) * 1e-6;
 
     //calculate wheel's speed (RPM)
     double delta_ticks = encoder_ticks - prev_encoder_ticks_;
@@ -30,7 +31,7 @@ diffbot::JointState diffbot::Encoder::jointState()
 
     joint_state_.angular_velocity_ = delta_angle / dts;
 
-    prev_update_time_ = current_time;
+    prev_update_us_ = current_us;
     prev_encoder_ticks_ = encoder_ticks;
 
     return joint_state_;
@@ -59,16 +60,15 @@ int diffbot::Encoder::getRPM()
 {
     long encoder_ticks = encoder.read();
     //this function calculates the motor's RPM based on encoder ticks and delta time
-    ros::Time current_time = nh_.now();
-    ros::Duration dt = current_time - prev_update_time_;
+    uint32_t current_us = micros();
 
-    //convert the time from milliseconds to minutes
-    double dtm = dt.toSec() / 60;
+    //convert the time from microseconds to minutes
+    double dtm = (current_us - prev_update_us_) * 1e-6 / 60;
     double delta_ticks = encoder_ticks - prev_encoder_ticks_;
 
     //calculate wheel's speed (RPM)
 
-    prev_update_time_ = current_time;
+    prev_update_us_ = current_us;
     prev_encoder_ticks_ = encoder_ticks;
 
     return (delta_ticks / encoder_resolution_) / dtm;

@@ -163,31 +163,36 @@ namespace diffbot {
          * This is used together with the \ref update_rate_ to check if
          * enough time elapsed for a new update. For example reading new
          * values from the encoders and writing the received motor commands.
+         *
+         * The times are the Teensy's own clock, millis(), not ROS time: ROS time follows
+         * the host's clock through rosserial's time sync, and jumps when that clock is
+         * corrected or when the Teensy connects to a host whose clock is earlier. After a jump
+         * back, a time difference in ROS time would be negative until the clock caught up: no
+         * control updates and no emergency stop for that long, while the motors keep their last
+         * command. millis() only counts up; the unsigned differences stay right when it wraps
+         * after 49 days.
          */
         struct LastUpdateTime
         {
-            // Time when the last angular wheel command velocity was received.
-            ros::Time command_received;
-            // Time when the last control update happened.
-            ros::Time control;
-            // Time when the last imu update took place.
-            ros::Time imu;
-            // Time when the last debug message was logged.
-            ros::Time debug;
+            // Time (ms, millis()) when the last angular wheel command velocity was received.
+            uint32_t command_received;
+            // Time (ms) when the last control update happened.
+            uint32_t control;
+            // Time (ms) when the last imu update took place.
+            uint32_t imu;
+            // Time (ms) when the last debug message was logged.
+            uint32_t debug;
 
             /**
              * @brief Construct a new Last Update Time object
              * 
-             * This object is initialized with the current time using
-             * the \ref ros::NodeHandle::now() method.
-             * 
-             * @param start Start time of the program
+             * @param start_ms Start time of the program, from millis()
              */
-            inline LastUpdateTime(ros::Time start)
-                : command_received(start.toSec(), start.toNsec())
-                , control(start.toSec(), start.toNsec())
-                , imu(start.toSec(), start.toNsec())
-                , debug(start.toSec(), start.toNsec()) {};
+            inline LastUpdateTime(uint32_t start_ms)
+                : command_received(start_ms)
+                , control(start_ms)
+                , imu(start_ms)
+                , debug(start_ms) {};
         } last_update_time_;
 
         /**
@@ -390,7 +395,7 @@ diffbot::BaseController<TMotorController, TMotorDriver>
     , pub_encoders_("encoder_ticks", &encoder_msg_)
     , pub_measured_joint_states_("measured_joint_states", &msg_measured_joint_states_)
     , sub_wheel_cmd_velocities_("wheel_cmd_velocities", &BC<TMotorController, TMotorDriver>::commandCallback, this)
-    , last_update_time_(nh.now())
+    , last_update_time_(millis())
     , update_rate_(UPDATE_RATE_IMU, UPDATE_RATE_CONTROL, UPDATE_RATE_DEBUG)
     , sub_pid_left_("pid_left", &BC<TMotorController, TMotorDriver>::pidLeftCallback, this)
     , sub_pid_right_("pid_right", &BC<TMotorController, TMotorDriver>::pidRightCallback, this)
@@ -472,7 +477,7 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::commandCallback(co
 
     // Used for the eStop. In case no diffbot_msgs::WheelsCmdStamped messages are received on the wheel_cmd_velocities 
     // topic, the eStop method is called (see main loop in main.cpp)
-    lastUpdateTime().command_received = nh_.now();
+    lastUpdateTime().command_received = millis();
 }
 
 // ROS Subscriber setup to reset both encoders to zero
