@@ -1,7 +1,8 @@
 # Runs the robot image on the robot's computer, with Docker Compose. In this folder:
-#   docker compose up -d --build    # build the image if needed, start the bringup in the background
-#   docker compose logs -f          # follow its output (Ctrl+C stops following, not the robot)
-#   docker compose down             # stop and remove the containers
+#   docker compose up -d --no-build   # download the image if needed, start the bringup in the background
+#   docker compose logs -f            # follow its output (Ctrl+C stops following, not the robot)
+#   docker compose down               # stop and remove the containers
+#   docker compose pull --policy always && docker compose up -d --no-build   # update the image
 # Settings come from a .env file in this folder: copy env.example, which explains each one:
 #   ROBOT_MODEL     remo (default) or diffbot
 #   COMPOSE_PROFILES=lidar          starts the lidar too
@@ -11,12 +12,17 @@
 #   ROS_MASTER_URI, ROS_IP, ROS_HOSTNAME   as on ROS Network Setup; without them, roslaunch starts its own master
 #   ROBOT_DATA      a host folder for ROS logs and bags (default ~/robot-data). It must exist and
 #                   belong to UID 1000, the user ros in the container: mkdir ~/robot-data
+#   ROBOT_IMAGE     the image (default ghcr.io/ros-mobile-robots/diffbot-robot:noetic). For a build
+#                   from this repository: ROBOT_IMAGE=diffbot-robot:local, then
+#                   docker compose up -d --build --pull never
 
 name: diffbot-robot
 
 # Settings that both services share (a YAML anchor)
 x-robot: &robot
-  image: diffbot-robot:noetic
+  # The image that CI published for noetic-devel, unless .env sets ROBOT_IMAGE. Without --no-build,
+  # Compose builds it from this repository when the download fails (bringup's build section).
+  image: ${ROBOT_IMAGE:-ghcr.io/ros-mobile-robots/diffbot-robot:noetic}
   # The host's network, so that ROS reaches the PC as in the native setup, without port lists
   network_mode: host
   # Let the user ros in the container open the serial devices: add the numeric ID of the group

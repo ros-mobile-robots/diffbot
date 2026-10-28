@@ -1,6 +1,8 @@
 # Builds the robot image (.docker/robot) for arm64, the Raspberry Pi's architecture, and for
 # amd64, each on a GitHub runner of that architecture, and runs the smoke test in it. The smoke
 # test needs no hardware; a test on the real robot is still needed after a change.
+# On noetic-devel, the publish job then publishes the tested images to GitHub's container
+# registry as ghcr.io/ros-mobile-robots/diffbot-robot, for the robot to download.
 
 name: Robot container
 
@@ -14,6 +16,7 @@ on:
     branches: [noetic-devel]
     paths:
       - .docker/robot/**
+      - .dockerignore
       - .github/workflows/robot_container.yml
       - diffbot_base/**
       - diffbot_bringup/**
@@ -24,6 +27,7 @@ on:
   pull_request:
     paths:
       - .docker/robot/**
+      - .dockerignore
       - .github/workflows/robot_container.yml
       - diffbot_base/**
       - diffbot_bringup/**
@@ -33,21 +37,37 @@ on:
       - remo_robot.repos
   workflow_dispatch:
 
+# Read-only, except for the publish job
+permissions:
+  contents: read
+
+defaults:
+  run:
+    # bash with pipefail: a failing docker save in a pipe fails the step
+    shell: bash
+
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
-        # ubuntu-24.04-arm: GitHub's arm64 runner, free for public repositories
-        runner: [ubuntu-24.04-arm, ubuntu-24.04]
+        include:
+          # ubuntu-24.04-arm: GitHub's arm64 runner, free for public repositories
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+          - runner: ubuntu-24.04
+            arch: amd64
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
       # The template that users copy to .env must give a valid configuration
       - name: Check the settings template
         run: docker compose --env-file .docker/robot/env.example -f .docker/robot/compose.yaml config --quiet
+      # The label says which commit the image is built from, also on the robot (docker inspect)
       - name: Build the robot image
-        run: docker build -f .docker/robot/Dockerfile -t diffbot-robot:noetic .
+        run: >-
+          docker build -f .docker/robot/Dockerfile -t diffbot-robot:noetic
+          --label org.opencontainers.image.revision=${{ github.sha }} .
       - name: Smoke test, without hardware
         run: >-
           docker run --rm
@@ -55,13 +75,72 @@ jobs:
           diffbot-robot:noetic bash /smoke_test.sh
       # The same test through compose.yaml, with its mounts and groups: the log folder must be
       # writable for the user ros. The runner's user isn't UID 1000, so the folder is opened up
-      # here; /dev/null stands in for the Teensy.
+      # here; /dev/null stands in for the Teensy. ROBOT_IMAGE selects the image just built, and
+      # --pull never keeps Compose from downloading a published one instead.
       - name: Smoke test through Docker Compose
         env:
           ROBOT_DATA: ${{ runner.temp }}/robot-data
           TEENSY_DEVICE: /dev/null
+          ROBOT_IMAGE: diffbot-robot:noetic
         run: |
+          docker image inspect "$ROBOT_IMAGE" > /dev/null
           mkdir -p "$ROBOT_DATA" && chmod a+rwx "$ROBOT_DATA"
-          docker compose -f .docker/robot/compose.yaml run --rm \
+          docker compose -f .docker/robot/compose.yaml run --rm --pull never \
             -v "$PWD/.docker/robot/smoke_test.sh:/smoke_test.sh:ro" bringup bash /smoke_test.sh
           ls "$ROBOT_DATA/log"
+      # On noetic-devel, hand the tested image to the publish job, which runs on another runner
+      - name: Save the tested image
+        if: >-
+          github.repository == 'ros-mobile-robots/diffbot' &&
+          github.ref == 'refs/heads/noetic-devel' &&
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        run: docker save diffbot-robot:noetic | gzip -1 > "$RUNNER_TEMP/robot-image.tar.gz"
+      - name: Upload the tested image
+        if: >-
+          github.repository == 'ros-mobile-robots/diffbot' &&
+          github.ref == 'refs/heads/noetic-devel' &&
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-artifact@v7
+        with:
+          name: robot-image-${{ matrix.arch }}
+          path: ${{ runner.temp }}/robot-image.tar.gz
+          # Compressed already. A rerun of this job replaces its archive.
+          compression-level: 0
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 1
+
+  # Publishes the images that passed both smoke tests, on noetic-devel only, never for a pull
+  # request: .docker/robot/publish_image.sh explains the tags.
+  publish:
+    needs: build
+    if: >-
+      github.repository == 'ros-mobile-robots/diffbot' &&
+      github.ref == 'refs/heads/noetic-devel' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    # One publication at a time, in the order the runs arrive, none cancelled
+    concurrency:
+      group: robot-image-publish
+      queue: max
+    steps:
+      # The whole history, so that noetic only moves forward
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: robot-image-*
+          path: ${{ runner.temp }}/robot-images
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish the tested images
+        run: >-
+          .docker/robot/publish_image.sh ghcr.io/ros-mobile-robots/diffbot-robot
+          "$GITHUB_SHA" "$RUNNER_TEMP/robot-images"
