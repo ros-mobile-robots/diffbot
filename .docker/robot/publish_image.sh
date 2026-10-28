@@ -10,7 +10,7 @@
 #   publish_image.sh <image> <commit> <archive folder>
 # The archive folder holds robot-image-amd64/robot-image.tar.gz and robot-image-arm64/robot-image.tar.gz.
 # FIRST_PUBLICATION=true allows the first publication of a package that the registry won't let
-# anyone read before it exists (see below). INSECURE_REGISTRY=true is for a local test registry.
+# this job read before it exists (see below). INSECURE_REGISTRY=true is for a local test registry.
 set -euo pipefail
 
 image=$1 commit=$2 archives=$3
@@ -30,8 +30,8 @@ if [ -f "$auth_file" ]; then
 fi
 
 # What the registry says about a tag: "present", "missing" if it says the tag doesn't exist, or
-# "unreadable" if it denies reading it. Each check is tried three times. Other errors stop the
-# job, so that a failed read never leads to replacing a published version.
+# "unreadable" if it denies reading it. Each check is tried three times, and other errors stop the
+# job. The version and noetic are written only after both read as present or missing.
 state() {
   local err=""
   for try in 1 2 3; do
@@ -72,37 +72,57 @@ images_of() {
 }
 
 # A published version must be an OCI index for this commit with exactly one image per
-# architecture, each built from this commit
+# architecture, each built for its platform from this commit
 check_version() {
-  local raw found image_digest platform label
+  local raw found image_digest platform
   raw=$(docker buildx imagetools inspect "$version" --raw)
   found=$(jq -r --arg label "$revision" '"\(.mediaType) \(.annotations[$label] // "")"' <<<"$raw")
   if [ "$found" != "application/vnd.oci.image.index.v1+json $commit" ]; then
     fail "$version is $found, not an OCI index for $commit"
+  fi
+  if [ "$(jq -r '.annotations["org.opencontainers.image.description"] // ""' <<<"$raw")" != "$description" ]; then
+    fail "$version lacks the description"
   fi
   found=$(images_of "$raw" | cut -d' ' -f2 | sort | paste -sd' ')
   if [ "$found" != "linux/amd64 linux/arm64" ]; then
     fail "$version has the images $found, not linux/amd64 linux/arm64"
   fi
   while read -r image_digest platform; do
-    label=$(docker buildx imagetools inspect "$image@$image_digest" --format '{{json .Image}}' |
-      jq -r --arg label "$revision" '.config.Labels[$label] // ""')
-    if [ "$label" != "$commit" ]; then
-      fail "$version's $platform image is from the commit '$label', not $commit"
+    found=$(docker buildx imagetools inspect "$image@$image_digest" --format '{{json .Image}}' |
+      jq -r --arg label "$revision" '"\(.os)/\(.architecture) \(.config.Labels[$label] // "")"')
+    if [ "$found" != "$platform $commit" ]; then
+      fail "$version's $platform entry holds an image for $found, not $platform $commit"
     fi
   done < <(images_of "$raw")
+}
+
+# Each archive must hold the image for its architecture, built from this commit
+check_archive() {
+  local found
+  found=$(skopeo inspect --config "docker-archive:$archives/robot-image-$1/robot-image.tar.gz" |
+    jq -r --arg label "$revision" '"\(.os)/\(.architecture) \(.config.Labels[$label] // "")"')
+  if [ "$found" != "linux/$1 $commit" ]; then
+    fail "robot-image-$1 holds $found, not linux/$1 $commit"
+  fi
 }
 
 version_state=$(state "$version")
 noetic_state=$(state "$image:noetic")
 
 # A package that doesn't exist yet may be unreadable instead of missing. Only a run with
-# FIRST_PUBLICATION=true takes that as a first publication, and only if both tags are unreadable.
+# FIRST_PUBLICATION=true, with both tags unreadable, creates the package: under the tag
+# first-publication, which nothing else uses. Then both tags must read as present or missing.
 if [ "$version_state" = unreadable ] || [ "$noetic_state" = unreadable ]; then
   if [ "${FIRST_PUBLICATION:-}" = true ] && [ "$version_state" = unreadable ] &&
     [ "$noetic_state" = unreadable ]; then
-    echo "First publication: the registry doesn't let this job read $image, taken as not existing yet"
-  else
+    echo "First publication: the registry doesn't let this job read $image. Creating it."
+    check_archive amd64
+    skopeo copy "${copy_options[@]}" \
+      "docker-archive:$archives/robot-image-amd64/robot-image.tar.gz" "docker://$image:first-publication"
+    version_state=$(state "$version")
+    noetic_state=$(state "$image:noetic")
+  fi
+  if [ "$version_state" = unreadable ] || [ "$noetic_state" = unreadable ]; then
     fail "The registry doesn't let this job read $version or $image:noetic"
   fi
 fi
@@ -111,13 +131,8 @@ if [ "$version_state" = present ]; then
   echo "$version is published already: reusing it, unchanged"
 else
   # Check both archives before copying either
-  for arch in amd64 arm64; do
-    found=$(skopeo inspect --config "docker-archive:$archives/robot-image-$arch/robot-image.tar.gz" |
-      jq -r --arg label "$revision" '"\(.os)/\(.architecture) \(.config.Labels[$label] // "")"')
-    if [ "$found" != "linux/$arch $commit" ]; then
-      fail "robot-image-$arch holds $found, not linux/$arch $commit"
-    fi
-  done
+  check_archive amd64
+  check_archive arm64
   digests=$(mktemp -d)
   sources=()
   for arch in amd64 arm64; do
