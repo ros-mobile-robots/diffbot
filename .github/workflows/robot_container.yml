@@ -38,6 +38,9 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
+      # The template that users copy to .env must give a valid configuration
+      - name: Check the settings template
+        run: docker compose --env-file .docker/robot/env.example -f .docker/robot/compose.yaml config --quiet
       - name: Build the robot image
         run: docker build -f .docker/robot/Dockerfile -t diffbot-robot:noetic .
       - name: Smoke test, without hardware

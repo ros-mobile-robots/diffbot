@@ -7,21 +7,25 @@ ROS 1 Noetic and the robot's packages in a Docker image, for the robot's compute
 | File | What it's for |
 |:--|:--|
 | [`Dockerfile`](Dockerfile) | The image: `ros:noetic-ros-base`, the packages that the bringup and the lidar need for both robots, built in `~/catkin_ws` |
-| [`compose.yaml`](compose.yaml) | Runs the bringup, and with `--profile lidar` the lidar, with the host's network and the serial devices |
+| [`compose.yaml`](compose.yaml) | Runs the bringup, and with the `lidar` profile the lidar, with the host's network and the serial devices |
+| [`env.example`](env.example) | The template for `.env`, the robot's settings |
 | [`99-diffbot-robot.rules`](99-diffbot-robot.rules) | udev rules for the host: `/dev/teensy` and `/dev/rplidar` |
 | [`entrypoint.sh`](entrypoint.sh) | Loads ROS and the workspace before each command |
 | [`smoke_test.sh`](smoke_test.sh) | The test without hardware that [CI](../../.github/workflows/robot_container.yml) runs in the image |
 
-On the robot's host, with Docker Engine and this repository cloned:
+On the robot's host, with Docker Engine (with Compose and Buildx) and this repository cloned to `~/diffbot`:
 
 ```bash
-sudo cp .docker/robot/99-diffbot-robot.rules /etc/udev/rules.d/
+sudo cp ~/diffbot/.docker/robot/99-diffbot-robot.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules && sudo udevadm trigger
 mkdir -p ~/robot-data      # ROS logs and bags; as the first user (UID 1000, like ros in the container)
-docker compose -f .docker/robot/compose.yaml up --build                # Remo's bringup
-docker compose -f .docker/robot/compose.yaml --profile lidar up        # with the lidar
+cd ~/diffbot/.docker/robot
+cp env.example .env        # then edit .env: the robot model, the lidar, the ROS network
+docker compose up -d --build    # build the image if needed and start the bringup in the background
+docker compose logs -f          # follow the output; Ctrl+C stops following, the robot keeps running
+docker compose down             # stop
 ```
 
-To use the PC's ROS master, set `ROS_MASTER_URI` and `ROS_IP` in `.docker/robot/.env`, as on [ROS Network Setup](https://ros-mobile-robots.com/processing_units/ros-network-setup/); `compose.yaml` lists the other settings, for example `ROBOT_MODEL=diffbot`. Without them, roslaunch starts a master on the robot.
+[`env.example`](env.example) explains each setting. To use the PC's ROS master, set `ROS_MASTER_URI` and `ROS_IP` in `.env`, as on [ROS Network Setup](https://ros-mobile-robots.com/processing_units/ros-network-setup/). Without them, roslaunch starts a master on the robot. `COMPOSE_PROFILES=lidar` starts the lidar too.
 
-What it doesn't do yet: the camera (the Raspberry Pi camera driver needs the legacy camera stack, #111), and starting at boot. If the Teensy is reset, reflashed or unplugged, stop the containers and start them again (`docker compose ... down`, then `up`): a running container keeps the device it got at its start. Flash the Teensy from the PC, as [CONTRIBUTING](../../CONTRIBUTING.md) describes.
+What it doesn't do yet: the camera (the Raspberry Pi camera driver needs the legacy camera stack, #111), and starting at boot. If the Teensy is reset, reflashed or unplugged, stop the containers and start them again (`docker compose down`, then `docker compose up -d`): a running container keeps the device it got at its start. Flash the Teensy from the PC, as [CONTRIBUTING](../../CONTRIBUTING.md) describes.
