@@ -9,6 +9,7 @@
 
   <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
   <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
+  <arg name="ekf" default="false" doc="fuse the IMU's yaw rate with the wheel odometry in an EKF (diffbot_control/launch/ekf.launch)"/>
   
   <!-- Base Controller for Motor Driver, Encoders and IMU -->
   <!-- Run rosserial to connect with the Teensy 3.2 board connected to the motor encoders -->
@@ -28,6 +29,7 @@
   <!-- Load the controller config onto the parameter server -->
   <include file="$(find diffbot_base)/launch/diffbot.launch">
       <arg name="model" value="$(arg model)" />
+      <arg name="ekf" value="$(arg ekf)" />
   </include>
 
 </launch>

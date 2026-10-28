@@ -7,6 +7,7 @@
          also needs its own port, and none uses Gazebo's default 11345, which a simulation that's
          open in the dev container may use -->
     <arg name="gazebo_port" doc="port of this test's Gazebo server"/>
+    <arg name="ekf" default="false" doc="fuse the IMU's yaw rate with the wheel odometry in an EKF (diffbot_control/launch/ekf.launch)"/>
     <env name="GAZEBO_MASTER_URI" value="http://localhost:$(arg gazebo_port)"/>
 
     <include file="$(find diffbot_gazebo)/launch/diffbot_view.launch">
@@ -18,5 +19,6 @@
     <include file="$(find diffbot_control)/launch/diffbot_control.launch">
         <arg name="model" value="$(arg model)"/>
         <arg name="rqt_robot_steering" value="false"/>
+        <arg name="ekf" value="$(arg ekf)"/>
     </include>
 </launch>

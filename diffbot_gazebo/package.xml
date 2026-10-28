@@ -64,6 +64,12 @@
   <test_depend>gazebo_msgs</test_depend>
   <test_depend>nav_msgs</test_depend>
   <test_depend>tf</test_depend>
+  <test_depend>tf2_msgs</test_depend>
+  <!-- test_ekf_switch.py loads their launch files -->
+  <test_depend>diffbot_bringup</test_depend>
+  <test_depend>diffbot_navigation</test_depend>
+  <test_depend>diffbot_mbf</test_depend>
+  <test_depend>python3-nose</test_depend>
   <!-- The Remo test also needs remo_description. It isn't declared here: it isn't a released ROS
        package, so rosdep can't install it, and rosdep install would fail wherever it isn't
        cloned, for example in the dev container's Dockerfile, which installs the dependencies
