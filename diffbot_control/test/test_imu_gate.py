@@ -129,6 +129,19 @@ class TestHealth(unittest.TestCase):
         self.assertIsNone(self.gate.seconds_since_pass(rospy.Time(50, 0)))
         self.assertIsNone(self.gate.seconds_since_pass(rospy.Time(55, 0)))
 
+    def test_short_rewind_after_the_last_pass(self):
+        # The clock goes back by less than the time since the last sample: still not healthy
+        self.assertIsNone(self.gate.check(sample(), NOW))
+        self.assertAlmostEqual(3.3, self.gate.seconds_since_pass(NOW + seconds(3.3)))
+        self.assertIsNone(self.gate.seconds_since_pass(NOW + seconds(0.2)))
+        self.assertIsNone(self.gate.seconds_since_pass(NOW + seconds(1.0)))
+
+    def test_rewind_seen_by_a_dropped_sample(self):
+        self.assertIsNone(self.gate.check(sample(), NOW))
+        self.assertAlmostEqual(3.0, self.gate.seconds_since_pass(NOW + seconds(3)))
+        self.assertEqual(imu_gate.TOO_OLD, self.gate.check(sample(NOW - seconds(1)), NOW + seconds(0.2)))
+        self.assertIsNone(self.gate.seconds_since_pass(NOW + seconds(0.3)))
+
     def test_clock_back_then_only_dropped_samples(self):
         self.assertIsNone(self.gate.check(sample(), NOW))
         restart = rospy.Time(50, 0)

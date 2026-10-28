@@ -33,6 +33,7 @@ Parameters (private):
 
 import collections
 import math
+import threading
 
 import diagnostic_updater
 from diagnostic_msgs.msg import DiagnosticStatus
@@ -65,6 +66,15 @@ class ImuGate:
         self.last_now = None
         self.last_passed = None  # ROS time at which the last sample passed
 
+    def observe(self, now):
+        """Notes the ROS time of a sample's arrival or a health query. When it's earlier than the
+        last one noted, the clock went back: the order check and the health start over, so that
+        only a sample that passes in the new time counts again."""
+        if self.last_now is not None and now < self.last_now:
+            self.last_stamp = None
+            self.last_passed = None
+        self.last_now = now
+
     def check(self, message, now):
         """Returns None if the EKF can use message at ROS time now, else the reason why not.
 
@@ -72,9 +82,7 @@ class ImuGate:
         """
         if now.is_zero():
             return NO_CLOCK
-        if self.last_now is not None and now < self.last_now:
-            self.last_stamp = None
-        self.last_now = now
+        self.observe(now)
         if message.header.frame_id != self.frame_id:
             return WRONG_FRAME
         values = (message.angular_velocity.x, message.angular_velocity.y, message.angular_velocity.z,
@@ -97,9 +105,9 @@ class ImuGate:
     def seconds_since_pass(self, now):
         """How long ago (s of ROS time) the last sample passed; None if none passed since the
         clock last went back, or none at all. A sample that passed before the clock went back
-        doesn't count: it says nothing about the IMU in the new time."""
-        if self.last_passed is not None and now < self.last_passed:
-            self.last_passed = None
+        doesn't count: it says nothing about the IMU in the new time, even when the clock went
+        back by less than the time since that sample."""
+        self.observe(now)
         if self.last_passed is None:
             return None
         return (now - self.last_passed).to_sec()
@@ -114,6 +122,10 @@ class ImuGateNode:
         self.passed = 0
         self.dropped = collections.Counter()
         self.reported_drops = 0
+        # The subscriber and the diagnostics timer run in different threads. Both read the clock
+        # inside this lock, so the gate sees the times in the order they were read; otherwise two
+        # nearly simultaneous calls could look like a clock that went back
+        self.lock = threading.Lock()
         self.publisher = rospy.Publisher("imu/data_validated", Imu, queue_size=10)
         rospy.Subscriber("imu/data_raw", Imu, self.callback, queue_size=10)
         self.updater = diagnostic_updater.Updater()
@@ -124,8 +136,9 @@ class ImuGateNode:
         rospy.Timer(rospy.Duration(1.0), lambda event: self.updater.force_update(), reset=True)
 
     def callback(self, message):
-        now = rospy.Time.now()
-        reason = self.gate.check(message, now)
+        with self.lock:
+            now = rospy.Time.now()
+            reason = self.gate.check(message, now)
         if reason is None:
             self.passed += 1
             self.publisher.publish(message)
@@ -139,7 +152,8 @@ class ImuGateNode:
         for reason in sorted(self.dropped):
             status.add("Dropped, " + reason, self.dropped[reason])
         dropped = sum(self.dropped.values())
-        since_pass = self.gate.seconds_since_pass(rospy.Time.now())
+        with self.lock:
+            since_pass = self.gate.seconds_since_pass(rospy.Time.now())
         if since_pass is None:
             status.summary(DiagnosticStatus.ERROR, "no IMU sample passed on yet, or since the clock went back")
         elif since_pass > 1.0:
