@@ -290,7 +290,7 @@ Contributions to these tasks are welcome, see also the [contribution section](./
 - Add `diffbot_driver` package for ultrasonic ranger, imu and motor driver node code.
 - Make use of the imu odometry data to improve the encoder odometry using a Kalman filter, such as [`robot_localization`](https://github.com/cra-ros-pkg/robot_localization) (or the less active [`robot_pose_ekf`](http://wiki.ros.org/robot_pose_ekf)).
 - The current implementation of the ROS Control `hardware_interface::RobotHW` uses a high level PID controller. This is working but also
-test a low level PID on the Teensy 3.2 mcu using the [Arduino library of the Grove i2c motor driver](https://github.com/Seeed-Studio/Grove_I2C_Motor_Driver_v1_3). -> This is partly implemented (see `diffbot_base/scripts/base_controller`)
+test a low level PID on the Teensy 3.2 mcu using the [Arduino library of the Grove i2c motor driver](https://github.com/Seeed-Studio/Grove_I2C_Motor_Driver_v1_3). -> This is partly implemented (see [`diffbot_firmware`](./diffbot_firmware))
 Also replace `Wire.h` with the improved [`i2c_t3`](https://github.com/nox771/i2c_t3) library.
 
 ### Navigation
