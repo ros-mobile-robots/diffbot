@@ -52,11 +52,12 @@ services:
       - ${TEENSY_DEVICE:-/dev/teensy}:/dev/ttyACM0
     command: roslaunch diffbot_bringup bringup.launch model:=${ROBOT_MODEL:-remo}
 
-  # The lidar driver; only with --profile lidar. Its launch file expects /dev/ttyUSB0.
+  # The lidar driver, publishing /diffbot/scan; only with the lidar profile (COMPOSE_PROFILES=lidar
+  # in .env, or --profile lidar). Its launch file expects /dev/ttyUSB0.
   lidar:
     <<: *robot
     profiles: [lidar]
     depends_on: [bringup]
     devices:
       - ${LIDAR_DEVICE:-/dev/rplidar}:/dev/ttyUSB0
-    command: roslaunch diffbot_bringup rplidar.launch
+    command: roslaunch diffbot_bringup lidar.launch

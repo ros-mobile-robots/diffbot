@@ -34,7 +34,8 @@ echo "== The launch files parse"
 for model in remo diffbot; do
     roslaunch --nodes diffbot_bringup bringup.launch model:=$model
 done
-roslaunch --nodes diffbot_bringup rplidar.launch
+# The lidar driver in the robot's namespace, so its scans are on /diffbot/scan
+roslaunch --nodes diffbot_bringup lidar.launch | grep -x /diffbot/rplidarNode
 
 echo "== Remo's bringup starts without hardware: the model loads and both controllers run"
 # Without the Teensy, rosserial can't open its port and the hardware interface gets no wheel
