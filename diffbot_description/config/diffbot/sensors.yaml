@@ -14,8 +14,8 @@ laser:
   enable_gpu: false
 
 imu:
-  # DiffBot has no IMU on the robot yet: the simulation's IMU weighs next to nothing, so that the
-  # model keeps the robot's weighed mass. A BNO055 board weighs about 5 g.
+  # DiffBot has no IMU on the robot yet: the simulation's IMU weighs next to nothing, 1 g on top of
+  # the robot's weighed mass. A BNO055 board weighs about 5 g.
   mass: 0.001
   size:             # A BNO055 breakout board, in m
     x: 0.027
