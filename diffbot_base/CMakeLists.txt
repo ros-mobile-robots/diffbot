@@ -200,6 +200,13 @@ target_link_libraries(${PROJECT_NAME}
 #   PATTERN ".svn" EXCLUDE
 # )
 
+# The launch and configuration files, so that roslaunch finds them in an install space too, for
+# example in industrial_ci, which tests from there (diffbot_gazebo's test_geometry_consistency.py
+# reads launch/diffbot.launch). The hardware interface's executable isn't installed yet (#113).
+install(DIRECTORY config launch
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
+
 ## Mark other files for installation (e.g. launch and bag files, etc.)
 # install(FILES
 #   # myfile1
