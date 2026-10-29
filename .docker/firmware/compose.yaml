@@ -1,5 +1,5 @@
 # Builds the Teensy firmware without installing PlatformIO on your PC. The script next to this
-# file runs it, from anywhere in the repository:
+# file runs it. From the repository's root:
 #   .docker/firmware/pio run -e teensy40
 # It sets LOCAL_UID and LOCAL_GID to your user and group ID, unless you set them, builds the
 # image, and runs pio in the container. Without the script, export both variables first:
