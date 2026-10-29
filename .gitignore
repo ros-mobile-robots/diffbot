@@ -56,3 +56,6 @@ site
 
 # X11 cookie written by .devcontainer/*/host-x11.sh
 .devcontainer/*/.x11/
+
+# The robot container's local settings (.docker/robot/env.example is the template)
+.docker/robot/.env

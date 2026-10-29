@@ -1,0 +1,10 @@
+<launch>
+    <!-- The lidar driver alone, in the robot's namespace as in bringup_with_laser.launch, so the
+         scans are on /diffbot/scan, where navigation and SLAM expect them. The robot container
+         (.docker/robot/compose.yaml) runs it next to bringup.launch, as a service of its own. -->
+    <arg name="laser_frame_id" default="rplidar_laser_link" />
+
+    <include file="$(find diffbot_bringup)/launch/rplidar.launch" ns="diffbot">
+        <arg name="laser_frame_id" value="$(arg laser_frame_id)" />
+    </include>
+</launch>
