@@ -4,12 +4,15 @@ the wheel separation.
 
 Both are written down twice: in the URDF, as the drive wheels' collision and joints, and in
 diffbot_control/config/<model>/geometry.yaml, which diff_drive_controller uses for the odometry and
-the real robot's hardware interface for the wheel speeds. If one changes without the other, the
-odometry and the simulated robot disagree, and the simulation test only notices large differences.
+the wheel commands. If one changes without the other, the odometry and the simulated robot
+disagree, and the simulation test only notices large differences.
 
-It also checks the drive wheels' joints, which the controller and the hardware interface find by
-name: the controller's left_wheel and right_wheel name continuous joints in the URDF, each with a
-transmission for a velocity interface, and the hardware interface's joints are the same ones.
+It also checks the drive wheels' joints, which are found by name. The controller's left_wheel and
+right_wheel name continuous joints in the URDF. In the simulation, Gazebo gives the controller a
+velocity interface for each of them from the first interface of its transmission. On the real
+robot, diffbot_base's hardware interface registers the joints in hardware_interface/joints, the
+left motor first, so that list must be the controller's wheels in this order. The simulation loads
+the same list without using it, so there it's a check of the shared configuration.
 
 The test asks roslaunch which parameters the launch files really set (--dump-params, without
 starting anything), so it also notices a launch file that loads the wrong file:
@@ -33,14 +36,24 @@ MODELS = ("diffbot", "remo")
 TOLERANCE = 1e-4  # m
 NAMESPACE = "/diffbot"
 CONTROLLER = NAMESPACE + "/mobile_base_controller/"
-VELOCITY = "VelocityJointInterface"  # diff_drive_controller commands the wheels' velocity
+# diff_drive_controller commands the wheels' velocity. Gazebo's DefaultRobotHWSim takes the first
+# interface of a joint's transmission and accepts these two spellings
+VELOCITY = ("hardware_interface/VelocityJointInterface", "VelocityJointInterface")
 
 
 def dump_params(package, launch_file, **args):
     """The parameters that a launch file sets, as a dict from parameter name to value."""
     command = ["roslaunch", "--dump-params", package, launch_file]
     command += ["{}:={}".format(name, value) for name, value in args.items()]
-    return yaml.safe_load(subprocess.check_output(command, universal_newlines=True))
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            universal_newlines=True, check=True)
+    params = yaml.safe_load(result.stdout)
+    # roslaunch ends with 0 and prints nothing when it can't load a file, for example when a
+    # package such as remo_description is missing
+    if not isinstance(params, dict):
+        raise RuntimeError("roslaunch printed no parameters for {}: {}".format(
+            " ".join(command[2:]), result.stderr.strip()))
+    return params
 
 
 def _matrix(rpy):
@@ -96,8 +109,8 @@ def mismatches(urdf, params):
     separation = params[CONTROLLER + "wheel_separation"]
     left, right = wheel_joints(params, "left"), wheel_joints(params, "right")
     joints = {j.get("name"): j for j in robot.findall("joint")}
-    interfaces = {j.get("name"): [h.text.strip() for h in j.findall("hardwareInterface")]
-                  for t in robot.findall("transmission") for j in t.findall("joint")}
+    first_interface = {j.get("name"): j.findtext("hardwareInterface", "").strip()
+                       for t in robot.findall("transmission") for j in t.findall("joint")}
     found = []
     for name in left + right:
         joint = joints.get(name)
@@ -106,16 +119,17 @@ def mismatches(urdf, params):
             continue
         if joint.get("type") != "continuous":
             found.append("{} is {}, not continuous".format(name, joint.get("type")))
-        if not any(i.endswith(VELOCITY) for i in interfaces.get(name, [])):
-            found.append("{} has no transmission with a {}".format(name, VELOCITY))
+        if first_interface.get(name) not in VELOCITY:
+            found.append("{}'s transmission doesn't start with {}".format(name, VELOCITY[0]))
         link = joint.find("child").get("link")
         urdf_radius = collision_radius(robot, link)
         if abs(urdf_radius - radius) > TOLERANCE:
             found.append("{} collision radius {:.4f} m, but wheel_radius is {:.4f} m".format(
                 link, urdf_radius, radius))
+    # diffbot_base's hardware interface drives its joints in this order: slot 0 is the left motor
     hardware = params.get(NAMESPACE + "/hardware_interface/joints")
-    if hardware is not None and sorted(hardware) != sorted(left + right):
-        found.append("the hardware interface's joints {} aren't the controller's wheels {}".format(
+    if hardware != left + right:
+        found.append("the hardware interface's joints {} aren't the controller's wheels {}, in order".format(
             hardware, left + right))
     if left[0] in joints and right[0] in joints:
         # Between the first wheel of each side, as diff_drive_controller takes them
@@ -175,11 +189,42 @@ class TestComparison(unittest.TestCase):
         self.assertIn("isn't in the URDF", found[0])
         self.assertIn("hardware interface", found[1])
 
-    def test_missing_velocity_transmission(self):
-        urdf = self.URDF.replace(VELOCITY, "EffortJointInterface", 1)  # the left wheel's
+    def test_renamed_joints_and_links(self):
+        urdf = self.URDF
+        for old, new in (("front_left_wheel_joint", "axle_l"), ("front_right_wheel_joint", "axle_r"),
+                         ('"front_left_wheel"', '"tire_a"'), ('"front_right_wheel"', '"tire_b"')):
+            urdf = urdf.replace(old, new)
+        params = self.params(left="axle_l", right="axle_r")
+        params[NAMESPACE + "/hardware_interface/joints"] = ["axle_l", "axle_r"]
+        self.assertEqual(mismatches(urdf, params), [])
+
+    def test_effort_interface(self):
+        urdf = self.URDF.replace("hardware_interface/VelocityJointInterface",
+                                 "hardware_interface/EffortJointInterface", 1)  # the left wheel's
         found = mismatches(urdf, self.params())
         self.assertEqual(len(found), 1)
-        self.assertIn("front_left_wheel_joint has no transmission", found[0])
+        self.assertIn("front_left_wheel_joint's transmission", found[0])
+
+    def test_velocity_interface_second(self):
+        # Gazebo uses only the first interface, so the controller can't get a velocity handle
+        effort = "<hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>"
+        urdf = self.URDF.replace("<hardwareInterface>", effort + "<hardwareInterface>", 1)
+        found = mismatches(urdf, self.params())
+        self.assertEqual(len(found), 1)
+        self.assertIn("front_left_wheel_joint's transmission", found[0])
+
+    def test_hardware_joints_reversed(self):
+        params = self.params()
+        params[NAMESPACE + "/hardware_interface/joints"] = ["front_right_wheel_joint",
+                                                            "front_left_wheel_joint"]
+        found = mismatches(self.URDF, params)
+        self.assertEqual(len(found), 1)
+        self.assertIn("in order", found[0])
+
+    def test_hardware_joints_missing(self):
+        params = self.params()
+        del params[NAMESPACE + "/hardware_interface/joints"]
+        self.assertEqual(len(mismatches(self.URDF, params)), 1)
 
 
 class TestModels(unittest.TestCase):
