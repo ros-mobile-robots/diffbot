@@ -35,6 +35,7 @@ from typing import Callable
 from typing import Dict
 from typing import List
 from typing import NamedTuple
+from typing import Optional
 from typing import Set
 from typing import Tuple
 import unittest
@@ -49,6 +50,8 @@ NAMESPACE = '/diffbot'
 CONTROLLER = NAMESPACE + '/mobile_base_controller/'
 # The joints that diffbot_base's hardware interface drives, in the order of its motors
 HARDWARE_JOINTS = NAMESPACE + '/hardware_interface/joints'
+# The URDF that xacro expanded, as one string
+ROBOT_DESCRIPTION = NAMESPACE + '/robot_description'
 # diff_drive_controller commands the wheels' velocity. Gazebo's DefaultRobotHWSim takes the first
 # interface of a joint's transmission and accepts these two spellings
 VELOCITY_INTERFACES = ('hardware_interface/VelocityJointInterface', 'VelocityJointInterface')
@@ -219,9 +222,13 @@ def wheel_joint_names(params: Params, side: str) -> List[str]:
     return [names] if isinstance(names, str) else list(names)
 
 
-def wheel_setup(urdf: str, params: Params) -> WheelSetup:
-    """Return the drive wheels as a URDF and the controller's parameters describe them."""
-    robot = ET.fromstring(urdf)
+def wheel_setup(params: Params) -> WheelSetup:
+    """Return the drive wheels as the launch files' parameters describe them.
+
+    params holds the URDF under ROBOT_DESCRIPTION, next to the parameters of the controller and
+    of the hardware interface, as roslaunch --dump-params prints them.
+    """
+    robot = ET.fromstring(params[ROBOT_DESCRIPTION])
     return WheelSetup(
         robot=robot,
         joints_by_name={joint.get('name', ''): joint for joint in robot.findall('joint')},
@@ -321,12 +328,12 @@ CHECKS: List[Callable[[WheelSetup], List[str]]] = [
 ]
 
 
-def mismatches(urdf: str, params: Params) -> List[str]:
+def mismatches(params: Params) -> List[str]:
     """Return where the URDF and the controller's parameters disagree, as messages.
 
     It runs each check in CHECKS on the same wheel setup. The list is empty when they agree.
     """
-    setup = wheel_setup(urdf, params)
+    setup = wheel_setup(params)
     return [problem for check in CHECKS for problem in check(setup)]
 
 
@@ -362,35 +369,41 @@ class TestComparison(unittest.TestCase):
       </joint></transmission>
     </robot>"""
 
-    def controller_params(self, wheel_radius: float = 0.033, wheel_separation: float = 0.144,
-                          left_wheel: Any = 'front_left_wheel_joint',
-                          right_wheel: Any = 'front_right_wheel_joint') -> Params:
-        """Return parameters that agree with URDF, unless the arguments change them."""
-        return {CONTROLLER + 'wheel_radius': wheel_radius,
+    def launch_params(self, urdf: Optional[str] = None, wheel_radius: float = 0.033,
+                      wheel_separation: float = 0.144,
+                      left_wheel: Any = 'front_left_wheel_joint',
+                      right_wheel: Any = 'front_right_wheel_joint') -> Params:
+        """Return launch parameters that agree, unless the arguments change them.
+
+        They hold the class's URDF, or urdf when it's given, and the parameters that the
+        controller and the hardware interface read, as roslaunch --dump-params prints them.
+        """
+        return {ROBOT_DESCRIPTION: self.URDF if urdf is None else urdf,
+                CONTROLLER + 'wheel_radius': wheel_radius,
                 CONTROLLER + 'wheel_separation': wheel_separation,
                 CONTROLLER + 'left_wheel': left_wheel,
                 CONTROLLER + 'right_wheel': right_wheel,
                 HARDWARE_JOINTS: ['front_left_wheel_joint', 'front_right_wheel_joint']}
 
     def test_agreement(self) -> None:
-        self.assertEqual(mismatches(self.URDF, self.controller_params()), [])
+        self.assertEqual(mismatches(self.launch_params()), [])
 
     def test_wheel_lists(self) -> None:
-        params = self.controller_params(left_wheel=['front_left_wheel_joint'],
-                                        right_wheel=['front_right_wheel_joint'])
-        self.assertEqual(mismatches(self.URDF, params), [])
+        params = self.launch_params(left_wheel=['front_left_wheel_joint'],
+                                    right_wheel=['front_right_wheel_joint'])
+        self.assertEqual(mismatches(params), [])
 
     def test_wrong_radius(self) -> None:
-        problems = mismatches(self.URDF, self.controller_params(wheel_radius=0.0325))
+        problems = mismatches(self.launch_params(wheel_radius=0.0325))
         self.assertEqual(len(problems), 2)
 
     def test_wrong_separation(self) -> None:
-        problems = mismatches(self.URDF, self.controller_params(wheel_separation=0.145))
+        problems = mismatches(self.launch_params(wheel_separation=0.145))
         self.assertEqual(len(problems), 1)
         self.assertIn('wheel_separation', problems[0])
 
     def test_unknown_wheel_joint(self) -> None:
-        problems = mismatches(self.URDF, self.controller_params(left_wheel='left_wheel_joint'))
+        problems = mismatches(self.launch_params(left_wheel='left_wheel_joint'))
         self.assertEqual(len(problems), 2)
         self.assertIn("isn't in the URDF", problems[0])
         self.assertIn('hardware interface', problems[1])
@@ -402,21 +415,21 @@ class TestComparison(unittest.TestCase):
                                    ('"front_left_wheel"', '"tire_a"'),
                                    ('"front_right_wheel"', '"tire_b"')):
             urdf = urdf.replace(old_name, new_name)
-        params = self.controller_params(left_wheel='axle_l', right_wheel='axle_r')
+        params = self.launch_params(urdf=urdf, left_wheel='axle_l', right_wheel='axle_r')
         params[HARDWARE_JOINTS] = ['axle_l', 'axle_r']
-        self.assertEqual(mismatches(urdf, params), [])
+        self.assertEqual(mismatches(params), [])
 
     def test_fixed_wheel_joint(self) -> None:
         urdf = self.URDF.replace('name="front_left_wheel_joint" type="continuous"',
                                  'name="front_left_wheel_joint" type="fixed"')
-        problems = mismatches(urdf, self.controller_params())
+        problems = mismatches(self.launch_params(urdf=urdf))
         self.assertEqual(problems, ['front_left_wheel_joint is fixed, not continuous'])
 
     def test_effort_interface(self) -> None:
         # The left wheel's transmission
         urdf = self.URDF.replace('hardware_interface/VelocityJointInterface',
                                  'hardware_interface/EffortJointInterface', 1)
-        problems = mismatches(urdf, self.controller_params())
+        problems = mismatches(self.launch_params(urdf=urdf))
         self.assertEqual(len(problems), 1)
         self.assertIn("front_left_wheel_joint's transmission", problems[0])
 
@@ -424,7 +437,7 @@ class TestComparison(unittest.TestCase):
         # Gazebo uses only the first interface, so the controller can't get a velocity handle
         effort = '<hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>'
         urdf = self.URDF.replace('<hardwareInterface>', effort + '<hardwareInterface>', 1)
-        problems = mismatches(urdf, self.controller_params())
+        problems = mismatches(self.launch_params(urdf=urdf))
         self.assertEqual(len(problems), 1)
         self.assertIn("front_left_wheel_joint's transmission", problems[0])
 
@@ -438,38 +451,38 @@ class TestComparison(unittest.TestCase):
         urdf = self.URDF[:start] + self.URDF[end:]
         urdf = urdf.replace('</joint></transmission>',
                             '</joint>' + right_wheel_joint + '</transmission>', 1)
-        problems = mismatches(urdf, self.controller_params())
+        problems = mismatches(self.launch_params(urdf=urdf))
         self.assertEqual(len(problems), 2)
         self.assertTrue(all('more than one joint' in problem for problem in problems))
 
     def test_nan_radius(self) -> None:
         urdf = self.URDF.replace('radius="0.033"', 'radius="nan"', 1)
-        problems = mismatches(urdf, self.controller_params())
+        problems = mismatches(self.launch_params(urdf=urdf))
         self.assertEqual(len(problems), 1)
         self.assertIn('front_left_wheel collision radius nan m', problems[0])
 
     def test_nan_separation(self) -> None:
-        problems = mismatches(self.URDF, self.controller_params(wheel_separation=math.nan))
+        problems = mismatches(self.launch_params(wheel_separation=math.nan))
         self.assertEqual(len(problems), 1)
         self.assertIn('wheel_separation is nan m', problems[0])
 
     def test_no_right_wheel(self) -> None:
-        params = self.controller_params(right_wheel=[])
+        params = self.launch_params(right_wheel=[])
         params[HARDWARE_JOINTS] = ['front_left_wheel_joint']
-        problems = mismatches(self.URDF, params)
+        problems = mismatches(params)
         self.assertEqual(problems, ["the controller's right_wheel names no joint"])
 
     def test_hardware_joints_reversed(self) -> None:
-        params = self.controller_params()
+        params = self.launch_params()
         params[HARDWARE_JOINTS] = ['front_right_wheel_joint', 'front_left_wheel_joint']
-        problems = mismatches(self.URDF, params)
+        problems = mismatches(params)
         self.assertEqual(len(problems), 1)
         self.assertIn('in order', problems[0])
 
     def test_hardware_joints_missing(self) -> None:
-        params = self.controller_params()
+        params = self.launch_params()
         del params[HARDWARE_JOINTS]
-        self.assertEqual(len(mismatches(self.URDF, params)), 1)
+        self.assertEqual(len(mismatches(params)), 1)
 
 
 class TestModels(unittest.TestCase):
@@ -477,8 +490,7 @@ class TestModels(unittest.TestCase):
 
     def check(self, model: str, params: Params) -> None:
         """Assert that the URDF in params agrees with the controller's parameters."""
-        urdf = params[NAMESPACE + '/robot_description']
-        self.assertEqual(mismatches(urdf, params), [],
+        self.assertEqual(mismatches(params), [],
                          '{}: URDF and controller disagree'.format(model))
 
     def test_simulation(self) -> None:
