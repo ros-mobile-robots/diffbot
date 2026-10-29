@@ -1,0 +1,49 @@
+name: PR description
+# The pull request template (.github/pull_request_template.md) asks under "## Documentation" for
+# the page on ros-mobile-robots.com that explains the change, or the docs pull request. A template
+# only fills in the text, so this check fails until that section names one of them, or says
+# "None" when nothing user-visible changes. Editing the description runs it again.
+on:
+  pull_request:
+    # synchronize: each new commit gets the check too, as it does for the other workflows
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  documentation:
+    runs-on: ubuntu-latest
+    steps:
+      # The description comes in as an environment variable, not as ${{ }} in the script, so its
+      # text can't become part of the command (GitHub's security hardening guide for Actions)
+      - name: Check the Documentation section
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          python3 - <<'EOF'
+          import os
+          import re
+          import sys
+
+          # The template's comments are hints, not content
+          body = re.sub(r"<!--.*?-->", "", os.environ.get("BODY") or "", flags=re.S)
+          section = re.search(r"^##\s+Documentation\s*$(.*?)(?=^##\s|\Z)", body,
+                              flags=re.M | re.S | re.I)
+          docs_pr = r"ros-mobile-robots/ros-mobile-robots\.github\.io(?:#|/pull/)\d+"
+          page = r"https?://(?:www\.)?ros-mobile-robots\.com\b"
+          none = r"^\s*None\b"
+          if section is None:
+              problem = 'The description has no "## Documentation" section.'
+          elif not re.search("|".join((docs_pr, page, none)), section.group(1), flags=re.M):
+              problem = ('The "## Documentation" section names neither a docs pull request nor '
+                         'a page on ros-mobile-robots.com.')
+          else:
+              print("Documentation:", " ".join(section.group(1).split())[:300])
+              sys.exit(0)
+          print("::error title=PR description::" + problem + " Link the docs pull request as "
+                "ros-mobile-robots/ros-mobile-robots.github.io#N, or the page on "
+                "https://ros-mobile-robots.com, or write None if nothing user-visible changes. "
+                "Editing the description runs this check again.")
+          sys.exit(1)
+          EOF
