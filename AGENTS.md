@@ -32,6 +32,7 @@ Without a display, Gazebo runs headless in the tests. Expect about a minute per 
 
 - **Model, controller or simulation changes:** run both robots' simulation tests and report the measured motions from the result files, not only pass/fail. [Simulation Test](https://ros-mobile-robots.com/development/simulation-test/) explains what they measure.
 - **Firmware changes:** build both PlatformIO environments.
+- **Python code:** PEP 8 with the settings of ROS 2's `ament_flake8` (99 columns, google import order, one import per line, single quotes), PEP 257 docstrings whose first line is a command ("Return …", "Check …"), and type hints that mypy checks for Python 3.8, Noetic's version. Descriptive names, not `left` or `found`. `diffbot_gazebo/test/test_drive.py` and `test_geometry_consistency.py` follow it. Until CI checks it (#117), run `flake8 --max-line-length 99 --import-order-style google --extend-ignore B902,C816,D100,D101,D102,D103,D104,D105,D106,D107,D203,D212,D404,I202` with the plugins flake8-builtins, flake8-comprehensions, flake8-docstrings, flake8-import-order and flake8-quotes, and `mypy --python-version 3.8 --ignore-missing-imports`.
 - **Everything:** `catkin build` without new warnings, and CI green on the pull request. Don't loosen a tolerance, skip a test or silence a warning to get there; explain the failure instead.
 
 ## Things that are easy to get wrong

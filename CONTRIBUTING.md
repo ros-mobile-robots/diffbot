@@ -51,6 +51,7 @@ CI runs on every pull request: [industrial_ci](https://github.com/ros-industrial
 - **Comments explain why** the code is the way it is, not what changed or how it used to be. The history belongs in the commit and the PR.
 - **Every feature also gets documentation** on ros-mobile-robots.com, a new or updated page: open a pull request in [ros-mobile-robots.github.io](https://github.com/ros-mobile-robots/ros-mobile-robots.github.io) and link it.
 - Follow [REP 103](https://www.ros.org/reps/rep-0103.html) for units and coordinate frames.
+- **Python** follows PEP 8 with the settings of ROS 2's `ament_flake8`, with PEP 257 docstrings and type hints. [AGENTS.md](AGENTS.md) lists the commands that check it.
 
 ## AI-assisted contributions
 

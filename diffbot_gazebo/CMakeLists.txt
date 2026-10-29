@@ -219,7 +219,7 @@ if(CATKIN_ENABLE_TESTING)
   add_rostest(test/sim_drive_diffbot.test)
   add_rostest(test/sim_drive_remo.test)
   # Each robot's URDF and its geometry.yaml agree on the wheel radius and separation, as the
-  # simulation's and the real robot's launch files load them, and the controller's wheel joints and
-  # their velocity interfaces are there (test/test_geometry_consistency.py)
+  # simulation's and the real robot's launch files load them, and that the controller's wheel joints
+  # are in the URDF, each with a velocity interface (test/test_geometry_consistency.py)
   catkin_add_nosetests(test/test_geometry_consistency.py)
 endif()
