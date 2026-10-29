@@ -44,6 +44,7 @@ Without a display, Gazebo runs headless in the tests. Expect about a minute per 
   mypy --python-version 3.8 --ignore-missing-imports diffbot_gazebo/test/*.py
   ```
 
+- **Design, in Python and C++:** a function does one thing at one level of abstraction, and its name says what. A function that checks several things becomes one function per check and one that runs them, as `test_geometry_consistency.py` does with its `check_…()` functions and `CHECKS`. Values that belong together travel as one type, such as its `WheelSetup`, instead of long argument lists. The refactor of diffbot_base and the firmware (#148) follows the same rules.
 - **Everything:** `catkin build` without new warnings, and CI green on the pull request. Don't loosen a tolerance, skip a test or silence a warning to get there; explain the failure instead.
 
 ## Things that are easy to get wrong

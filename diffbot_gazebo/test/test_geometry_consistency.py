@@ -31,8 +31,10 @@ multipliers), which this test leaves alone. It can't show that the URDF matches 
 import math
 import subprocess
 from typing import Any
+from typing import Callable
 from typing import Dict
 from typing import List
+from typing import NamedTuple
 from typing import Set
 from typing import Tuple
 import unittest
@@ -146,15 +148,6 @@ def joint_position(robot: ET.Element, joint_name: str) -> Vector:
     return position
 
 
-def wheel_joint_names(params: Params, side: str) -> List[str]:
-    """Return the controller's wheel joints on one side, 'left' or 'right'.
-
-    diff_drive_controller takes a joint name or a list of joint names for each side.
-    """
-    names = params[CONTROLLER + side + '_wheel']
-    return [names] if isinstance(names, str) else list(names)
-
-
 def collision_radius(robot: ET.Element, link_name: str) -> float:
     """Return the radius of a wheel link's collision, a sphere or a cylinder."""
     link = next(link for link in robot.findall('link') if link.get('name') == link_name)
@@ -194,29 +187,77 @@ def within_tolerance(urdf_value: float, controller_value: float) -> bool:
     return abs(urdf_value - controller_value) <= TOLERANCE
 
 
-def mismatches(urdf: str, params: Params) -> List[str]:
-    """Return where the URDF and the controller's parameters disagree, as messages.
+class WheelSetup(NamedTuple):
+    """The drive wheels as the URDF and the controller's parameters describe them."""
 
-    The list is empty when they agree.
+    robot: ET.Element
+    joints_by_name: Dict[str, ET.Element]
+    left_joint_names: List[str]
+    right_joint_names: List[str]
+    wheel_radius: float
+    wheel_separation: float
+    # A list of joint names when the parameter is set right, but it can be anything or missing
+    hardware_joint_names: Any
+
+    @property
+    def wheel_joint_names(self) -> List[str]:
+        """Return the controller's wheel joints, the left ones first."""
+        return self.left_joint_names + self.right_joint_names
+
+    def urdf_wheel_joints(self) -> List[ET.Element]:
+        """Return the controller's wheel joints that are in the URDF."""
+        return [self.joints_by_name[name] for name in self.wheel_joint_names
+                if name in self.joints_by_name]
+
+
+def wheel_joint_names(params: Params, side: str) -> List[str]:
+    """Return the controller's wheel joints on one side, 'left' or 'right'.
+
+    diff_drive_controller takes a joint name or a list of joint names for each side.
     """
+    names = params[CONTROLLER + side + '_wheel']
+    return [names] if isinstance(names, str) else list(names)
+
+
+def wheel_setup(urdf: str, params: Params) -> WheelSetup:
+    """Return the drive wheels as a URDF and the controller's parameters describe them."""
     robot = ET.fromstring(urdf)
-    wheel_radius = params[CONTROLLER + 'wheel_radius']
-    wheel_separation = params[CONTROLLER + 'wheel_separation']
-    left_joint_names = wheel_joint_names(params, 'left')
-    right_joint_names = wheel_joint_names(params, 'right')
-    joints_by_name = {joint.get('name'): joint for joint in robot.findall('joint')}
-    interface_by_joint, joints_in_shared_transmissions = transmission_interfaces(robot)
+    return WheelSetup(
+        robot=robot,
+        joints_by_name={joint.get('name', ''): joint for joint in robot.findall('joint')},
+        left_joint_names=wheel_joint_names(params, 'left'),
+        right_joint_names=wheel_joint_names(params, 'right'),
+        wheel_radius=params[CONTROLLER + 'wheel_radius'],
+        wheel_separation=params[CONTROLLER + 'wheel_separation'],
+        hardware_joint_names=params.get(HARDWARE_JOINTS),
+    )
+
+
+def check_wheels_named(setup: WheelSetup) -> List[str]:
+    """Check that the controller names a wheel joint on each side."""
+    sides = (('left', setup.left_joint_names), ('right', setup.right_joint_names))
+    return ["the controller's {}_wheel names no joint".format(side)
+            for side, joint_names in sides if not joint_names]
+
+
+def check_wheel_joints(setup: WheelSetup) -> List[str]:
+    """Check that the controller's wheel joints are continuous joints in the URDF."""
     problems = []
-    for side, joint_names in (('left', left_joint_names), ('right', right_joint_names)):
-        if not joint_names:
-            problems.append("the controller's {}_wheel names no joint".format(side))
-    for joint_name in left_joint_names + right_joint_names:
-        joint = joints_by_name.get(joint_name)
+    for joint_name in setup.wheel_joint_names:
+        joint = setup.joints_by_name.get(joint_name)
         if joint is None:
             problems.append("the controller's wheel joint {} isn't in the URDF".format(joint_name))
-            continue
-        if joint.get('type') != 'continuous':
+        elif joint.get('type') != 'continuous':
             problems.append('{} is {}, not continuous'.format(joint_name, joint.get('type')))
+    return problems
+
+
+def check_velocity_interfaces(setup: WheelSetup) -> List[str]:
+    """Check that Gazebo gives the controller a velocity interface for each wheel joint."""
+    interface_by_joint, joints_in_shared_transmissions = transmission_interfaces(setup.robot)
+    problems = []
+    for joint in setup.urdf_wheel_joints():
+        joint_name = joint.get('name', '')
         if joint_name in joints_in_shared_transmissions and joint_name not in interface_by_joint:
             problems.append(
                 '{} is in a transmission with more than one joint, which Gazebo skips'.format(
@@ -224,27 +265,69 @@ def mismatches(urdf: str, params: Params) -> List[str]:
         elif interface_by_joint.get(joint_name) not in VELOCITY_INTERFACES:
             problems.append("{}'s transmission doesn't start with {}".format(
                 joint_name, VELOCITY_INTERFACES[0]))
-        link_name = required(joint, 'child').get('link', '')
-        urdf_radius = collision_radius(robot, link_name)
-        if not within_tolerance(urdf_radius, wheel_radius):
-            problems.append('{} collision radius {:.4f} m, but wheel_radius is {:.4f} m'.format(
-                link_name, urdf_radius, wheel_radius))
-    # diffbot_base's hardware interface drives its joints in this order: slot 0 is the left motor
-    hardware_joint_names = params.get(HARDWARE_JOINTS)
-    controller_joint_names = left_joint_names + right_joint_names
-    if hardware_joint_names != controller_joint_names:
-        problems.append("the hardware interface's joints {} aren't the controller's wheels {}, "
-                        'in order'.format(hardware_joint_names, controller_joint_names))
-    # Between the first wheel of each side, as diff_drive_controller takes them
-    first_joint_names = left_joint_names[:1] + right_joint_names[:1]
-    if len(first_joint_names) == 2 and all(name in joints_by_name for name in first_joint_names):
-        left_position, right_position = (joint_position(robot, name) for name in first_joint_names)
-        urdf_separation = math.dist(left_position, right_position)
-        if not within_tolerance(urdf_separation, wheel_separation):
-            problems.append(
-                'the wheel joints are {:.4f} m apart, but wheel_separation is {:.4f} m'.format(
-                    urdf_separation, wheel_separation))
     return problems
+
+
+def check_hardware_joint_order(setup: WheelSetup) -> List[str]:
+    """Check that the hardware interface drives the controller's wheel joints, the left first.
+
+    diffbot_base's hardware interface drives its joints in the order of its list, and the
+    Teensy firmware takes the first one for the left motor.
+    """
+    if setup.hardware_joint_names == setup.wheel_joint_names:
+        return []
+    return ["the hardware interface's joints {} aren't the controller's wheels {}, in order"
+            .format(setup.hardware_joint_names, setup.wheel_joint_names)]
+
+
+def check_wheel_radius(setup: WheelSetup) -> List[str]:
+    """Check that each wheel's collision radius is the controller's wheel_radius."""
+    problems = []
+    for joint in setup.urdf_wheel_joints():
+        link_name = required(joint, 'child').get('link', '')
+        urdf_radius = collision_radius(setup.robot, link_name)
+        if not within_tolerance(urdf_radius, setup.wheel_radius):
+            problems.append('{} collision radius {:.4f} m, but wheel_radius is {:.4f} m'.format(
+                link_name, urdf_radius, setup.wheel_radius))
+    return problems
+
+
+def check_wheel_separation(setup: WheelSetup) -> List[str]:
+    """Check that the first wheel joints of both sides are wheel_separation apart.
+
+    diff_drive_controller takes the separation of the first wheel on each side, so this does too.
+    """
+    first_joint_names = setup.left_joint_names[:1] + setup.right_joint_names[:1]
+    if len(first_joint_names) != 2 or any(
+            name not in setup.joints_by_name for name in first_joint_names):
+        return []  # check_wheels_named() and check_wheel_joints() report this
+    left_position, right_position = (
+        joint_position(setup.robot, name) for name in first_joint_names)
+    urdf_separation = math.dist(left_position, right_position)
+    if within_tolerance(urdf_separation, setup.wheel_separation):
+        return []
+    return ['the wheel joints are {:.4f} m apart, but wheel_separation is {:.4f} m'.format(
+        urdf_separation, setup.wheel_separation)]
+
+
+# Each check takes the wheel setup and returns its problems as messages
+CHECKS: List[Callable[[WheelSetup], List[str]]] = [
+    check_wheels_named,
+    check_wheel_joints,
+    check_velocity_interfaces,
+    check_hardware_joint_order,
+    check_wheel_radius,
+    check_wheel_separation,
+]
+
+
+def mismatches(urdf: str, params: Params) -> List[str]:
+    """Return where the URDF and the controller's parameters disagree, as messages.
+
+    It runs each check in CHECKS on the same wheel setup. The list is empty when they agree.
+    """
+    setup = wheel_setup(urdf, params)
+    return [problem for check in CHECKS for problem in check(setup)]
 
 
 class TestComparison(unittest.TestCase):
