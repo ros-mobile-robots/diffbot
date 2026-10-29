@@ -4,3 +4,5 @@
 .devcontainer/*/.x11
 # The robot container's local settings (.docker/robot/env.example is the template)
 .docker/robot/.env
+# The firmware's build output (PlatformIO), from a build in .docker/firmware or on the host
+diffbot_firmware/.pio

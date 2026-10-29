@@ -33,7 +33,17 @@ rostest diffbot_gazebo sim_drive_diffbot.test       # one robot's simulation tes
 
 The [simulation test](https://ros-mobile-robots.com/development/simulation-test/) drives DiffBot and Remo in Gazebo and checks where they went. Run it for any change to the robot models, the controllers or the simulation.
 
-The Teensy firmware builds with [PlatformIO](https://platformio.org/), which isn't in the dev container. Install it on your PC, outside the container, with its [installer script](https://docs.platformio.org/en/stable/core/installation/methods/installer-script.html) or in a virtual environment; many Linux distributions don't allow `pip install` into the system Python. Then build both boards that CI builds, from your diffbot clone on the PC:
+The Teensy firmware builds with [PlatformIO](https://platformio.org/), which isn't in the dev container. The firmware has a container of its own, [`.docker/firmware`](.docker/firmware), with PlatformIO 6.2.0 and a compiler, so Docker is all you need. Build both boards that CI builds, from your diffbot clone on the PC:
+
+```bash
+export LOCAL_UID=$(id -u) LOCAL_GID=$(id -g)
+docker compose -f .docker/firmware/compose.yaml run --rm firmware pio run -e teensy31
+docker compose -f .docker/firmware/compose.yaml run --rm firmware pio run -e teensy40
+```
+
+The first build downloads the Teensy toolchain, which takes about a minute. The firmware files land in `diffbot_firmware/.pio/build/<board>/`, for example `firmware.hex`, which PJRC's [Teensy Loader](https://www.pjrc.com/teensy/loader.html) can flash. CI builds the same way.
+
+Or install PlatformIO on your PC, outside the dev container, with its [installer script](https://docs.platformio.org/en/stable/core/installation/methods/installer-script.html) or in a virtual environment. Many Linux distributions don't allow `pip install` into the system Python. Then build from your diffbot clone on the PC:
 
 ```bash
 python3 -m venv ~/.venvs/platformio && ~/.venvs/platformio/bin/pip install platformio   # once

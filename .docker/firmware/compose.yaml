@@ -1,0 +1,28 @@
+# Builds the Teensy firmware without installing PlatformIO on your PC. From the repository's root:
+#   export LOCAL_UID=$(id -u) LOCAL_GID=$(id -g)
+#   docker compose -f .docker/firmware/compose.yaml run --rm firmware pio run -e teensy40
+# The first build downloads the Teensy toolchain into the volume pio-core. The firmware files land
+# in diffbot_firmware/.pio/build/<board>/, for example firmware.hex. Flashing stays on the PC for
+# now: PJRC's Teensy Loader can load that file.
+
+name: diffbot-firmware
+
+services:
+  firmware:
+    build:
+      context: .
+      args:
+        USER_UID: ${LOCAL_UID:?set LOCAL_UID and LOCAL_GID to your user and group ID, see the comment above}
+        USER_GID: ${LOCAL_GID:?set LOCAL_UID and LOCAL_GID to your user and group ID, see the comment above}
+    image: diffbot-firmware-build:pio-6.2.0
+    user: "${LOCAL_UID}:${LOCAL_GID}"
+    volumes:
+      # The whole repository, so that PlatformIO finds the project in diffbot_firmware
+      - ../..:/workspace
+      # PlatformIO's downloads: platforms, toolchains, frameworks. A named volume by default. CI
+      # sets PIO_CORE to a folder of the runner, which it caches between runs.
+      - ${PIO_CORE:-pio-core}:/pio-core
+    working_dir: /workspace/diffbot_firmware
+
+volumes:
+  pio-core:

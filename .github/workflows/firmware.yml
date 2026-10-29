@@ -18,19 +18,27 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+      # The build runs in the firmware image (.docker/firmware), as the runner's user, so CI
+      # uses the same pinned PlatformIO as a local build in the container
+      - name: Settings for the firmware container
+        run: |
+          {
+            echo "LOCAL_UID=$(id -u)"
+            echo "LOCAL_GID=$(id -g)"
+            echo "PIO_CORE=$RUNNER_TEMP/pio-core"
+          } >> "$GITHUB_ENV"
+      # PlatformIO's downloads (platforms, toolchains, frameworks), kept between runs in a folder
+      # of the runner, which compose.yaml mounts instead of its volume. One cache per board, so the
+      # two jobs don't write the same one.
       - uses: actions/cache@v6
         with:
-          path: |
-            ~/.cache/pip
-            ~/.platformio/.cache
-          key: ${{ runner.os }}-pio
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-      - name: Install PlatformIO Core
-        run: pip install --upgrade platformio
-
-      - name: Build PlatformIO Project
+          path: ${{ runner.temp }}/pio-core
+          key: pio-core-${{ runner.os }}-${{ runner.arch }}-${{ matrix.env }}-${{ hashFiles('.docker/firmware/requirements.txt', 'diffbot_firmware/platformio.ini') }}
+          restore-keys: |
+            pio-core-${{ runner.os }}-${{ runner.arch }}-${{ matrix.env }}-
+      - name: Build the firmware image
         run: |
-          cd diffbot_firmware
-          pio run -e ${{ matrix.env }}
+          mkdir -p "$PIO_CORE"
+          docker compose -f .docker/firmware/compose.yaml build firmware
+      - name: Build the firmware
+        run: docker compose -f .docker/firmware/compose.yaml run --rm -T firmware pio run -e ${{ matrix.env }}
