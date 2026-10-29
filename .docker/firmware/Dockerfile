@@ -15,11 +15,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
 
-# A user with your user and group ID (compose.yaml passes them), so that the build's files in the
-# mounted repository belong to you. Its home and the core folder belong to it, so a new volume
-# mounted at /pio-core is writable too.
-ARG USER_UID=1000
-ARG USER_GID=1000
+# A user with your user and group ID, so that the build's files in the mounted repository belong
+# to you. compose.yaml passes them as build arguments, from LOCAL_UID and LOCAL_GID, which the pio
+# script sets to `id -u` and `id -g`. They have no default, so the image can't be built for other
+# IDs by mistake. The user's home and the core folder belong to it, so a new volume mounted at
+# /pio-core is writable too.
+ARG USER_UID
+ARG USER_GID
+RUN if [ -z "$USER_UID" ] || [ -z "$USER_GID" ]; then \
+        echo "USER_UID and USER_GID are missing: build through compose.yaml or the pio script" >&2; \
+        exit 1; \
+    fi
 RUN (getent group "$USER_GID" || groupadd --gid "$USER_GID" pio) \
     && useradd --non-unique --uid "$USER_UID" --gid "$USER_GID" --create-home pio \
     && mkdir /pio-core \
