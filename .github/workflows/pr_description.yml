@@ -16,7 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # The description comes in as an environment variable, not as ${{ }} in the script, so its
-      # text can't become part of the command (GitHub's security hardening guide for Actions)
+      # text can't become part of the command: GitHub's "Secure use reference", script injection
+      # (docs.github.com/en/actions/reference/security/secure-use)
       - name: Check the Documentation section
         env:
           BODY: ${{ github.event.pull_request.body }}
