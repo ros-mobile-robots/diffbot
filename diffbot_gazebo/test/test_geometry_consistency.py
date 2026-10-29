@@ -185,6 +185,15 @@ def transmission_interfaces(robot: ET.Element) -> Tuple[Dict[str, str], Set[str]
     return interface_by_joint, joints_in_shared_transmissions
 
 
+def within_tolerance(urdf_value: float, controller_value: float) -> bool:
+    """Return whether the two values differ by at most TOLERANCE.
+
+    A NaN isn't within any tolerance: every comparison with it is false, so a check that a
+    difference is too large would let it pass.
+    """
+    return abs(urdf_value - controller_value) <= TOLERANCE
+
+
 def mismatches(urdf: str, params: Params) -> List[str]:
     """Return where the URDF and the controller's parameters disagree, as messages.
 
@@ -198,6 +207,9 @@ def mismatches(urdf: str, params: Params) -> List[str]:
     joints_by_name = {joint.get('name'): joint for joint in robot.findall('joint')}
     interface_by_joint, joints_in_shared_transmissions = transmission_interfaces(robot)
     problems = []
+    for side, joint_names in (('left', left_joint_names), ('right', right_joint_names)):
+        if not joint_names:
+            problems.append("the controller's {}_wheel names no joint".format(side))
     for joint_name in left_joint_names + right_joint_names:
         joint = joints_by_name.get(joint_name)
         if joint is None:
@@ -214,7 +226,7 @@ def mismatches(urdf: str, params: Params) -> List[str]:
                 joint_name, VELOCITY_INTERFACES[0]))
         link_name = required(joint, 'child').get('link', '')
         urdf_radius = collision_radius(robot, link_name)
-        if abs(urdf_radius - wheel_radius) > TOLERANCE:
+        if not within_tolerance(urdf_radius, wheel_radius):
             problems.append('{} collision radius {:.4f} m, but wheel_radius is {:.4f} m'.format(
                 link_name, urdf_radius, wheel_radius))
     # diffbot_base's hardware interface drives its joints in this order: slot 0 is the left motor
@@ -223,12 +235,12 @@ def mismatches(urdf: str, params: Params) -> List[str]:
     if hardware_joint_names != controller_joint_names:
         problems.append("the hardware interface's joints {} aren't the controller's wheels {}, "
                         'in order'.format(hardware_joint_names, controller_joint_names))
-    first_left, first_right = left_joint_names[0], right_joint_names[0]
-    if first_left in joints_by_name and first_right in joints_by_name:
-        # Between the first wheel of each side, as diff_drive_controller takes them
-        urdf_separation = math.dist(joint_position(robot, first_left),
-                                    joint_position(robot, first_right))
-        if abs(urdf_separation - wheel_separation) > TOLERANCE:
+    # Between the first wheel of each side, as diff_drive_controller takes them
+    first_joint_names = left_joint_names[:1] + right_joint_names[:1]
+    if len(first_joint_names) == 2 and all(name in joints_by_name for name in first_joint_names):
+        left_position, right_position = (joint_position(robot, name) for name in first_joint_names)
+        urdf_separation = math.dist(left_position, right_position)
+        if not within_tolerance(urdf_separation, wheel_separation):
             problems.append(
                 'the wheel joints are {:.4f} m apart, but wheel_separation is {:.4f} m'.format(
                     urdf_separation, wheel_separation))
@@ -340,6 +352,23 @@ class TestComparison(unittest.TestCase):
         problems = mismatches(urdf, self.controller_params())
         self.assertEqual(len(problems), 2)
         self.assertTrue(all('more than one joint' in problem for problem in problems))
+
+    def test_nan_radius(self) -> None:
+        urdf = self.URDF.replace('radius="0.033"', 'radius="nan"', 1)
+        problems = mismatches(urdf, self.controller_params())
+        self.assertEqual(len(problems), 1)
+        self.assertIn('front_left_wheel collision radius nan m', problems[0])
+
+    def test_nan_separation(self) -> None:
+        problems = mismatches(self.URDF, self.controller_params(wheel_separation=math.nan))
+        self.assertEqual(len(problems), 1)
+        self.assertIn('wheel_separation is nan m', problems[0])
+
+    def test_no_right_wheel(self) -> None:
+        params = self.controller_params(right_wheel=[])
+        params[HARDWARE_JOINTS] = ['front_left_wheel_joint']
+        problems = mismatches(self.URDF, params)
+        self.assertEqual(problems, ["the controller's right_wheel names no joint"])
 
     def test_hardware_joints_reversed(self) -> None:
         params = self.controller_params()
