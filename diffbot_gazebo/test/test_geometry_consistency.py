@@ -45,8 +45,12 @@ def dump_params(package, launch_file, **args):
     """The parameters that a launch file sets, as a dict from parameter name to value."""
     command = ["roslaunch", "--dump-params", package, launch_file]
     command += ["{}:={}".format(name, value) for name, value in args.items()]
-    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            universal_newlines=True, check=True)
+    try:
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                universal_newlines=True, check=True)
+    except subprocess.CalledProcessError as error:
+        raise RuntimeError("roslaunch failed for {}: {}".format(
+            " ".join(command[2:]), error.stderr.strip())) from error
     params = yaml.safe_load(result.stdout)
     # roslaunch ends with 0 and prints nothing when it can't load a file, for example when a
     # package such as remo_description is missing
@@ -109,8 +113,14 @@ def mismatches(urdf, params):
     separation = params[CONTROLLER + "wheel_separation"]
     left, right = wheel_joints(params, "left"), wheel_joints(params, "right")
     joints = {j.get("name"): j for j in robot.findall("joint")}
-    first_interface = {j.get("name"): j.findtext("hardwareInterface", "").strip()
-                       for t in robot.findall("transmission") for j in t.findall("joint")}
+    # Gazebo skips a transmission with more than one joint, so only single-joint ones count
+    first_interface, shared = {}, set()
+    for transmission in robot.findall("transmission"):
+        members = transmission.findall("joint")
+        if len(members) == 1:
+            first_interface[members[0].get("name")] = members[0].findtext("hardwareInterface", "").strip()
+        else:
+            shared.update(member.get("name") for member in members)
     found = []
     for name in left + right:
         joint = joints.get(name)
@@ -119,7 +129,9 @@ def mismatches(urdf, params):
             continue
         if joint.get("type") != "continuous":
             found.append("{} is {}, not continuous".format(name, joint.get("type")))
-        if first_interface.get(name) not in VELOCITY:
+        if name in shared and name not in first_interface:
+            found.append("{} is in a transmission with more than one joint, which Gazebo skips".format(name))
+        elif first_interface.get(name) not in VELOCITY:
             found.append("{}'s transmission doesn't start with {}".format(name, VELOCITY[0]))
         link = joint.find("child").get("link")
         urdf_radius = collision_radius(robot, link)
@@ -212,6 +224,18 @@ class TestComparison(unittest.TestCase):
         found = mismatches(urdf, self.params())
         self.assertEqual(len(found), 1)
         self.assertIn("front_left_wheel_joint's transmission", found[0])
+
+    def test_shared_transmission(self):
+        # Both wheels in the left wheel's transmission, the right one's removed
+        start = self.URDF.index('<transmission name="right">')
+        end = self.URDF.index("</transmission>", start) + len("</transmission>")
+        right_joint = '<joint name="front_right_wheel_joint">' \
+            "<hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface></joint>"
+        urdf = self.URDF[:start] + self.URDF[end:]
+        urdf = urdf.replace("</joint></transmission>", "</joint>" + right_joint + "</transmission>", 1)
+        found = mismatches(urdf, self.params())
+        self.assertEqual(len(found), 2)
+        self.assertTrue(all("more than one joint" in message for message in found))
 
     def test_hardware_joints_reversed(self):
         params = self.params()
