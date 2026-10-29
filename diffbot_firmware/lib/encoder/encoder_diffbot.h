@@ -115,12 +115,13 @@ namespace diffbot
         JointState joint_state_;
 
     private:
-        // ROS node handle, which provides the current time to compute the angular velocity from the current tick count
+        // The firmware's ROS node handle. The angular velocity's time comes from micros(), not from its ROS time,
+        // which can jump (see jointState())
         ros::NodeHandle& nh_;
         // Number of tick counts for one full revolution of the wheel (not the motor shaft). Keep track of gear reduction ratio.
         int encoder_resolution_;
-        // Previous time when the \ref getRPM or \ref angularVelocity method was called to calculated the delta update time.
-        ros::Time prev_update_time_;
+        // Previous time (µs, micros()) when the \ref getRPM or \ref angularVelocity method was called to calculated the delta update time.
+        uint32_t prev_update_us_;
         // Previous encoder tick count when the \ref getRPM or \ref angularVelocity method was called to calculated the delta tick count.
         long prev_encoder_ticks_;
     };

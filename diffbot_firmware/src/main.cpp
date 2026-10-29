@@ -31,28 +31,28 @@ void loop()
 {
     static bool imu_is_initialized;
 
+    // Use the Teensy's elapsed time for scheduling (see BaseController::LastUpdateTime).
+    uint32_t now_ms = millis();
+
     // The main control loop for the base_conroller.
     // This block drives the robot based on a defined control rate
-    ros::Duration command_dt = nh.now() - base_controller.lastUpdateTime().control;
-    if (command_dt.toSec() >= ros::Duration(1.0 / base_controller.publishRate().control_, 0).toSec())
+    if (now_ms - base_controller.lastUpdateTime().control >= 1000.0 / base_controller.publishRate().control_)
     {
         base_controller.read();
         base_controller.write();
-        base_controller.lastUpdateTime().control = nh.now();
+        base_controller.lastUpdateTime().control = now_ms;
     }
 
-    // This block stops the motor when no wheel command is received
-    // from the high level hardware_interface::RobotHW
-    command_dt = nh.now() - base_controller.lastUpdateTime().command_received;
-    if (command_dt.toSec() >= ros::Duration(E_STOP_COMMAND_RECEIVED_DURATION, 0).toSec())
+    // After 5 s without a wheel command, set both target velocities to zero.
+    // eStop() does not directly stop the motors or reset the PIDs.
+    if (now_ms - base_controller.lastUpdateTime().command_received >= E_STOP_COMMAND_RECEIVED_DURATION * 1000UL)
     {
-        nh.logwarn("Emergency STOP");
+        nh.logwarn("Wheel command timeout: targets set to zero");
         base_controller.eStop();
     }
 
     // This block publishes the IMU data based on a defined imu rate
-    ros::Duration imu_dt = nh.now() - base_controller.lastUpdateTime().imu;
-    if (imu_dt.toSec() >= base_controller.publishRate().period().imu_)
+    if (now_ms - base_controller.lastUpdateTime().imu >= base_controller.publishRate().period().imu_ * 1000.0)
     {
         // Sanity check if the IMU is connected
         if (!imu_is_initialized)
@@ -67,17 +67,16 @@ void loop()
         {
             //publishIMU();
         }
-        base_controller.lastUpdateTime().imu = nh.now();
+        base_controller.lastUpdateTime().imu = now_ms;
     }
 
     // This block displays the encoder readings. change DEBUG to 0 if you don't want to display
     if(base_controller.debug())
     {
-        ros::Duration debug_dt = nh.now() - base_controller.lastUpdateTime().debug;
-        if (debug_dt.toSec() >= base_controller.publishRate().period().debug_)
+        if (now_ms - base_controller.lastUpdateTime().debug >= base_controller.publishRate().period().debug_ * 1000.0)
         {
             base_controller.printDebug();
-            base_controller.lastUpdateTime().debug = nh.now();
+            base_controller.lastUpdateTime().debug = now_ms;
         }
     }
     // Call all the callbacks waiting to be called
