@@ -134,7 +134,7 @@ def joint_position(robot: ET.Element, joint_name: str) -> Vector:
     The joint's origin is given in its parent link's frame. Each joint further up the tree moves
     it into the frame of that joint's parent link, up to the root link.
     """
-    joints_by_name = {joint.get('name'): joint for joint in robot.findall('joint')}
+    joints_by_name = {joint.get('name', ''): joint for joint in robot.findall('joint')}
     joints_by_child_link = {
         required(joint, 'child').get('link'): joint for joint in robot.findall('joint')}
     joint = joints_by_name[joint_name]
@@ -197,7 +197,7 @@ class WheelSetup(NamedTuple):
     wheel_radius: float
     wheel_separation: float
     # A list of joint names when the parameter is set right, but it can be anything or missing
-    hardware_joint_names: Any
+    hardware_joint_names: object
 
     @property
     def wheel_joint_names(self) -> List[str]:
@@ -405,6 +405,12 @@ class TestComparison(unittest.TestCase):
         params = self.controller_params(left_wheel='axle_l', right_wheel='axle_r')
         params[HARDWARE_JOINTS] = ['axle_l', 'axle_r']
         self.assertEqual(mismatches(urdf, params), [])
+
+    def test_fixed_wheel_joint(self) -> None:
+        urdf = self.URDF.replace('name="front_left_wheel_joint" type="continuous"',
+                                 'name="front_left_wheel_joint" type="fixed"')
+        problems = mismatches(urdf, self.controller_params())
+        self.assertEqual(problems, ['front_left_wheel_joint is fixed, not continuous'])
 
     def test_effort_interface(self) -> None:
         # The left wheel's transmission
