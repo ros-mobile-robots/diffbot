@@ -161,7 +161,7 @@ namespace diffbot {
          *
          * Records when commands arrive and scheduled updates run. loop() subtracts
          * these readings from the current reading to decide whether, for example,
-         * 50 ms have passed since a control step or 5 s since a wheel command.
+         * 50 ms have passed since a control step or 1 s since a wheel command.
          *
          * These readings come from millis(), the Teensy's elapsed-millisecond counter.
          * Synchronizing ROS time with the robot's computer does not change this counter.
@@ -214,6 +214,8 @@ namespace diffbot {
          * @return false 
          */
         inline bool debug() { return debug_; };
+        /// How many wheel commands have arrived, for the command timeout (CommandTimeout)
+        inline uint32_t commandCount() const { return command_count_; };
 
         /**
          * @brief Initializes the main node handle and setup publisher and subscriber.
@@ -377,6 +379,7 @@ namespace diffbot {
 
         // DEBUG
         bool debug_;
+        uint32_t command_count_ = 0;
     };
 
 
@@ -478,6 +481,7 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::commandCallback(co
 
     // For the command timeout in loop(): without new commands, it stops the motors (eStop())
     lastUpdateTime().command_received = millis();
+    ++command_count_;
 }
 
 // ROS Subscriber setup to reset both encoders to zero

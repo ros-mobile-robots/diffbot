@@ -4,6 +4,7 @@
 #include "diffbot_base_config.h"
 #include "base_controller.h"
 #include "command_timeout.h"
+#include "drive_step.h"
 #include "adafruit_feather_wing/adafruit_feather_wing.h"
 #include "bno055.h"
 #include "imu_publisher.h"
@@ -62,26 +63,11 @@ void loop()
     // Use the Teensy's elapsed time for scheduling (see BaseController::LastUpdateTime).
     uint32_t now_ms = millis();
 
-    // Without a wheel command for COMMAND_TIMEOUT_MS, stop the motors and reset the PIDs, once.
-    // This comes before the control step, so that no step drives the motors with old commands.
-    if (command_timeout.update(now_ms, base_controller.lastUpdateTime().command_received))
-    {
-        nh.logwarn("Wheel command timeout: motors stopped");
-        base_controller.eStop();
-    }
-
-    // The main control loop for the base_conroller.
-    // This block drives the robot based on a defined control rate
-    if (now_ms - base_controller.lastUpdateTime().control >= 1000.0 / base_controller.publishRate().control_)
-    {
-        base_controller.read();
-        // After a timeout, the motors stay stopped until the next wheel command arrives
-        if (!command_timeout.timedOut())
-        {
-            base_controller.write();
-        }
-        base_controller.lastUpdateTime().control = now_ms;
-    }
+    // Without a wheel command for COMMAND_TIMEOUT_MS, stop the motors and reset the PIDs, then log
+    // once. The control step drives the motors again after the next command (lib/drive_step).
+    driveStep(base_controller, command_timeout, now_ms,
+              1000.0 / base_controller.publishRate().control_,
+              []() { nh.logwarn("Wheel command timeout: motors stopped"); });
 
 #if IMU_ENABLED
     imu_publisher.update();
