@@ -11,7 +11,7 @@ on:
     # synchronize: each new commit gets the check too, as it does for the other workflows.
     types: [opened, edited, reopened, synchronize]
 
-# A newer edit or commit cancels the run that's still checking the older description
+# Runs for the same pull request share a group, and a new one cancels the one still running
 concurrency:
   group: pr-description-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -48,12 +48,14 @@ jobs:
 
           def linked(url):
               """A docs pull request on GitHub, or a page on the documentation site."""
+              # Punctuation after a bare link ends the sentence, as in GitHub's autolinks
+              url = url.rstrip(".,:;!?*_~")
               try:
                   parts = urlsplit(url)
               except ValueError:
                   return False
               host = (parts.hostname or "").lower()
-              if parts.scheme != "https" or parts.username or parts.password:
+              if parts.scheme != "https" or parts.username is not None or parts.password is not None:
                   return False
               if host == "github.com":
                   return re.fullmatch(r"/ros-mobile-robots/ros-mobile-robots\.github\.io/pull/\d+(/.*)?",
