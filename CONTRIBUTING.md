@@ -37,7 +37,7 @@ The Teensy firmware builds with [PlatformIO](https://platformio.org/), which isn
 
 ```bash
 python3 -m venv ~/.venvs/platformio && ~/.venvs/platformio/bin/pip install platformio   # once
-cd diffbot_base/scripts/base_controller
+cd diffbot_firmware
 ~/.venvs/platformio/bin/pio run -e teensy31 && ~/.venvs/platformio/bin/pio run -e teensy40
 ```
 

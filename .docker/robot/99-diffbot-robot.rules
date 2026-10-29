@@ -1,0 +1,14 @@
+# udev rules for the robot's host OS, not for the container: stable names for the Teensy and the
+# lidar, which compose.yaml passes into the container. Without them, the kernel numbers serial
+# devices in the order they appear, so /dev/ttyACM0 or /dev/ttyUSB0 can change.
+# Install on the host:
+#   sudo cp 99-diffbot-robot.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+# Then /dev/teensy and /dev/rplidar link to the devices. If the robot has two devices with the
+# same IDs, tell them apart with ATTRS{serial}=="..." (shown by: udevadm info -a /dev/ttyACM0).
+
+# Teensy 4.0 and 3.2 in USB serial mode: PJRC's vendor ID 16c0, product 0483
+SUBSYSTEM=="tty", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="0483", SYMLINK+="teensy"
+
+# RPLidar A1/A2: its USB adapter, a Silicon Labs CP210x (10c4:ea60)
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", SYMLINK+="rplidar"

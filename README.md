@@ -27,7 +27,7 @@ It provides mounts for different camera modules, such as Raspi Cam v2, OAK-1, OA
 
 ## :package: Package Overview
 
-- [`diffbot_base`](./diffbot_base): ROS Control hardware interface including [`controller_manager`](http://wiki.ros.org/controller_manager) control loop for the real robot. The [`scripts` folder](./diffbot_base/scripts) of this package contains the low-level `base_controller` that is running on the Teensy microcontroller.
+- [`diffbot_base`](./diffbot_base): ROS Control hardware interface including [`controller_manager`](http://wiki.ros.org/controller_manager) control loop for the real robot. It talks to the Teensy microcontroller, whose firmware is in [`diffbot_firmware`](./diffbot_firmware).
 - [`diffbot_bringup`](./diffbot_bringup): Launch files to bring up the hardware drivers (camera, lidar, imu, ultrasonic, ...) for the real DiffBot robot.
 - [`diffbot_control`](./diffbot_control): Configurations for the [`diff_drive_controller`](http://wiki.ros.org/diff_drive_controller) of ROS Control used in Gazebo simulation and the real robot.
 - [`diffbot_description`](./diffbot_description): URDF description of DiffBot including its sensors.
@@ -290,7 +290,7 @@ Contributions to these tasks are welcome, see also the [contribution section](./
 - Add `diffbot_driver` package for ultrasonic ranger, imu and motor driver node code.
 - Make use of the imu odometry data to improve the encoder odometry using a Kalman filter, such as [`robot_localization`](https://github.com/cra-ros-pkg/robot_localization) (or the less active [`robot_pose_ekf`](http://wiki.ros.org/robot_pose_ekf)).
 - The current implementation of the ROS Control `hardware_interface::RobotHW` uses a high level PID controller. This is working but also
-test a low level PID on the Teensy 3.2 mcu using the [Arduino library of the Grove i2c motor driver](https://github.com/Seeed-Studio/Grove_I2C_Motor_Driver_v1_3). -> This is partly implemented (see `diffbot_base/scripts/base_controller`)
+test a low level PID on the Teensy 3.2 mcu using the [Arduino library of the Grove i2c motor driver](https://github.com/Seeed-Studio/Grove_I2C_Motor_Driver_v1_3). -> This is partly implemented (see [`diffbot_firmware`](./diffbot_firmware))
 Also replace `Wire.h` with the improved [`i2c_t3`](https://github.com/nox771/i2c_t3) library.
 
 ### Navigation
