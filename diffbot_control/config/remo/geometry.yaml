@@ -1,5 +1,9 @@
-# Remo's wheel geometry for diff_drive_controller, the hardware interface (diffbot_base) and the
-# Teensy firmware, measured on the robot, the same values as in its URDF:
+# Remo's nominal wheel geometry for diff_drive_controller's odometry and wheel commands,
+# measured on the robot and kept consistent with its URDF. The hardware interface (diffbot_base)
+# also reads wheel_radius to convert its speed limit to rad/s for host-side PID limits and
+# motor-command scaling. The Teensy firmware fetches wheel_radius at startup, but its active
+# motor-control loop does not use it.
+# The values, and where the URDF has them:
 # - wheel_radius: half the mean of the two wheels' diameters, 65.5 and 66.5 mm
 #   (radius in remo_description/config/remo/front_wheel.yaml)
 # - wheel_separation: from the middle of one tire to the middle of the other (in the URDF: base
