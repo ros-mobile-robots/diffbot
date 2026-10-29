@@ -9,6 +9,8 @@ namespace diffbot {
             PID(float min_val, float max_val, float kp, float ki, float kd);
             double compute(float setpoint, float measured_value);
             void updateConstants(float kp, float ki, float kd);
+            // Clears the integral and the last error, for example after the motors were stopped
+            void reset();
 
             inline double proportional() { return proportional_; };
             inline double integral() { return integral_; };

@@ -3,6 +3,7 @@
 
 #include "diffbot_base_config.h"
 #include "base_controller.h"
+#include "command_timeout.h"
 #include "adafruit_feather_wing/adafruit_feather_wing.h"
 #include "bno055.h"
 #include "imu_publisher.h"
@@ -20,6 +21,9 @@ AdafruitMotorController motor_controller_right = AdafruitMotorController(MOTOR_R
 AdafruitMotorController motor_controller_left = AdafruitMotorController(MOTOR_LEFT);
 
 BaseController<AdafruitMotorController, Adafruit_MotorShield> base_controller(nh, &motor_controller_left, &motor_controller_right);
+
+// Stops the motors when the wheel commands from the robot's computer stop arriving (loop())
+CommandTimeout command_timeout(COMMAND_TIMEOUT_MS);
 
 // The Arduino clock for the IMU publisher, which the unit tests replace with a fake one
 struct ArduinoClock
@@ -58,21 +62,25 @@ void loop()
     // Use the Teensy's elapsed time for scheduling (see BaseController::LastUpdateTime).
     uint32_t now_ms = millis();
 
+    // Without a wheel command for COMMAND_TIMEOUT_MS, stop the motors and reset the PIDs, once.
+    // This comes before the control step, so that no step drives the motors with old commands.
+    if (command_timeout.update(now_ms, base_controller.lastUpdateTime().command_received))
+    {
+        nh.logwarn("Wheel command timeout: motors stopped");
+        base_controller.eStop();
+    }
+
     // The main control loop for the base_conroller.
     // This block drives the robot based on a defined control rate
     if (now_ms - base_controller.lastUpdateTime().control >= 1000.0 / base_controller.publishRate().control_)
     {
         base_controller.read();
-        base_controller.write();
+        // After a timeout, the motors stay stopped until the next wheel command arrives
+        if (!command_timeout.timedOut())
+        {
+            base_controller.write();
+        }
         base_controller.lastUpdateTime().control = now_ms;
-    }
-
-    // After 5 s without a wheel command, set both target velocities to zero.
-    // eStop() does not directly stop the motors or reset the PIDs.
-    if (now_ms - base_controller.lastUpdateTime().command_received >= E_STOP_COMMAND_RECEIVED_DURATION * 1000UL)
-    {
-        nh.logwarn("Wheel command timeout: targets set to zero");
-        base_controller.eStop();
     }
 
 #if IMU_ENABLED
