@@ -25,7 +25,7 @@ catkin build --catkin-make-args run_tests && catkin_test_results build   # all t
 rostest diffbot_gazebo sim_drive_diffbot.test                            # or sim_drive_remo.test
 ```
 
-The firmware needs PlatformIO, which isn't in the dev container. Build it in its own container (`.docker/firmware`), from the host's repository root, not in the dev container: with `LOCAL_UID` and `LOCAL_GID` exported, run `docker compose -f .docker/firmware/compose.yaml build firmware`, then `docker compose -f .docker/firmware/compose.yaml run --rm firmware pio run -e teensy31`, and the same with `-e teensy40`. Or install PlatformIO on the host with its installer script or in a virtual environment (CONTRIBUTING.md shows both), not with `pip` into the system Python, and run `pio run -e teensy31 && pio run -e teensy40` in `diffbot_firmware`.
+The firmware needs PlatformIO, which isn't in the dev container. Build it in its own container (`.docker/firmware`), on the host, not in the dev container: `.docker/firmware/pio run -e teensy31` and `.docker/firmware/pio run -e teensy40`. The script builds the image when needed and runs `pio` in `diffbot_firmware` as the host user (`LOCAL_UID` and `LOCAL_GID` override the IDs). Or install PlatformIO on the host with its installer script or in a virtual environment (CONTRIBUTING.md shows both), not with `pip` into the system Python, and run `pio run -e teensy31 && pio run -e teensy40` in `diffbot_firmware`.
 
 Without a display, Gazebo runs headless in the tests. Expect about a minute per robot for the simulation test.
 

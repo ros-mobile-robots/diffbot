@@ -9,13 +9,11 @@ The firmware for the robots' Teensy microcontroller: it reads the wheel encoders
 | [`test`](test) | Checks that run on the Teensy |
 | [`sketches`](sketches) | Older Arduino sketches: the encoders alone over rosserial, the same with the BNO055 IMU, and a check of the encoders by hand |
 
-Build both boards that CI builds in the firmware's container, [`.docker/firmware`](../.docker/firmware), from the repository's root folder. It needs only Docker:
+Build both boards that CI builds in the firmware's container, [`.docker/firmware`](../.docker/firmware). It needs only Docker. The script [`.docker/firmware/pio`](../.docker/firmware/pio) builds the image when needed and runs `pio` in the container as your user. From the repository's root folder:
 
 ```bash
-export LOCAL_UID=$(id -u) LOCAL_GID=$(id -g)
-docker compose -f .docker/firmware/compose.yaml build firmware
-docker compose -f .docker/firmware/compose.yaml run --rm firmware pio run -e teensy31
-docker compose -f .docker/firmware/compose.yaml run --rm firmware pio run -e teensy40
+.docker/firmware/pio run -e teensy31
+.docker/firmware/pio run -e teensy40
 ```
 
 The firmware files land in `.pio/build/<board>/` in this folder, for example `firmware.hex`, which PJRC's [Teensy Loader](https://www.pjrc.com/teensy/loader.html) can flash. With PlatformIO installed on your PC ([CONTRIBUTING](../CONTRIBUTING.md)), `pio run -e teensy31 && pio run -e teensy40` in this folder builds them too.

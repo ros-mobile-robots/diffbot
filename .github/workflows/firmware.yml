@@ -18,21 +18,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
-      # The build runs in the firmware image (.docker/firmware), so CI uses the same pinned
-      # PlatformIO as a local build in the container.
-      # Settings for the following steps: a line NAME=value written to the file that $GITHUB_ENV
-      # names becomes an environment variable in every later step of this job (GitHub's workflow
-      # commands, "Setting an environment variable"). LOCAL_UID and LOCAL_GID are the runner's
-      # user, so the container runs as it. PIO_CORE is a folder for PlatformIO's downloads in
-      # $RUNNER_TEMP, the runner's temporary folder, emptied at the start and end of each job (GitHub's
-      # default environment variables). runner.temp below is the same folder.
+      # The build runs in the firmware image (.docker/firmware), through the same script as a local
+      # build, so CI uses the same pinned PlatformIO. The script sets LOCAL_UID and LOCAL_GID to
+      # the runner's user.
+      # PIO_CORE is a folder for PlatformIO's downloads in $RUNNER_TEMP, the runner's temporary
+      # folder, emptied at the start and end of each job (GitHub's default environment
+      # variables). A line NAME=value written to the file that $GITHUB_ENV names becomes an
+      # environment variable in every later step of this job (GitHub's workflow commands,
+      # "Setting an environment variable"). runner.temp below is the same folder.
       - name: Settings for the firmware container
         run: |
-          {
-            echo "LOCAL_UID=$(id -u)"
-            echo "LOCAL_GID=$(id -g)"
-            echo "PIO_CORE=$RUNNER_TEMP/pio-core"
-          } >> "$GITHUB_ENV"
+          echo "PIO_CORE=$RUNNER_TEMP/pio-core" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/pio-core"
       # Each job starts on a fresh machine, so PlatformIO would download the Teensy toolchain every
       # time. actions/cache restores the PIO_CORE folder from an earlier run and saves it after the
       # job. compose.yaml mounts that folder as the container's /pio-core. One cache per board, so
@@ -43,9 +40,5 @@ jobs:
           key: pio-core-${{ runner.os }}-${{ runner.arch }}-${{ matrix.env }}-${{ hashFiles('.docker/firmware/requirements.txt', 'diffbot_firmware/platformio.ini') }}
           restore-keys: |
             pio-core-${{ runner.os }}-${{ runner.arch }}-${{ matrix.env }}-
-      - name: Build the firmware image
-        run: |
-          mkdir -p "$PIO_CORE"
-          docker compose -f .docker/firmware/compose.yaml build firmware
       - name: Build the firmware
-        run: docker compose -f .docker/firmware/compose.yaml run --rm -T firmware pio run -e ${{ matrix.env }}
+        run: .docker/firmware/pio run -e ${{ matrix.env }}
