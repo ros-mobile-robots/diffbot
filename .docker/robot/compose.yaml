@@ -1,0 +1,64 @@
+# Runs the robot image on the robot's computer, with Docker Compose. In this folder:
+#   docker compose up -d --build    # build the image if needed, start the bringup in the background
+#   docker compose logs -f          # follow its output (Ctrl+C stops following, not the robot)
+#   docker compose down             # stop and remove the containers
+# Settings come from a .env file in this folder: copy env.example, which explains each one:
+#   ROBOT_MODEL     remo (default) or diffbot
+#   COMPOSE_PROFILES=lidar          starts the lidar too
+#   TEENSY_DEVICE   the Teensy's stable name on the host (default /dev/teensy, see 99-diffbot-robot.rules)
+#   LIDAR_DEVICE    the lidar's (default /dev/rplidar)
+#   DIALOUT_GID     the numeric ID of the host's group that owns the serial devices (default 20, dialout)
+#   ROS_MASTER_URI, ROS_IP, ROS_HOSTNAME   as on ROS Network Setup; without them, roslaunch starts its own master
+#   ROBOT_DATA      a host folder for ROS logs and bags (default ~/robot-data). It must exist and
+#                   belong to UID 1000, the user ros in the container: mkdir ~/robot-data
+
+name: diffbot-robot
+
+# Settings that both services share (a YAML anchor)
+x-robot: &robot
+  image: diffbot-robot:noetic
+  # The host's network, so that ROS reaches the PC as in the native setup, without port lists
+  network_mode: host
+  # Let the user ros in the container open the serial devices: add the numeric ID of the group
+  # that owns them on the host. A group name could have a different ID in the container.
+  group_add:
+    - "${DIALOUT_GID:-20}"
+  environment:
+    - ROS_MASTER_URI
+    - ROS_IP
+    - ROS_HOSTNAME
+  # ROS logs and bags in a host folder. The long syntax doesn't create a missing folder: Docker
+  # would create it for root, and the user ros couldn't write its logs.
+  volumes:
+    - type: bind
+      source: ${ROBOT_DATA:-${HOME}/robot-data}
+      target: /home/ros/.ros
+      bind:
+        create_host_path: false
+  # The containers' output (docker compose logs) in Docker's local log format. By default it keeps
+  # 5 files of 20 MB per container and deletes the oldest, so it can't fill the SD card. Docker's
+  # default format, json-file, keeps everything unless rotation is configured.
+  logging:
+    driver: local
+
+services:
+  # The hardware interface, the controllers and rosserial to the Teensy, which drives the motors
+  # and reads the encoders. The launch file expects the Teensy at /dev/ttyACM0.
+  bringup:
+    <<: *robot
+    build:
+      context: ../..
+      dockerfile: .docker/robot/Dockerfile
+    devices:
+      - ${TEENSY_DEVICE:-/dev/teensy}:/dev/ttyACM0
+    command: roslaunch diffbot_bringup bringup.launch model:=${ROBOT_MODEL:-remo}
+
+  # The lidar driver, publishing /diffbot/scan; only with the lidar profile (COMPOSE_PROFILES=lidar
+  # in .env, or --profile lidar). Its launch file expects /dev/ttyUSB0.
+  lidar:
+    <<: *robot
+    profiles: [lidar]
+    depends_on: [bringup]
+    devices:
+      - ${LIDAR_DEVICE:-/dev/rplidar}:/dev/ttyUSB0
+    command: roslaunch diffbot_bringup lidar.launch

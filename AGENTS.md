@@ -8,7 +8,8 @@ ROS 1 Noetic packages for two differential drive robots, **DiffBot** and **Remo*
 
 | Package | What's in it |
 |---|---|
-| `diffbot_base` | Hardware interface for the real robot; Teensy firmware in `scripts/base_controller` (PlatformIO) |
+| `diffbot_base` | Hardware interface for the real robot |
+| `diffbot_firmware` | Teensy firmware (PlatformIO project, not a ROS package); old Arduino test sketches in `sketches/` |
 | `diffbot_control` | `diff_drive_controller` configuration; per robot: `config/<model>/geometry.yaml` (wheel radius and separation) and `config/<model>/pid.yaml` (Gazebo's wheel gains, simulation only) |
 | `diffbot_description` | DiffBot's URDF (xacro) and its part sizes and masses in `config/diffbot/*.yaml` |
 | `diffbot_gazebo` | Worlds, launch files and the simulation test `test/test_drive.py` |
@@ -24,7 +25,7 @@ catkin build --catkin-make-args run_tests && catkin_test_results build   # all t
 rostest diffbot_gazebo sim_drive_diffbot.test                            # or sim_drive_remo.test
 ```
 
-The firmware needs PlatformIO, which isn't in the dev container. On the host, install it with PlatformIO's installer script or in a virtual environment (CONTRIBUTING.md shows one), not with `pip` into the system Python; then run `pio run -e teensy31 && pio run -e teensy40` in `diffbot_base/scripts/base_controller` of the host's clone.
+The firmware needs PlatformIO, which isn't in the dev container. On the host, install it with PlatformIO's installer script or in a virtual environment (CONTRIBUTING.md shows one), not with `pip` into the system Python; then run `pio run -e teensy31 && pio run -e teensy40` in `diffbot_firmware` of the host's clone.
 
 Without a display, Gazebo runs headless in the tests. Expect about a minute per robot for the simulation test.
 

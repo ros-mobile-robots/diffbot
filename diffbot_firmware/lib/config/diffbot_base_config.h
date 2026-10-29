@@ -26,7 +26,7 @@
 #define UPDATE_RATE_IMU 1
 #define UPDATE_RATE_DEBUG 5
 
-#define E_STOP_COMMAND_RECEIVED_DURATION 5 // Stop motors if no command was received after this amount of seconds
+#define E_STOP_COMMAND_RECEIVED_DURATION 5 // Set the target velocities to zero if no command arrived for this many seconds (#146)
 
 
 
