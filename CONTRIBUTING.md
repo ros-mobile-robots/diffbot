@@ -39,9 +39,10 @@ The Teensy firmware builds with [PlatformIO](https://platformio.org/), which isn
 python3 -m venv ~/.venvs/platformio && ~/.venvs/platformio/bin/pip install platformio   # once
 cd diffbot_firmware
 ~/.venvs/platformio/bin/pio run -e teensy31 && ~/.venvs/platformio/bin/pio run -e teensy40
+~/.venvs/platformio/bin/pio test -e native   # the unit tests that run on the PC; they need gcc
 ```
 
-CI runs on every pull request: [industrial_ci](https://github.com/ros-industrial/industrial_ci) builds and tests the workspace for Noetic, the firmware is built for both boards, and the dev container image is built.
+CI runs on every pull request: [industrial_ci](https://github.com/ros-industrial/industrial_ci) builds and tests the workspace for Noetic, the firmware is built for both boards and its unit tests run, and the dev container image is built.
 
 ## Pull requests
 

@@ -12,7 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # Every board in platformio.ini, so none of them can break unnoticed
+      # Every board in platformio.ini, so none of them can break unnoticed (the native
+      # environment is for the unit tests below)
       matrix:
         env: [teensy31, teensy40]
 
@@ -34,3 +35,27 @@ jobs:
         run: |
           cd diffbot_firmware
           pio run -e ${{ matrix.env }}
+
+  # The firmware's unit tests that run on the PC, without a Teensy (the native environment in
+  # platformio.ini), for example the BNO055 driver with a fake I2C bus
+  unit_tests:
+    name: unit tests (native)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Run the unit tests
+        run: |
+          cd diffbot_firmware
+          pio test -e native

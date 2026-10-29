@@ -32,7 +32,7 @@ Without a display, Gazebo runs headless in the tests. Expect about a minute per 
 ## Before you call a change done
 
 - **Model, controller or simulation changes:** run both robots' simulation tests and report the measured motions from the result files, not only pass/fail. [Simulation Test](https://ros-mobile-robots.com/development/simulation-test/) explains what they measure.
-- **Firmware changes:** build both PlatformIO environments.
+- **Firmware changes:** build both Teensy environments and run the unit tests on the PC (`pio test -e native`).
 - **Everything:** `catkin build` without new warnings, and CI green on the pull request. Don't loosen a tolerance, skip a test or silence a warning to get there; explain the failure instead.
 
 ## Things that are easy to get wrong
