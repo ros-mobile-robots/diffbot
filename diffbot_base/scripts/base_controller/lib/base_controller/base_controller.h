@@ -40,8 +40,9 @@ namespace diffbot {
      * To keep track when a new update is needed, the \ref last_update_time_ member is used, 
      * which stores the time stamps when the last update happened. 
      * Additionally the \ref LastUpdateTime::command_received time stamp
-     * is used to check for connection losses to the high level hardware interface, which would then
-     * stop the motors (see \ref eStop), if no command message was received for a specified amount of time.
+     * is used to check for connection losses to the high level hardware interface, which then
+     * sets the target velocities to zero (see \ref eStop), if no command message was received for a
+     * specified amount of time.
      * 
      * The BaseController subscribes to the target wheel command angular velocities
      * (\ref diffbot_msgs::WheelsCmdStamped on the "wheel_cmd_velocities" topic) with the 
@@ -157,20 +158,19 @@ namespace diffbot {
 
         /**
          * @brief Keeps track of the last update times.
-         * 
-         * Inside the main.cpp the members of this \ref last_update_time_
-         * are updated everytime the corresponding event happens. 
-         * This is used together with the \ref update_rate_ to check if
-         * enough time elapsed for a new update. For example reading new
-         * values from the encoders and writing the received motor commands.
          *
-         * The times are the Teensy's own clock, millis(), not ROS time: ROS time follows
-         * the host's clock through rosserial's time sync, and jumps when that clock is
-         * corrected or when the Teensy connects to a host whose clock is earlier. After a jump
-         * back, a time difference in ROS time would be negative until the clock caught up: no
-         * control updates and no emergency stop for that long, while the motors keep their last
-         * command. millis() only counts up; the unsigned differences stay right when it wraps
-         * after 49 days.
+         * Records when commands arrive and scheduled updates run. loop() subtracts
+         * these readings from the current reading to decide whether, for example,
+         * 50 ms have passed since a control step or 5 s since a wheel command.
+         *
+         * These readings come from millis(), the Teensy's elapsed-millisecond counter.
+         * Synchronizing ROS time with the robot's computer does not change this counter.
+         * Using ROS time here could delay updates and the command timeout when that
+         * time moved backward, or make a command expire early when it moved forward.
+         *
+         * The counter returns to zero after about 49.7 days. Unsigned subtraction still
+         * gives the elapsed milliseconds if the readings are less than one cycle apart
+         * and the Teensy has not restarted between them.
          */
         struct LastUpdateTime
         {
@@ -237,9 +237,11 @@ namespace diffbot {
         void init();
 
         /**
-         * @brief Stops the motors, in case no wheel commands are received over a longer time period.
-         * 
+         * @brief Sets both target wheel velocities to zero after a command timeout.
+         *
          * Sets the \ref wheel_cmd_velocity_left_ and \ref wheel_cmd_velocity_right_ to zero.
+         * It doesn't stop the motors directly or reset the PIDs: the next control step uses the
+         * zero targets, and stored PID state can keep the motor output nonzero (#146).
          * This method is called when the \ref commandCallback wasn't called within the 
          * \ref LastUpdateTime::command_received period on the /diffbot/wheel_cmd_velocities topic.
          * 

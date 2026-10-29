@@ -15,8 +15,9 @@ diffbot::JointState diffbot::Encoder::jointState()
 {
     long encoder_ticks = encoder.read();
     // This function calculates the motor's rotational (angular) velocity based on encoder ticks and delta time.
-    // The time is the Teensy's micros(), not ROS time, which can jump (see BaseController::LastUpdateTime);
-    // the unsigned difference stays right when micros() wraps after 71 minutes
+    // The Teensy's local microsecond counter, which ROS time synchronization doesn't change (see
+    // BaseController::LastUpdateTime). It returns to zero after about 71.6 minutes. Unsigned
+    // subtraction still gives the elapsed time if two calls are less than one cycle apart.
     uint32_t current_us = micros();
 
     // Convert the delta time to seconds

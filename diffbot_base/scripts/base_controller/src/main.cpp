@@ -31,8 +31,7 @@ void loop()
 {
     static bool imu_is_initialized;
 
-    // The times are the Teensy's millis(), which only counts up; ROS time can jump (see
-    // BaseController::LastUpdateTime). Unsigned differences stay right when millis() wraps
+    // Use the Teensy's elapsed time for scheduling (see BaseController::LastUpdateTime).
     uint32_t now_ms = millis();
 
     // The main control loop for the base_conroller.
@@ -44,11 +43,11 @@ void loop()
         base_controller.lastUpdateTime().control = now_ms;
     }
 
-    // This block stops the motor when no wheel command is received
-    // from the high level hardware_interface::RobotHW
+    // After 5 s without a wheel command, set both target velocities to zero.
+    // eStop() does not directly stop the motors or reset the PIDs.
     if (now_ms - base_controller.lastUpdateTime().command_received >= E_STOP_COMMAND_RECEIVED_DURATION * 1000UL)
     {
-        nh.logwarn("Emergency STOP");
+        nh.logwarn("Wheel command timeout: targets set to zero");
         base_controller.eStop();
     }
 
