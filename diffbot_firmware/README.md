@@ -13,6 +13,7 @@ Build both boards that CI builds in the firmware's container, [`.docker/firmware
 
 ```bash
 export LOCAL_UID=$(id -u) LOCAL_GID=$(id -g)
+docker compose -f .docker/firmware/compose.yaml build firmware
 docker compose -f .docker/firmware/compose.yaml run --rm firmware pio run -e teensy31
 docker compose -f .docker/firmware/compose.yaml run --rm firmware pio run -e teensy40
 ```

@@ -37,11 +37,12 @@ The Teensy firmware builds with [PlatformIO](https://platformio.org/), which isn
 
 ```bash
 export LOCAL_UID=$(id -u) LOCAL_GID=$(id -g)
+docker compose -f .docker/firmware/compose.yaml build firmware
 docker compose -f .docker/firmware/compose.yaml run --rm firmware pio run -e teensy31
 docker compose -f .docker/firmware/compose.yaml run --rm firmware pio run -e teensy40
 ```
 
-The first build downloads the Teensy toolchain, which takes about a minute. The firmware files land in `diffbot_firmware/.pio/build/<board>/`, for example `firmware.hex`, which PJRC's [Teensy Loader](https://www.pjrc.com/teensy/loader.html) can flash. CI builds the same way.
+`build` makes the image, again after a change of its Dockerfile. The first firmware build downloads the Teensy toolchain, which needs the internet and took about a minute on our test PC. The firmware files land in `diffbot_firmware/.pio/build/<board>/`, for example `firmware.hex`, which PJRC's [Teensy Loader](https://www.pjrc.com/teensy/loader.html) can flash. Don't build in the container and on the PC at the same time: both write to that `.pio` folder. CI builds the same way.
 
 Or install PlatformIO on your PC, outside the dev container, with its [installer script](https://docs.platformio.org/en/stable/core/installation/methods/installer-script.html) or in a virtual environment. Many Linux distributions don't allow `pip install` into the system Python. Then build from your diffbot clone on the PC:
 
