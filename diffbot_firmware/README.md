@@ -9,7 +9,7 @@ The firmware for the robots' Teensy microcontroller: it reads the wheel encoders
 | [`test`](test) | Checks that run on the Teensy |
 | [`sketches`](sketches) | Older Arduino sketches: the encoders alone over rosserial, the same with the BNO055 IMU, and a check of the encoders by hand |
 
-Build both boards that CI builds in the firmware's container, [`.docker/firmware`](../.docker/firmware). It needs only Docker. The script [`.docker/firmware/pio`](../.docker/firmware/pio) builds the image when needed and runs `pio` in the container as your user. From the repository's root folder:
+Build both boards that CI builds in the firmware's container, [`.docker/firmware`](../.docker/firmware). It needs only Docker. The script [`.docker/firmware/pio`](../.docker/firmware/pio) builds the image and runs `pio` in the container as your user. From the repository's root folder:
 
 ```bash
 .docker/firmware/pio run -e teensy31

@@ -3,8 +3,8 @@
 # PlatformIO doesn't have to be installed on your PC. From anywhere in the repository:
 #   .docker/firmware/pio run -e teensy40      # build the firmware for the Teensy 4.0
 #   .docker/firmware/pio run -e teensy31      # and for the Teensy 3.1/3.2
-# It builds the image first when it's missing or its Dockerfile changed, then runs pio in
-# diffbot_firmware with the arguments you give it.
+# It builds the image first, then runs pio in diffbot_firmware with the arguments you give it.
+# Docker reuses the last build when the Dockerfile and requirements.txt haven't changed.
 # LOCAL_UID and LOCAL_GID are your user and group ID unless you set them, for example
 #   LOCAL_UID=1234 LOCAL_GID=1234 .docker/firmware/pio run -e teensy40
 set -euo pipefail
