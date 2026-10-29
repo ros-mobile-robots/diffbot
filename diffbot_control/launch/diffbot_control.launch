@@ -6,6 +6,7 @@
     <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
     <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
     <arg name="rqt_robot_steering" default="true" doc="start rqt_robot_steering, a window with sliders to drive the robot"/>
+    <arg name="ekf" default="false" doc="fuse the IMU's yaw rate with the wheel odometry in an EKF (diffbot_control/launch/ekf.launch)"/>
 
     <!-- Load controller configurations from YAML file to parameter server -->
     <rosparam command="load"
@@ -18,6 +19,12 @@
     <!-- Gazebo's wheel velocity gains for this robot -->
     <rosparam command="load"
         file="$(find diffbot_control)/config/$(arg model)/pid.yaml"/>
+
+    <!-- With the EKF, it publishes the transform odom → base_footprint, not the controller. Set in
+         both positions: a value left on the parameter server by an earlier run with the EKF would
+         otherwise keep the controller's transform off -->
+    <param name="/diffbot/mobile_base_controller/enable_odom_tf" type="bool" value="$(eval not arg('ekf'))"/>
+    <include if="$(arg ekf)" file="$(find diffbot_control)/launch/ekf.launch"/>
 
     <!-- load the controllers -->
     <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"

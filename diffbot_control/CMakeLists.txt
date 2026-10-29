@@ -204,6 +204,12 @@ install(DIRECTORY config launch rviz
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
+# The IMU gate in front of the EKF (launch/ekf.launch)
+catkin_install_python(PROGRAMS
+  scripts/imu_gate.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
 #############
 ## Testing ##
 #############
@@ -216,3 +222,11 @@ install(DIRECTORY config launch rviz
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+
+if(CATKIN_ENABLE_TESTING)
+  # The IMU gate's checks, without a ROS master
+  catkin_add_nosetests(test/test_imu_gate.py)
+  # The EKF with the gate, on a stepped simulated clock (test/test_ekf_synthetic.py)
+  find_package(rostest REQUIRED)
+  add_rostest(test/ekf_synthetic.test)
+endif()

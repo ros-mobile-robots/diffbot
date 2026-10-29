@@ -2,6 +2,7 @@
 <launch>
     <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
     <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
+    <arg name="ekf" default="false" doc="fuse the IMU's yaw rate with the wheel odometry in an EKF (diffbot_control/launch/ekf.launch)"/>
     <arg name="description_package" default="$(eval find(arg('model') + '_description'))" />
     <arg name="urdf_file" default="$(find xacro)/xacro '$(arg description_package)/urdf/$(arg model).urdf.xacro'" />
 
@@ -23,6 +24,12 @@
     <!-- Load base config to the parameter server -->
     <rosparam command="load" 
               file="$(find diffbot_base)/config/base.yaml"/>
+
+    <!-- With the EKF, it publishes the transform odom → base_footprint, not the controller. Set in
+         both positions: a value left on the parameter server by an earlier run with the EKF would
+         otherwise keep the controller's transform off -->
+    <param name="/diffbot/mobile_base_controller/enable_odom_tf" type="bool" value="$(eval not arg('ekf'))"/>
+    <include if="$(arg ekf)" file="$(find diffbot_control)/launch/ekf.launch"/>
 
     <!-- Load the controllers -->
     <!-- This will use the controller manager that got started inside the difbot_base node -->

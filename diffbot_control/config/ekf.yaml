@@ -1,0 +1,54 @@
+# robot_localization's EKF (ekf_localization_node), which ekf.launch starts in the diffbot
+# namespace with these parameters. It fuses the wheel odometry with the IMU's yaw rate and
+# publishes /diffbot/odometry/filtered and the transform odom → base_footprint; with the EKF on,
+# the drive controller doesn't publish that transform (enable_odom_tf false).
+# The parameters: http://docs.ros.org/en/noetic/api/robot_localization/html/state_estimation_nodes.html
+
+frequency: 50          # Hz, as the controller's odometry and the IMU
+# When no measurement arrives for this long (s), the filter keeps predicting from its last state
+sensor_timeout: 0.1
+# The robot drives on a flat floor: the filter keeps z, roll and pitch and their rates at 0
+two_d_mode: true
+
+map_frame: map
+odom_frame: odom
+base_link_frame: base_footprint
+# The filter estimates the pose in odom: continuous, without the jumps of a map-based localization
+# such as amcl, which publishes map → odom itself
+world_frame: odom
+publish_tf: true
+
+# In the simulation, a reset of Gazebo's world sets the clock back, and every measurement looks
+# older than the one before; the filter then starts again from the new time, instead of ignoring the
+# measurements until the clock has caught up. robot_localization does this only with simulated
+# time; on the robot, a clock that goes back makes the filter ignore the measurements until then
+reset_on_time_jump: true
+
+# Each sensor's config lists which of its values the filter fuses, in this order:
+#   x, y, z, roll, pitch, yaw,
+#   vx, vy, vz, vroll, vpitch, vyaw,
+#   ax, ay, az
+
+# The drive controller's odometry: only its velocities, from the wheels. Its pose is the integral of
+# the same velocities; fusing both would count the wheels twice. vy is 0 for a differential drive
+# robot, which can't move sideways; fusing it, with the controller's variance, keeps the estimate
+# from drifting sideways
+odom0: mobile_base_controller/odom
+odom0_config: [false, false, false,
+               false, false, false,
+               true,  true,  false,
+               false, false, true,
+               false, false, false]
+odom0_differential: false
+odom0_queue_size: 10
+
+# The IMU, after imu_gate.py: only its yaw rate. It has no orientation (the firmware's
+# imu/data_raw), and its acceleration would need its bias removed before it helps
+imu0: imu/data_validated
+imu0_config: [false, false, false,
+              false, false, false,
+              false, false, false,
+              false, false, true,
+              false, false, false]
+imu0_differential: false
+imu0_queue_size: 10
