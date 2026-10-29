@@ -7,6 +7,10 @@ diffbot_control/config/<model>/geometry.yaml, which diff_drive_controller uses f
 the real robot's hardware interface for the wheel speeds. If one changes without the other, the
 odometry and the simulated robot disagree, and the simulation test only notices large differences.
 
+It also checks the drive wheels' joints, which the controller and the hardware interface find by
+name: the controller's left_wheel and right_wheel name continuous joints in the URDF, each with a
+transmission for a velocity interface, and the hardware interface's joints are the same ones.
+
 The test asks roslaunch which parameters the launch files really set (--dump-params, without
 starting anything), so it also notices a launch file that loads the wrong file:
 - the simulation: diffbot_gazebo/launch/diffbot_view.launch, which loads the URDF, and
@@ -28,7 +32,8 @@ import yaml
 MODELS = ("diffbot", "remo")
 TOLERANCE = 1e-4  # m
 NAMESPACE = "/diffbot"
-LEFT, RIGHT = "front_left_wheel", "front_right_wheel"
+CONTROLLER = NAMESPACE + "/mobile_base_controller/"
+VELOCITY = "VelocityJointInterface"  # diff_drive_controller commands the wheels' velocity
 
 
 def dump_params(package, launch_file, **args):
@@ -68,6 +73,12 @@ def joint_position(robot, joint_name):
     return position
 
 
+def wheel_joints(params, side):
+    """The controller's wheel joints on one side, "left" or "right": a name or a list of names."""
+    names = params[CONTROLLER + side + "_wheel"]
+    return [names] if isinstance(names, str) else list(names)
+
+
 def collision_radius(robot, link_name):
     """Radius of a wheel's collision, a sphere or a cylinder."""
     link = next(l for l in robot.findall("link") if l.get("name") == link_name)
@@ -81,26 +92,42 @@ def collision_radius(robot, link_name):
 def mismatches(urdf, params):
     """Where the URDF and the controller parameters disagree, as messages; empty if they agree."""
     robot = ET.fromstring(urdf)
-    controller = NAMESPACE + "/mobile_base_controller/"
-    radius = params[controller + "wheel_radius"]
-    separation = params[controller + "wheel_separation"]
+    radius = params[CONTROLLER + "wheel_radius"]
+    separation = params[CONTROLLER + "wheel_separation"]
+    left, right = wheel_joints(params, "left"), wheel_joints(params, "right")
+    joints = {j.get("name"): j for j in robot.findall("joint")}
+    interfaces = {j.get("name"): [h.text.strip() for h in j.findall("hardwareInterface")]
+                  for t in robot.findall("transmission") for j in t.findall("joint")}
     found = []
-    for wheel in (LEFT, RIGHT):
-        urdf_radius = collision_radius(robot, wheel)
+    for name in left + right:
+        joint = joints.get(name)
+        if joint is None:
+            found.append("the controller's wheel joint {} isn't in the URDF".format(name))
+            continue
+        if joint.get("type") != "continuous":
+            found.append("{} is {}, not continuous".format(name, joint.get("type")))
+        if not any(i.endswith(VELOCITY) for i in interfaces.get(name, [])):
+            found.append("{} has no transmission with a {}".format(name, VELOCITY))
+        link = joint.find("child").get("link")
+        urdf_radius = collision_radius(robot, link)
         if abs(urdf_radius - radius) > TOLERANCE:
             found.append("{} collision radius {:.4f} m, but wheel_radius is {:.4f} m".format(
-                wheel, urdf_radius, radius))
-    left = joint_position(robot, LEFT + "_joint")
-    right = joint_position(robot, RIGHT + "_joint")
-    urdf_separation = math.dist(left, right)
-    if abs(urdf_separation - separation) > TOLERANCE:
-        found.append("the wheel joints are {:.4f} m apart, but wheel_separation is {:.4f} m".format(
-            urdf_separation, separation))
+                link, urdf_radius, radius))
+    hardware = params.get(NAMESPACE + "/hardware_interface/joints")
+    if hardware is not None and sorted(hardware) != sorted(left + right):
+        found.append("the hardware interface's joints {} aren't the controller's wheels {}".format(
+            hardware, left + right))
+    if left[0] in joints and right[0] in joints:
+        # Between the first wheel of each side, as diff_drive_controller takes them
+        urdf_separation = math.dist(joint_position(robot, left[0]), joint_position(robot, right[0]))
+        if abs(urdf_separation - separation) > TOLERANCE:
+            found.append("the wheel joints are {:.4f} m apart, but wheel_separation is {:.4f} m".format(
+                urdf_separation, separation))
     return found
 
 
 class TestComparison(unittest.TestCase):
-    """The comparison itself notices a wrong radius and a wrong separation."""
+    """The comparison itself notices a wrong radius, separation, joint or interface."""
 
     URDF = """<robot name="test">
       <link name="base_footprint"/><link name="chassis_link"/>
@@ -112,22 +139,47 @@ class TestComparison(unittest.TestCase):
         <origin xyz="0.036 0.072 -0.0336" rpy="0 0 0"/></joint>
       <joint name="front_right_wheel_joint" type="continuous"><parent link="chassis_link"/><child link="front_right_wheel"/>
         <origin xyz="0.036 -0.072 -0.0336" rpy="0 0 0"/></joint>
+      <transmission name="left"><joint name="front_left_wheel_joint">
+        <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface></joint></transmission>
+      <transmission name="right"><joint name="front_right_wheel_joint">
+        <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface></joint></transmission>
     </robot>"""
 
-    def params(self, radius, separation):
-        return {NAMESPACE + "/mobile_base_controller/wheel_radius": radius,
-                NAMESPACE + "/mobile_base_controller/wheel_separation": separation}
+    def params(self, radius=0.033, separation=0.144, left="front_left_wheel_joint",
+               right="front_right_wheel_joint"):
+        return {CONTROLLER + "wheel_radius": radius,
+                CONTROLLER + "wheel_separation": separation,
+                CONTROLLER + "left_wheel": left,
+                CONTROLLER + "right_wheel": right,
+                NAMESPACE + "/hardware_interface/joints": ["front_left_wheel_joint",
+                                                           "front_right_wheel_joint"]}
 
     def test_agreement(self):
-        self.assertEqual(mismatches(self.URDF, self.params(0.033, 0.144)), [])
+        self.assertEqual(mismatches(self.URDF, self.params()), [])
+
+    def test_wheel_lists(self):
+        params = self.params(left=["front_left_wheel_joint"], right=["front_right_wheel_joint"])
+        self.assertEqual(mismatches(self.URDF, params), [])
 
     def test_wrong_radius(self):
-        self.assertEqual(len(mismatches(self.URDF, self.params(0.0325, 0.144))), 2)
+        self.assertEqual(len(mismatches(self.URDF, self.params(radius=0.0325))), 2)
 
     def test_wrong_separation(self):
-        found = mismatches(self.URDF, self.params(0.033, 0.145))
+        found = mismatches(self.URDF, self.params(separation=0.145))
         self.assertEqual(len(found), 1)
         self.assertIn("wheel_separation", found[0])
+
+    def test_unknown_wheel_joint(self):
+        found = mismatches(self.URDF, self.params(left="left_wheel_joint"))
+        self.assertEqual(len(found), 2)
+        self.assertIn("isn't in the URDF", found[0])
+        self.assertIn("hardware interface", found[1])
+
+    def test_missing_velocity_transmission(self):
+        urdf = self.URDF.replace(VELOCITY, "EffortJointInterface", 1)  # the left wheel's
+        found = mismatches(urdf, self.params())
+        self.assertEqual(len(found), 1)
+        self.assertIn("front_left_wheel_joint has no transmission", found[0])
 
 
 class TestModels(unittest.TestCase):
@@ -135,7 +187,7 @@ class TestModels(unittest.TestCase):
 
     def check(self, model, params):
         urdf = params[NAMESPACE + "/robot_description"]
-        self.assertEqual(mismatches(urdf, params), [], "{}: URDF and geometry.yaml disagree".format(model))
+        self.assertEqual(mismatches(urdf, params), [], "{}: URDF and controller disagree".format(model))
 
     def test_simulation(self):
         for model in MODELS:
