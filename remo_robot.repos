@@ -13,5 +13,6 @@ repositories:
     # Pinned to one version of Remo's model instead of main. A new version reaches this workspace
     # and the diffbot repository's CI only through a pull request in the diffbot repository that
     # moves the pin, so the diffbot packages are tested with it first. diffbot_dev.repos and
-    # remo_robot.repos pin the same version.
-    version: "2.0.0"
+    # remo_robot.repos pin the same version. Until 2.1.0 is tagged: the commit of
+    # ros-mobile-robots/remo_description#10, which adds Remo's IMU.
+    version: "9deb035a35765c030b8f092edc2043004b7911a8"
