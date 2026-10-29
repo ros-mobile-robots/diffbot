@@ -188,7 +188,7 @@ def transmission_interfaces(robot: ET.Element) -> Tuple[Dict[str, str], Set[str]
 def within_tolerance(urdf_value: float, controller_value: float) -> bool:
     """Return whether the two values differ by at most TOLERANCE.
 
-    A NaN isn't within any tolerance: every comparison with it is false, so a check that a
+    A NaN isn't within any tolerance: ordered comparisons with it are false, so a check that a
     difference is too large would let it pass.
     """
     return abs(urdf_value - controller_value) <= TOLERANCE
