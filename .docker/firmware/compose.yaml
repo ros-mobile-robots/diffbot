@@ -22,8 +22,10 @@ services:
     volumes:
       # The whole repository, so that PlatformIO finds the project in diffbot_firmware
       - ../..:/workspace
-      # PlatformIO's downloads: platforms, toolchains, frameworks. A named volume by default. CI
-      # sets PIO_CORE to a folder of the runner, which it caches between runs.
+      # Where PlatformIO keeps its downloads (platforms, toolchains, frameworks): /pio-core in the
+      # container. Without PIO_CORE, that's the Docker volume pio-core below, which keeps them
+      # between runs on your PC. With PIO_CORE set to a folder, it's that folder instead. CI does
+      # that, because each CI job starts on a fresh machine: it saves the folder in its cache.
       - ${PIO_CORE:-pio-core}:/pio-core
     working_dir: /workspace/diffbot_firmware
 

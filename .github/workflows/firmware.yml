@@ -18,8 +18,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
-      # The build runs in the firmware image (.docker/firmware), as the runner's user, so CI
-      # uses the same pinned PlatformIO as a local build in the container
+      # The build runs in the firmware image (.docker/firmware), so CI uses the same pinned
+      # PlatformIO as a local build in the container.
+      # Settings for the following steps: a line NAME=value written to the file that $GITHUB_ENV
+      # names becomes an environment variable in every later step of this job (GitHub's workflow
+      # commands, "Setting an environment variable"). LOCAL_UID and LOCAL_GID are the runner's
+      # user, so the container runs as it. PIO_CORE is a folder for PlatformIO's downloads in
+      # $RUNNER_TEMP, a temporary folder that the runner creates for each job (GitHub's default
+      # environment variables). runner.temp below is the same folder.
       - name: Settings for the firmware container
         run: |
           {
@@ -27,9 +33,10 @@ jobs:
             echo "LOCAL_GID=$(id -g)"
             echo "PIO_CORE=$RUNNER_TEMP/pio-core"
           } >> "$GITHUB_ENV"
-      # PlatformIO's downloads (platforms, toolchains, frameworks), kept between runs in a folder
-      # of the runner, which compose.yaml mounts instead of its volume. One cache per board, so the
-      # two jobs don't write the same one.
+      # Each job starts on a fresh machine, so PlatformIO would download the Teensy toolchain every
+      # time. actions/cache restores the PIO_CORE folder from an earlier run and saves it after the
+      # job. compose.yaml mounts that folder as the container's /pio-core. One cache per board, so
+      # the two jobs don't write the same one.
       - uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/pio-core
