@@ -24,8 +24,8 @@ jobs:
       # names becomes an environment variable in every later step of this job (GitHub's workflow
       # commands, "Setting an environment variable"). LOCAL_UID and LOCAL_GID are the runner's
       # user, so the container runs as it. PIO_CORE is a folder for PlatformIO's downloads in
-      # $RUNNER_TEMP, a temporary folder that the runner creates for each job (GitHub's default
-      # environment variables). runner.temp below is the same folder.
+      # $RUNNER_TEMP, the runner's temporary folder, emptied at the start and end of each job (GitHub's
+      # default environment variables). runner.temp below is the same folder.
       - name: Settings for the firmware container
         run: |
           {
