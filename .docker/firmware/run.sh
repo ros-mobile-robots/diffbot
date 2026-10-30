@@ -32,9 +32,10 @@ export LOCAL_UID="${LOCAL_UID:-$(id -u)}"
 export LOCAL_GID="${LOCAL_GID:-$(id -g)}"
 compose=(docker compose -f "$here/compose.yaml")
 
-# The first build shows its progress, because it downloads the base image and packages. Later
-# builds take seconds, because Docker reuses the cached image layers whose inputs haven't changed.
-# Their output only shows when they fail.
+# Build the image. The first build shows Docker's progress, because it downloads the base image
+# and the Python packages. Later builds usually take seconds, because Docker reuses the cached
+# result of each step when the Dockerfile and requirements.txt haven't changed. The script keeps
+# the output of these later builds and prints it only when the build fails.
 image="$("${compose[@]}" config --images firmware)"
 if ! docker image inspect "$image" > /dev/null 2>&1; then
     "${compose[@]}" build firmware
@@ -47,7 +48,8 @@ else
     fi
 fi
 
-# Without a terminal, for example in CI, run without one
+# Without a terminal for the input or the output, for example in CI, run the container without
+# one. Docker Compose checks only the output before version 2.39.4.
 tty_flag=()
 if [ ! -t 0 ] || [ ! -t 1 ]; then
     tty_flag=(-T)
