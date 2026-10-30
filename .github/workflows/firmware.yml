@@ -33,7 +33,9 @@ jobs:
       # Each job starts on a fresh machine, so PlatformIO would download the Teensy toolchain every
       # time. actions/cache restores the PIO_CORE folder from an earlier run, and saves it after a
       # successful job when no cache had the exact key. compose.yaml mounts that folder as the
-      # container's /pio-core. One cache per board, so the two jobs don't write the same one.
+      # container's /pio-core. One cache per board, so the two jobs don't write the same one. When
+      # requirements.txt or platformio.ini changed, no cache has the exact key, and restore-keys
+      # restores the newest cache of the same board instead.
       - uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/pio-core
