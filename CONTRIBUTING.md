@@ -33,7 +33,17 @@ rostest diffbot_gazebo sim_drive_diffbot.test       # one robot's simulation tes
 
 The [simulation test](https://ros-mobile-robots.com/development/simulation-test/) drives DiffBot and Remo in Gazebo and checks where they went. Run it for any change to the robot models, the controllers or the simulation.
 
-The Teensy firmware builds with [PlatformIO](https://platformio.org/), which isn't in the dev container. Install it on your PC, outside the container, with its [installer script](https://docs.platformio.org/en/stable/core/installation/methods/installer-script.html) or in a virtual environment; many Linux distributions don't allow `pip install` into the system Python. Then build both boards that CI builds, from your diffbot clone on the PC:
+The Teensy firmware builds with [PlatformIO](https://platformio.org/), which isn't in the dev container. The firmware has a container of its own, [`.docker/firmware`](.docker/firmware), with PlatformIO 6.2.0 and a compiler, so Docker is all you need. Our script [`.docker/firmware/run.sh`](.docker/firmware/run.sh) runs a command in that container, here PlatformIO's `pio`. When you change the firmware, build both boards and run the unit tests, as CI does, because the change has to work on both boards. From the root folder of your diffbot clone on the PC:
+
+```bash
+.docker/firmware/run.sh pio run -e teensy31
+.docker/firmware/run.sh pio run -e teensy40
+.docker/firmware/run.sh pio test -e native   # the unit tests that run on the PC
+```
+
+The script builds the image first. Later image builds took about 2 seconds on our test PC, because Docker reuses the cached image layers whose inputs haven't changed. They only show their output when they fail. The script runs the container as your user (`id -u` and `id -g`), so the files it writes belong to you. To use other IDs, set `LOCAL_UID` and `LOCAL_GID`, for example `LOCAL_UID=1001 LOCAL_GID=1001 .docker/firmware/run.sh pio run -e teensy40`. The first firmware build downloads the Teensy toolchain, which needs the internet and took about a minute on our test PC. The firmware files land in `diffbot_firmware/.pio/build/<board>/`, for example `firmware.hex`, which PJRC's [Teensy Loader](https://www.pjrc.com/teensy/loader.html) can flash. Don't build in the container and on the PC at the same time: both write to that `.pio` folder. CI builds and tests the same way.
+
+Or install PlatformIO on your PC, outside the dev container, with its [installer script](https://docs.platformio.org/en/stable/core/installation/methods/installer-script.html) or in a virtual environment. Many Linux distributions don't allow `pip install` into the system Python. Then build from your diffbot clone on the PC:
 
 ```bash
 python3 -m venv ~/.venvs/platformio && ~/.venvs/platformio/bin/pip install platformio   # once
@@ -50,8 +60,9 @@ CI runs on every pull request: [industrial_ci](https://github.com/ros-industrial
 - **Pull requests are squash-merged.** The PR title becomes the commit's subject, so write it as `Area: what changed`, for example `Simulation test: narrower turn checks`. Aim for 65 characters or fewer; GitHub adds the PR number. The whole description becomes the commit message, so start it with what changes and why.
 - **Describe how you tested it:** what you ran, on which robot or in simulation, and what you saw. Link the issue with `Closes #N`.
 - **Comments explain why** the code is the way it is, not what changed or how it used to be. The history belongs in the commit and the PR.
-- **Every feature also gets documentation** on ros-mobile-robots.com, a new or updated page: open a pull request in [ros-mobile-robots.github.io](https://github.com/ros-mobile-robots/ros-mobile-robots.github.io) and link it.
+- **Every feature also gets documentation** on ros-mobile-robots.com, a new or updated page: open a pull request in [ros-mobile-robots.github.io](https://github.com/ros-mobile-robots/ros-mobile-robots.github.io) and link it under `## Documentation` in the description, as `ros-mobile-robots/ros-mobile-robots.github.io#N`. If a page on ros-mobile-robots.com already explains the change, link that page instead. If nothing user-visible changes, write `None`. The PR description check fails until that section has one of the three. It runs again when you edit the description: look at that new run, because re-running the old one still sees the old text.
 - Follow [REP 103](https://www.ros.org/reps/rep-0103.html) for units and coordinate frames.
+- **Python** follows PEP 8 with the settings of ROS 2's `ament_flake8`, with PEP 257 docstrings and type hints. [AGENTS.md](AGENTS.md) lists the commands that check it.
 
 ## AI-assisted contributions
 
