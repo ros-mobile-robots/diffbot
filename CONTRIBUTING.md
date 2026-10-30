@@ -33,14 +33,14 @@ rostest diffbot_gazebo sim_drive_diffbot.test       # one robot's simulation tes
 
 The [simulation test](https://ros-mobile-robots.com/development/simulation-test/) drives DiffBot and Remo in Gazebo and checks where they went. Run it for any change to the robot models, the controllers or the simulation.
 
-The Teensy firmware builds with [PlatformIO](https://platformio.org/), which isn't in the dev container. The firmware has a container of its own, [`.docker/firmware`](.docker/firmware), with PlatformIO 6.2.0 and a compiler, so Docker is all you need. Our script [`.docker/firmware/pio`](.docker/firmware/pio) runs PlatformIO's command `pio` in that container. When you change the firmware, build both boards, as CI does, because the change has to work on both. From the root folder of your diffbot clone on the PC:
+The Teensy firmware builds with [PlatformIO](https://platformio.org/), which isn't in the dev container. The firmware has a container of its own, [`.docker/firmware`](.docker/firmware), with PlatformIO 6.2.0 and a compiler, so Docker is all you need. Our script [`.docker/firmware/run.sh`](.docker/firmware/run.sh) runs a command in that container, here PlatformIO's `pio`. When you change the firmware, build both boards, as CI does, because the change has to work on both. From the root folder of your diffbot clone on the PC:
 
 ```bash
-.docker/firmware/pio run -e teensy31
-.docker/firmware/pio run -e teensy40
+.docker/firmware/run.sh pio run -e teensy31
+.docker/firmware/run.sh pio run -e teensy40
 ```
 
-The script builds the image first. Later image builds took about 2 seconds on our test PC, because Docker reuses the cached image layers whose inputs haven't changed. They only show their output when they fail. The script runs the container as your user (`id -u` and `id -g`), so the files it writes belong to you. To use other IDs, set `LOCAL_UID` and `LOCAL_GID`, for example `LOCAL_UID=1001 LOCAL_GID=1001 .docker/firmware/pio run -e teensy40`. The first firmware build downloads the Teensy toolchain, which needs the internet and took about a minute on our test PC. The firmware files land in `diffbot_firmware/.pio/build/<board>/`, for example `firmware.hex`, which PJRC's [Teensy Loader](https://www.pjrc.com/teensy/loader.html) can flash. Don't build in the container and on the PC at the same time: both write to that `.pio` folder. CI builds the same way.
+The script builds the image first. Later image builds took about 2 seconds on our test PC, because Docker reuses the cached image layers whose inputs haven't changed. They only show their output when they fail. The script runs the container as your user (`id -u` and `id -g`), so the files it writes belong to you. To use other IDs, set `LOCAL_UID` and `LOCAL_GID`, for example `LOCAL_UID=1001 LOCAL_GID=1001 .docker/firmware/run.sh pio run -e teensy40`. The first firmware build downloads the Teensy toolchain, which needs the internet and took about a minute on our test PC. The firmware files land in `diffbot_firmware/.pio/build/<board>/`, for example `firmware.hex`, which PJRC's [Teensy Loader](https://www.pjrc.com/teensy/loader.html) can flash. Don't build in the container and on the PC at the same time: both write to that `.pio` folder. CI builds the same way.
 
 Or install PlatformIO on your PC, outside the dev container, with its [installer script](https://docs.platformio.org/en/stable/core/installation/methods/installer-script.html) or in a virtual environment. Many Linux distributions don't allow `pip install` into the system Python. Then build from your diffbot clone on the PC:
 

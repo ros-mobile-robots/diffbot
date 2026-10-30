@@ -41,4 +41,4 @@ jobs:
           restore-keys: |
             pio-core-${{ runner.os }}-${{ runner.arch }}-${{ matrix.env }}-
       - name: Build the firmware
-        run: .docker/firmware/pio run -e ${{ matrix.env }}
+        run: .docker/firmware/run.sh pio run -e ${{ matrix.env }}

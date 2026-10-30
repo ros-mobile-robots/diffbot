@@ -16,14 +16,14 @@ COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
 
 # A user with your user and group ID, so that the build's files in the mounted repository belong
-# to you. compose.yaml passes them as build arguments, from LOCAL_UID and LOCAL_GID, which the pio
-# script sets to `id -u` and `id -g`. They have no default, so a build without both stops instead
+# to you. compose.yaml passes them as build arguments, from LOCAL_UID and LOCAL_GID, which run.sh
+# sets to `id -u` and `id -g`. They have no default, so a build without both stops instead
 # of silently using 1000. The user's home and the core folder belong to it, so a new volume
 # mounted at /pio-core is writable too.
 ARG USER_UID
 ARG USER_GID
 RUN if [ -z "$USER_UID" ] || [ -z "$USER_GID" ]; then \
-        echo "USER_UID and USER_GID are missing: build through compose.yaml or the pio script" >&2; \
+        echo "USER_UID and USER_GID are missing: build through compose.yaml or run.sh" >&2; \
         exit 1; \
     fi
 RUN (getent group "$USER_GID" || groupadd --gid "$USER_GID" pio) \

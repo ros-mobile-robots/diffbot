@@ -9,11 +9,11 @@ The firmware for the robots' Teensy microcontroller: it reads the wheel encoders
 | [`test`](test) | Checks that run on the Teensy |
 | [`sketches`](sketches) | Older Arduino sketches: the encoders alone over rosserial, the same with the BNO055 IMU, and a check of the encoders by hand |
 
-Build the firmware for your robot's Teensy in the firmware's container, [`.docker/firmware`](../.docker/firmware). It needs only Docker. Our script [`.docker/firmware/pio`](../.docker/firmware/pio) builds the image and runs PlatformIO's command `pio` in the container as your user. From the repository's root folder, run the line for your robot:
+Build the firmware for your robot's Teensy in the firmware's container, [`.docker/firmware`](../.docker/firmware). It needs only Docker. Our script [`.docker/firmware/run.sh`](../.docker/firmware/run.sh) builds the image and runs a command in the container as your user, here PlatformIO's `pio`. From the repository's root folder, run the line for your robot:
 
 ```bash
-.docker/firmware/pio run -e teensy40   # Remo: Teensy 4.0
-.docker/firmware/pio run -e teensy31   # DiffBot: Teensy 3.2
+.docker/firmware/run.sh pio run -e teensy40   # Remo: Teensy 4.0
+.docker/firmware/run.sh pio run -e teensy31   # DiffBot: Teensy 3.2
 ```
 
 When you change the firmware, build both, as CI does, because the change has to work on both boards.
