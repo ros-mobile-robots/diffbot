@@ -1,6 +1,12 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="diffbot">
 
+  <!-- Where the simulation's IMU (imu_link) sits on chassis_link: on the plate, with the board's
+       axes along the robot's (x forward, z up). DiffBot has no IMU on the robot yet; a real one's
+       mounting goes here, or override these, for example imu_xyz:='0 0 0.02' imu_rpy:='0 0 0'. -->
+  <xacro:arg name="imu_xyz" default="0 0 0.01" />
+  <xacro:arg name="imu_rpy" default="0 0 0" />
+
   <xacro:property name="package_name" value="diffbot_description"/>
   <xacro:property name="robot_name" value="diffbot"/>
 
@@ -68,6 +74,10 @@
                    sensor_prop="${sensor_prop}"
                    enable_gpu="${sensor_prop['laser']['enable_gpu']}">
   </xacro:laser>
+
+  <xacro:imu_sensor parent_link="chassis_link" sensor_prop="${sensor_prop}">
+    <origin xyz="$(arg imu_xyz)" rpy="$(arg imu_rpy)" />
+  </xacro:imu_sensor>
 
   <!-- Gazebo -->
   <xacro:gazebo_ros_control robotNamespace="/diffbot">
