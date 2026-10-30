@@ -1,0 +1,38 @@
+# Builds the Teensy firmware without installing PlatformIO on your PC. The script run.sh next to
+# this file runs commands in it. From the repository's root:
+#   .docker/firmware/run.sh pio run -e teensy40
+# It sets LOCAL_UID and LOCAL_GID to your user and group ID, unless you set them, builds the
+# image, and runs the command in the container. Without the script, export both variables first:
+#   export LOCAL_UID=$(id -u) LOCAL_GID=$(id -g)
+#   docker compose -f .docker/firmware/compose.yaml build firmware
+#   docker compose -f .docker/firmware/compose.yaml run --rm firmware pio run -e teensy40
+# The first build downloads the Teensy toolchain into a volume, which needs the internet. The
+# firmware files land in diffbot_firmware/.pio/build/<board>/, for example firmware.hex. Flashing
+# stays on the PC for now: PJRC's Teensy Loader can load that file.
+# The image and the volume carry your user and group ID in their names, because the image's user
+# and the files in the volume belong to them: another user on the same Docker gets their own.
+
+name: diffbot-firmware
+
+services:
+  firmware:
+    build:
+      context: .
+      args:
+        USER_UID: ${LOCAL_UID:?set LOCAL_UID and LOCAL_GID to your user and group ID, see the comment above}
+        USER_GID: ${LOCAL_GID:?set LOCAL_UID and LOCAL_GID to your user and group ID, see the comment above}
+    image: diffbot-firmware-build:pio-6.2.0-${LOCAL_UID}-${LOCAL_GID}
+    user: "${LOCAL_UID}:${LOCAL_GID}"
+    volumes:
+      # The whole repository, so that PlatformIO finds the project in diffbot_firmware
+      - ../..:/workspace
+      # Where PlatformIO keeps its downloads (platforms, toolchains, frameworks): /pio-core in the
+      # container. Without PIO_CORE, that's the Docker volume pio-core below, which keeps them
+      # between runs on your PC. With PIO_CORE set to a folder, it's that folder instead. CI does
+      # that, because each CI job starts on a fresh machine: it saves the folder in its cache.
+      - ${PIO_CORE:-pio-core}:/pio-core
+    working_dir: /workspace/diffbot_firmware
+
+volumes:
+  pio-core:
+    name: diffbot-firmware-pio-core-${LOCAL_UID}-${LOCAL_GID}

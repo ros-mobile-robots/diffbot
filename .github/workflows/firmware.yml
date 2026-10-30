@@ -18,19 +18,29 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+      # The build runs in the firmware image (.docker/firmware), through the same script as a local
+      # build, so CI uses the same pinned PlatformIO. The script sets LOCAL_UID and LOCAL_GID to
+      # the runner's user.
+      # PIO_CORE is a folder for PlatformIO's downloads in $RUNNER_TEMP, a temporary folder that
+      # GitHub empties at the start and end of each job. Each step runs in a new shell, so an
+      # exported variable would be gone in the next step. Instead, the step appends the line
+      # PIO_CORE=<folder> to the file whose path is in $GITHUB_ENV, and GitHub sets PIO_CORE in
+      # every later step of this job. runner.temp below is the same folder as $RUNNER_TEMP.
+      - name: Settings for the firmware container
+        run: |
+          echo "PIO_CORE=$RUNNER_TEMP/pio-core" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/pio-core"
+      # Each job starts on a fresh machine, so PlatformIO would download the Teensy toolchain every
+      # time. actions/cache restores the PIO_CORE folder from an earlier run, and saves it after a
+      # successful job when no cache had the exact key. compose.yaml mounts that folder as the
+      # container's /pio-core. One cache per board, so the two jobs don't write the same one. When
+      # requirements.txt or platformio.ini changed, no cache has the exact key, and restore-keys
+      # restores the newest cache of the same board instead.
       - uses: actions/cache@v6
         with:
-          path: |
-            ~/.cache/pip
-            ~/.platformio/.cache
-          key: ${{ runner.os }}-pio
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-      - name: Install PlatformIO Core
-        run: pip install --upgrade platformio
-
-      - name: Build PlatformIO Project
-        run: |
-          cd diffbot_firmware
-          pio run -e ${{ matrix.env }}
+          path: ${{ runner.temp }}/pio-core
+          key: pio-core-${{ runner.os }}-${{ runner.arch }}-${{ matrix.env }}-${{ hashFiles('.docker/firmware/requirements.txt', 'diffbot_firmware/platformio.ini') }}
+          restore-keys: |
+            pio-core-${{ runner.os }}-${{ runner.arch }}-${{ matrix.env }}-
+      - name: Build the firmware
+        run: .docker/firmware/run.sh pio run -e ${{ matrix.env }}

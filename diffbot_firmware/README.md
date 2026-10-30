@@ -9,10 +9,15 @@ The firmware for the robots' Teensy microcontroller: it reads the wheel encoders
 | [`test`](test) | Checks that run on the Teensy |
 | [`sketches`](sketches) | Older Arduino sketches: the encoders alone over rosserial, the same with the BNO055 IMU, and a check of the encoders by hand |
 
-Build both boards that CI builds, from this folder, with PlatformIO installed on your PC ([CONTRIBUTING](../CONTRIBUTING.md)):
+Build the firmware for your robot's Teensy in the firmware's container, [`.docker/firmware`](../.docker/firmware). It needs only Docker. Our script [`.docker/firmware/run.sh`](../.docker/firmware/run.sh) builds the image and runs a command in the container as your user, here PlatformIO's `pio`. From the repository's root folder, run the line for your robot:
 
 ```bash
-pio run -e teensy31 && pio run -e teensy40
+.docker/firmware/run.sh pio run -e teensy40   # Remo: Teensy 4.0
+.docker/firmware/run.sh pio run -e teensy31   # DiffBot: Teensy 3.2
 ```
+
+When you change the firmware, build both, as CI does, because the change has to work on both boards.
+
+The firmware files land in `.pio/build/<board>/` in this folder, for example `firmware.hex`, which PJRC's [Teensy Loader](https://www.pjrc.com/teensy/loader.html) can flash. With PlatformIO installed on your PC ([CONTRIBUTING](../CONTRIBUTING.md)), `pio run -e teensy40` or `pio run -e teensy31` in this folder builds it too.
 
 [Low-Level Base Controller](https://ros-mobile-robots.com/packages/diffbot_base/low-level/) on ros-mobile-robots.com explains the code, and [Microcontroller](https://ros-mobile-robots.com/processing_units/teensy-mcu/) the Teensy.
