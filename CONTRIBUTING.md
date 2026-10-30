@@ -33,7 +33,7 @@ rostest diffbot_gazebo sim_drive_diffbot.test       # one robot's simulation tes
 
 The [simulation test](https://ros-mobile-robots.com/development/simulation-test/) drives DiffBot and Remo in Gazebo and checks where they went. Run it for any change to the robot models, the controllers or the simulation.
 
-The Teensy firmware builds with [PlatformIO](https://platformio.org/), which isn't in the dev container. The firmware has a container of its own, [`.docker/firmware`](.docker/firmware), with PlatformIO 6.2.0 and a compiler, so Docker is all you need. The script [`.docker/firmware/pio`](.docker/firmware/pio) runs PlatformIO's `pio` command in that container. Build both boards that CI builds, from the root folder of your diffbot clone on the PC:
+The Teensy firmware builds with [PlatformIO](https://platformio.org/), which isn't in the dev container. The firmware has a container of its own, [`.docker/firmware`](.docker/firmware), with PlatformIO 6.2.0 and a compiler, so Docker is all you need. Our script [`.docker/firmware/pio`](.docker/firmware/pio) runs PlatformIO's command `pio` in that container. When you change the firmware, build both boards, as CI does, because the change has to work on both. From the root folder of your diffbot clone on the PC:
 
 ```bash
 .docker/firmware/pio run -e teensy31
