@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include <ros/node_handle.h>
+
 namespace diffbot
 {
     /**

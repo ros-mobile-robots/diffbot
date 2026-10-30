@@ -5,6 +5,7 @@
 
 #include "../fakes/fake_bno055.h"
 #include "../fakes/fake_rosserial.h"
+#include "imu_config.h"
 #include "imu_publisher.h"
 #include "synced_node_handle.h"
 
@@ -17,10 +18,18 @@ typedef ImuPublisher<NodeHandle, FakeClock> Publisher;
 
 const uint32_t HOST_SEC = 1700000000;
 
-// How long each data read takes, in µs of the fake clock
+// The publisher's settings in these tests, different from the robot's (diffbot_base_config.h), so
+// that a value the publisher takes from elsewhere fails a test
+const ImuPublisherConfig TEST_CONFIG = {true, 25, 7000, 12000, "test_imu", 1.0e-3f, 2.0e-2f};
+const int SAMPLES_PER_SECOND = 1000 / TEST_CONFIG.period_ms;
+
+// How long each data read takes, in µs of the fake clock. Shared, as the fake clock is, so setUp()
+// resets it
 uint32_t read_duration_us = 0;
 void advanceDuringRead() { FakeClock::us += read_duration_us; }
 
+// One test's robot: the node handle, the fake sensor, the driver and the publisher. Each test
+// makes its own, so nothing carries over from one test to the next
 struct Robot
 {
     NodeHandle nh;
@@ -28,7 +37,8 @@ struct Robot
     Bno055 imu;
     Publisher publisher;
 
-    Robot() : imu(bus), publisher(nh, imu)
+    explicit Robot(const ImuPublisherConfig& config = TEST_CONFIG)
+        : imu(bus), publisher(nh, imu, config)
     {
         bus.on_data_read = advanceDuringRead;
         nh.initNode();
@@ -75,19 +85,17 @@ struct Robot
         }
         return nh.getHardware()->countTopics() - before;
     }
-};
 
-// A robot whose IMU has started and whose clock is synchronized, at 2000 ms
-Robot* startedRobot()
-{
-    static Robot* robot = nullptr;
-    delete robot;
-    robot = new Robot();
-    robot->connect(10);
-    robot->runUntil(2000);
-    TEST_ASSERT_EQUAL(Bno055::READY, robot->imu.state());
-    return robot;
-}
+    /// Connects at 10 ms and runs until 2000 ms: then the IMU has started and the clock is
+    /// synchronized
+    void startReadyAndSynced()
+    {
+        connect(10);
+        runUntil(2000);
+        TEST_ASSERT_EQUAL(Bno055::READY, imu.state());
+        TEST_ASSERT_TRUE(nh.timeSynced());
+    }
+};
 
 void setUp()
 {
@@ -96,19 +104,22 @@ void setUp()
 }
 void tearDown() {}
 
-void test_publishes_at_the_rate()
+void test_imu_publisher_publishes_at_the_configured_rate()
 {
-    Robot& robot = *startedRobot();
-    TEST_ASSERT_EQUAL(1000 / Publisher::PERIOD_MS, robot.runUntil(3000));
+    Robot robot;
+    robot.startReadyAndSynced();
+    TEST_ASSERT_EQUAL(SAMPLES_PER_SECOND, robot.runUntil(3000));
     const sensor_msgs::Imu& message = robot.publisher.message();
-    TEST_ASSERT_EQUAL_STRING(IMU_FRAME_ID, message.header.frame_id);
+    TEST_ASSERT_EQUAL_STRING(TEST_CONFIG.frame_id, message.header.frame_id);
     TEST_ASSERT_EQUAL_FLOAT(-1.0f, message.orientation_covariance[0]);
-    TEST_ASSERT_EQUAL_FLOAT(IMU_ANGULAR_VELOCITY_VARIANCE, message.angular_velocity_covariance[8]);
-    TEST_ASSERT_EQUAL_FLOAT(IMU_LINEAR_ACCELERATION_VARIANCE, message.linear_acceleration_covariance[8]);
+    TEST_ASSERT_EQUAL_FLOAT(TEST_CONFIG.angular_velocity_variance,
+                            message.angular_velocity_covariance[8]);
+    TEST_ASSERT_EQUAL_FLOAT(TEST_CONFIG.linear_acceleration_variance,
+                            message.linear_acceleration_covariance[8]);
     TEST_ASSERT_EQUAL_UINT32(HOST_SEC + 2, message.header.stamp.sec);
 }
 
-void test_nothing_before_the_time_sync()
+void test_imu_publisher_publishes_nothing_before_the_time_sync()
 {
     // A host that answers the time request late: runUntil() doesn't answer the negotiation's
     Robot robot;
@@ -120,26 +131,28 @@ void test_nothing_before_the_time_sync()
     TEST_ASSERT_EQUAL(0, robot.runUntil(2000));
     TEST_ASSERT_EQUAL(Bno055::READY, robot.imu.state());
     robot.nh.getHardware()->timeReply(HOST_SEC);
-    TEST_ASSERT_EQUAL(1000 / Publisher::PERIOD_MS, robot.runUntil(3000));
+    TEST_ASSERT_EQUAL(SAMPLES_PER_SECOND, robot.runUntil(3000));
 }
 
-void test_the_rate_doesnt_depend_on_ros_time()
+void test_imu_publisher_keeps_its_rate_when_ros_time_jumps()
 {
     // The Teensy reconnects to a host whose clock is 100 s earlier: ROS time jumps back, the
     // samples go on at their rate, with the new time in their stamps
-    Robot& robot = *startedRobot();
+    Robot robot;
+    robot.startReadyAndSynced();
     robot.runUntil(3000);
     robot.connect(3001, HOST_SEC - 100);
     TEST_ASSERT_TRUE(robot.nh.timeSynced());
-    TEST_ASSERT_EQUAL(1000 / Publisher::PERIOD_MS, robot.runUntil(4001));
+    TEST_ASSERT_EQUAL(SAMPLES_PER_SECOND, robot.runUntil(4001));
     TEST_ASSERT_EQUAL_UINT32(HOST_SEC - 100, robot.publisher.message().header.stamp.sec);
 }
 
-void test_nothing_between_a_new_negotiation_and_its_reply()
+void test_imu_publisher_publishes_nothing_between_a_new_negotiation_and_its_reply()
 {
     // The host's rosserial node restarts right after a periodic time request, in the same
     // millisecond: nothing is published until the new connection's reply
-    Robot& robot = *startedRobot();
+    Robot robot;
+    robot.startReadyAndSynced();
     int requests = robot.nh.getHardware()->count(rosserial_msgs::TopicInfo::ID_TIME);
     robot.answer_time_requests = false;
     while (robot.nh.getHardware()->count(rosserial_msgs::TopicInfo::ID_TIME) == requests)
@@ -151,39 +164,50 @@ void test_nothing_between_a_new_negotiation_and_its_reply()
     robot.host_sec = HOST_SEC - 100;
     robot.connected_ms = ms;
     robot.nh.getHardware()->timeReply(robot.host_sec);
-    TEST_ASSERT_EQUAL(1000 / Publisher::PERIOD_MS, robot.runUntil(ms + 1200));
+    TEST_ASSERT_EQUAL(SAMPLES_PER_SECOND, robot.runUntil(ms + 1200));
     TEST_ASSERT_EQUAL_UINT32(HOST_SEC - 100 + 1, robot.publisher.message().header.stamp.sec);
 }
 
-void test_stamp_before_the_read_and_read_budget()
+void test_imu_publisher_stamps_the_sample_when_the_read_begins()
 {
-    Robot& robot = *startedRobot();
-    read_duration_us = IMU_READ_BUDGET_US;
-    TEST_ASSERT_EQUAL(1, robot.runUntil(2000 + Publisher::PERIOD_MS));
+    Robot robot;
+    robot.startReadyAndSynced();
+    read_duration_us = TEST_CONFIG.read_budget_us;
+    TEST_ASSERT_EQUAL(1, robot.runUntil(2000 + TEST_CONFIG.period_ms));
     // Stamped when the read began, not when it ended: ROS time is the host's time at the reply
     // (at 10 ms) plus the time since then
     ros::Time stamp = robot.publisher.message().header.stamp;
-    uint32_t since_reply_ms = 2000 + Publisher::PERIOD_MS - 10;
+    uint32_t since_reply_ms = 2000 + TEST_CONFIG.period_ms - 10;
     TEST_ASSERT_EQUAL_UINT32(HOST_SEC + since_reply_ms / 1000, stamp.sec);
     TEST_ASSERT_EQUAL_UINT32((since_reply_ms % 1000) * 1000000UL, stamp.nsec);
-    read_duration_us = IMU_READ_BUDGET_US + 1;
-    TEST_ASSERT_EQUAL(0, robot.runUntil(2100));
 }
 
-void test_failed_reads_restart_the_sensor()
+void test_imu_publisher_drops_a_sample_whose_read_exceeds_the_budget()
 {
-    Robot& robot = *startedRobot();
+    Robot robot;
+    robot.startReadyAndSynced();
+    read_duration_us = TEST_CONFIG.read_budget_us + 1;
+    TEST_ASSERT_EQUAL(0, robot.runUntil(2100));
+    read_duration_us = TEST_CONFIG.read_budget_us;
+    TEST_ASSERT_TRUE(robot.runUntil(2200) > 0);
+}
+
+void test_imu_publisher_restarts_the_sensor_after_ten_failed_reads()
+{
+    Robot robot;
+    robot.startReadyAndSynced();
     robot.bus.fail_reads = true;
-    const uint32_t tenth_read_ms = 2000 + Publisher::RESTART_AFTER_FAILED_READS * Publisher::PERIOD_MS;
+    const uint32_t tenth_read_ms =
+        2000 + Publisher::RESTART_AFTER_FAILED_READS * TEST_CONFIG.period_ms;
     robot.runUntil(tenth_read_ms - 1);
     TEST_ASSERT_EQUAL(Bno055::READY, robot.imu.state());
     robot.runUntil(tenth_read_ms);
     TEST_ASSERT_EQUAL(Bno055::STARTING, robot.imu.state());
-    // It doesn't answer: tried again after IMU_RETRY_PERIOD, and found once it's back
+    // It doesn't answer: tried again after retry_ms, and found once it's back
     robot.runUntil(tenth_read_ms + 1);
     TEST_ASSERT_EQUAL(Bno055::ABSENT, robot.imu.state());
     robot.bus.fail_reads = false;
-    const uint32_t retry_ms = tenth_read_ms + 1 + IMU_RETRY_PERIOD * 1000UL;
+    const uint32_t retry_ms = tenth_read_ms + 1 + TEST_CONFIG.retry_ms;
     robot.runUntil(retry_ms - 1);
     TEST_ASSERT_EQUAL(Bno055::ABSENT, robot.imu.state());
     robot.runUntil(retry_ms + 1000);
@@ -191,30 +215,46 @@ void test_failed_reads_restart_the_sensor()
     TEST_ASSERT_TRUE(robot.runUntil(retry_ms + 2000) > 0);
 }
 
-void test_nothing_while_the_fusion_doesnt_run()
+void test_imu_publisher_publishes_nothing_while_the_fusion_doesnt_run()
 {
-    Robot& robot = *startedRobot();
+    Robot robot;
+    robot.startReadyAndSynced();
     robot.bus.registers[Bno055::REG_SYS_STATUS] = 0x03; // initializing
     TEST_ASSERT_EQUAL(0, robot.runUntil(2100));
 }
 
-void test_disconnect_stops_the_topic()
+void test_imu_publisher_publishes_nothing_after_a_disconnect()
 {
-    Robot& robot = *startedRobot();
+    Robot robot;
+    robot.startReadyAndSynced();
     robot.nh.getHardware()->receive(rosserial_msgs::TopicInfo::ID_TX_STOP);
     TEST_ASSERT_EQUAL(0, robot.runUntil(3000));
+}
+
+void test_imu_publisher_disabled_advertises_nothing_and_leaves_the_sensor_alone()
+{
+    ImuPublisherConfig disabled = TEST_CONFIG;
+    disabled.enabled = false;
+    Robot robot(disabled);
+    robot.connect(10);
+    TEST_ASSERT_EQUAL(0, robot.nh.getHardware()->count(rosserial_msgs::TopicInfo::ID_PUBLISHER));
+    TEST_ASSERT_EQUAL(0, robot.runUntil(3000));
+    TEST_ASSERT_EQUAL(Bno055::STARTING, robot.imu.state());
+    TEST_ASSERT_EQUAL(0, robot.bus.transfers);
 }
 
 int main(int argc, char** argv)
 {
     UNITY_BEGIN();
-    RUN_TEST(test_publishes_at_the_rate);
-    RUN_TEST(test_nothing_before_the_time_sync);
-    RUN_TEST(test_the_rate_doesnt_depend_on_ros_time);
-    RUN_TEST(test_nothing_between_a_new_negotiation_and_its_reply);
-    RUN_TEST(test_stamp_before_the_read_and_read_budget);
-    RUN_TEST(test_failed_reads_restart_the_sensor);
-    RUN_TEST(test_nothing_while_the_fusion_doesnt_run);
-    RUN_TEST(test_disconnect_stops_the_topic);
+    RUN_TEST(test_imu_publisher_publishes_at_the_configured_rate);
+    RUN_TEST(test_imu_publisher_publishes_nothing_before_the_time_sync);
+    RUN_TEST(test_imu_publisher_keeps_its_rate_when_ros_time_jumps);
+    RUN_TEST(test_imu_publisher_publishes_nothing_between_a_new_negotiation_and_its_reply);
+    RUN_TEST(test_imu_publisher_stamps_the_sample_when_the_read_begins);
+    RUN_TEST(test_imu_publisher_drops_a_sample_whose_read_exceeds_the_budget);
+    RUN_TEST(test_imu_publisher_restarts_the_sensor_after_ten_failed_reads);
+    RUN_TEST(test_imu_publisher_publishes_nothing_while_the_fusion_doesnt_run);
+    RUN_TEST(test_imu_publisher_publishes_nothing_after_a_disconnect);
+    RUN_TEST(test_imu_publisher_disabled_advertises_nothing_and_leaves_the_sensor_alone);
     return UNITY_END();
 }

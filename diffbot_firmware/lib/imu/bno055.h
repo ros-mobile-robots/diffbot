@@ -10,12 +10,17 @@ namespace diffbot
     /**
      * @brief One sample of the IMU, in REP 103 units and in the sensor's own axes.
      *
-     * The rates and accelerations come from one burst read, so they belong to the same moment.
+     * The rates and accelerations are read in one burst, so the chip's register shadowing keeps
+     * them consistent (datasheet section 3.7). In the fusion mode, the chip corrects both for
+     * their offsets (datasheet sections 3.6.5.1 and 3.6.5.3), so they aren't the sensors'
+     * uncorrected output. They aren't bias-free either.
      */
     struct ImuSample
     {
-        float angular_velocity[3];    ///< rad/s, about the sensor's x, y and z axes
-        float linear_acceleration[3]; ///< m/s², the raw specific force, including gravity
+        /// rad/s, about the sensor's x, y and z axes, offset-corrected
+        float angular_velocity[3];
+        /// m/s², the specific force including gravity, offset-corrected
+        float linear_acceleration[3];
         uint8_t calibration;          ///< CALIB_STAT: system, gyroscope, accelerometer, magnetometer (2 bits each)
     };
 
@@ -31,16 +36,22 @@ namespace diffbot
      * @brief Reads Bosch's BNO055 over I2C, in its IMU fusion mode (IMUPLUS): accelerometer and
      * gyroscope, without the magnetometer.
      *
-     * Only the raw angular velocity and acceleration are read, not the chip's own orientation
-     * estimate: the EKF on the robot's computer fuses the angular velocity. The chip's axes are left
-     * as mounted (the default axis map is written explicitly); the URDF's imu_link describes how it
-     * sits on the robot.
+     * In IMUPLUS, the chip's own processor runs Bosch's sensor fusion: it computes a relative
+     * orientation from the accelerometer and the gyroscope (datasheet section 3.3.3.1), calibrates
+     * them in the background, and corrects the data registers for their offsets (sections 3.6.5.1
+     * and 3.6.5.3). This driver reads only those corrected angular velocities and accelerations,
+     * not the orientation: the EKF on the robot's computer fuses the angular velocity with the
+     * wheel odometry. A mode without fusion (AMG or ACCGYRO) would give uncorrected values. The
+     * calibration status (CALIB_STAT) comes with each sample, but doesn't hold samples back.
+     *
+     * The chip's axes are left as mounted (the default axis map is written explicitly). The URDF's
+     * imu_link describes how it sits on the robot.
      *
      * The start-up is a state machine that \ref update drives without waiting: each call does at
      * most a few short transfers and returns, so the firmware's control loop keeps running while
-     * the chip resets. Every transfer is checked, so that \ref read returns false instead of old
-     * values when the bus or the sensor fails, and a sensor that reset itself (for example after a
-     * brown-out) goes back through the start-up.
+     * the chip resets. The sample transfers and the configuration's read-back are checked, so that
+     * \ref read returns false instead of old values when the bus or the sensor fails, and a sensor
+     * that reset itself (for example after a brown-out) goes back through the start-up.
      *
      * Register addresses and timings from Bosch's BNO055 datasheet (BST-BNO055-DS000, rev. 1.8).
      */

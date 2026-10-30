@@ -21,7 +21,7 @@ uint32_t runUntil(Bno055& imu, Bno055::State wanted, uint32_t start_ms, uint32_t
     return t;
 }
 
-void test_convert_units_and_signs()
+void test_bno055_convert_scales_and_signs_the_data_bytes()
 {
     uint8_t data[18] = {0};
     setLe16(&data[0], 100);    // accelerometer x: 1 m/s²
@@ -41,7 +41,7 @@ void test_convert_units_and_signs()
     TEST_ASSERT_FLOAT_WITHIN(1e-3f, 32767.0f / 900.0f, sample.angular_velocity[2]);
 }
 
-void test_startup_steps_without_waiting()
+void test_bno055_startup_advances_one_step_per_update_without_waiting()
 {
     FakeBus bus;
     Bno055 imu(bus);
@@ -62,7 +62,7 @@ void test_startup_steps_without_waiting()
     TEST_ASSERT_EQUAL_HEX8(Bno055::AXIS_MAP_SIGN_DEFAULT, bus.registers[Bno055::REG_AXIS_MAP_SIGN]);
 }
 
-void test_absent_without_a_bno055()
+void test_bno055_startup_reports_absent_without_a_chip_at_the_address()
 {
     FakeBus wrong_chip;
     wrong_chip.registers[Bno055::REG_CHIP_ID] = 0x00;
@@ -79,7 +79,7 @@ void test_absent_without_a_bno055()
     TEST_ASSERT_EQUAL(Bno055::ABSENT, wrong.update(0));
 }
 
-void test_failed_when_it_doesnt_come_back_after_the_reset()
+void test_bno055_startup_fails_when_the_chip_stays_silent_after_the_reset()
 {
     FakeBus bus;
     bus.back_after_reset = false;
@@ -89,7 +89,7 @@ void test_failed_when_it_doesnt_come_back_after_the_reset()
     TEST_ASSERT_TRUE(t <= Bno055::CONFIG_MODE_MS + Bno055::RESET_TIMEOUT_MS + Bno055::RESET_POLL_MS + 1);
 }
 
-void test_failed_when_a_setting_doesnt_take()
+void test_bno055_startup_fails_when_a_setting_reads_back_different()
 {
     FakeBus bus;
     bus.ignore_writes_to = Bno055::REG_UNIT_SEL;
@@ -101,23 +101,21 @@ void test_failed_when_a_setting_doesnt_take()
     TEST_ASSERT_EQUAL(Bno055::FAILED, imu.state());
 }
 
-Bno055& startedImu(FakeBus& bus)
+// Runs the start-up of a test's driver until it's ready: the chip answers after its reset
+void startReady(Bno055& imu, FakeBus& bus)
 {
-    static Bno055* imu = nullptr;
-    delete imu;
-    imu = new Bno055(bus);
-    imu->update(0);
-    imu->update(Bno055::CONFIG_MODE_MS);
+    imu.update(0);
+    imu.update(Bno055::CONFIG_MODE_MS);
     bus.resetting = false;
-    runUntil(*imu, Bno055::READY, Bno055::CONFIG_MODE_MS, 3000);
-    return *imu;
+    runUntil(imu, Bno055::READY, Bno055::CONFIG_MODE_MS, 3000);
+    TEST_ASSERT_EQUAL(Bno055::READY, imu.state());
 }
 
-void test_read_fills_a_sample()
+void test_bno055_read_fills_the_sample_when_ready()
 {
     FakeBus bus;
-    Bno055& imu = startedImu(bus);
-    TEST_ASSERT_EQUAL(Bno055::READY, imu.state());
+    Bno055 imu(bus);
+    startReady(imu, bus);
     setLe16(&bus.registers[Bno055::REG_ACC_DATA_X_LSB + 4], 981);
     setLe16(&bus.registers[Bno055::REG_ACC_DATA_X_LSB + 16], 90);
     bus.registers[Bno055::REG_CALIB_STAT] = 0x3C;
@@ -128,7 +126,7 @@ void test_read_fills_a_sample()
     TEST_ASSERT_EQUAL_HEX8(0x3C, sample.calibration);
 }
 
-void test_no_read_before_ready()
+void test_bno055_read_fails_before_the_startup_is_done()
 {
     FakeBus bus;
     Bno055 imu(bus);
@@ -136,10 +134,11 @@ void test_no_read_before_ready()
     TEST_ASSERT_FALSE(imu.read(sample));
 }
 
-void test_failed_read_leaves_the_sample_unchanged()
+void test_bno055_read_leaves_the_sample_unchanged_when_a_transfer_fails()
 {
     FakeBus bus;
-    Bno055& imu = startedImu(bus);
+    Bno055 imu(bus);
+    startReady(imu, bus);
     bus.fail_reads = true;
     ImuSample sample;
     sample.angular_velocity[2] = 42.0f;
@@ -148,10 +147,11 @@ void test_failed_read_leaves_the_sample_unchanged()
     TEST_ASSERT_EQUAL(Bno055::READY, imu.state());
 }
 
-void test_sensor_reset_starts_over()
+void test_bno055_read_restarts_the_startup_after_a_sensor_reset()
 {
     FakeBus bus;
-    Bno055& imu = startedImu(bus);
+    Bno055 imu(bus);
+    startReady(imu, bus);
     // A brown-out: the sensor is back in configuration mode with its default units
     bus.registers[Bno055::REG_OPR_MODE] = Bno055::MODE_CONFIG;
     ImuSample sample;
@@ -159,17 +159,18 @@ void test_sensor_reset_starts_over()
     TEST_ASSERT_EQUAL(Bno055::STARTING, imu.state());
 }
 
-void test_system_error_starts_over()
+void test_bno055_read_restarts_the_startup_after_a_system_error()
 {
     FakeBus bus;
-    Bno055& imu = startedImu(bus);
+    Bno055 imu(bus);
+    startReady(imu, bus);
     bus.registers[Bno055::REG_SYS_STATUS] = Bno055::SYS_STATUS_ERROR;
     ImuSample sample;
     TEST_ASSERT_FALSE(imu.read(sample));
     TEST_ASSERT_EQUAL(Bno055::STARTING, imu.state());
 }
 
-void test_waits_for_the_fusion_to_run()
+void test_bno055_startup_waits_until_the_fusion_runs()
 {
     FakeBus bus;
     bus.fusion_status = 0x03; // system initialization
@@ -183,7 +184,7 @@ void test_waits_for_the_fusion_to_run()
     TEST_ASSERT_EQUAL(Bno055::READY, imu.state());
 }
 
-void test_failed_when_the_fusion_doesnt_start()
+void test_bno055_startup_fails_when_the_fusion_doesnt_start()
 {
     FakeBus bus;
     bus.fusion_status = 0x03;
@@ -201,12 +202,13 @@ void test_failed_when_the_fusion_doesnt_start()
     TEST_ASSERT_EQUAL(Bno055::FAILED, broken.state());
 }
 
-void test_no_sample_while_the_fusion_doesnt_run()
+void test_bno055_read_fails_while_the_fusion_doesnt_run()
 {
     // Idle, initializing peripherals, initializing, self-test, running without fusion: the data
     // registers may be old
     FakeBus bus;
-    Bno055& imu = startedImu(bus);
+    Bno055 imu(bus);
+    startReady(imu, bus);
     ImuSample sample;
     for (uint8_t status : {0x00, 0x02, 0x03, 0x04, 0x06})
     {
@@ -218,10 +220,11 @@ void test_no_sample_while_the_fusion_doesnt_run()
     TEST_ASSERT_TRUE(imu.read(sample));
 }
 
-void test_reads_skip_the_reserved_register()
+void test_bno055_read_skips_the_reserved_register()
 {
     FakeBus bus;
-    Bno055& imu = startedImu(bus);
+    Bno055 imu(bus);
+    startReady(imu, bus);
     ImuSample sample;
     TEST_ASSERT_TRUE(imu.read(sample));
     TEST_ASSERT_EQUAL(0, bus.reserved_reads);
@@ -230,19 +233,19 @@ void test_reads_skip_the_reserved_register()
 int main(int argc, char** argv)
 {
     UNITY_BEGIN();
-    RUN_TEST(test_convert_units_and_signs);
-    RUN_TEST(test_startup_steps_without_waiting);
-    RUN_TEST(test_absent_without_a_bno055);
-    RUN_TEST(test_failed_when_it_doesnt_come_back_after_the_reset);
-    RUN_TEST(test_failed_when_a_setting_doesnt_take);
-    RUN_TEST(test_read_fills_a_sample);
-    RUN_TEST(test_no_read_before_ready);
-    RUN_TEST(test_failed_read_leaves_the_sample_unchanged);
-    RUN_TEST(test_sensor_reset_starts_over);
-    RUN_TEST(test_system_error_starts_over);
-    RUN_TEST(test_waits_for_the_fusion_to_run);
-    RUN_TEST(test_failed_when_the_fusion_doesnt_start);
-    RUN_TEST(test_no_sample_while_the_fusion_doesnt_run);
-    RUN_TEST(test_reads_skip_the_reserved_register);
+    RUN_TEST(test_bno055_convert_scales_and_signs_the_data_bytes);
+    RUN_TEST(test_bno055_startup_advances_one_step_per_update_without_waiting);
+    RUN_TEST(test_bno055_startup_reports_absent_without_a_chip_at_the_address);
+    RUN_TEST(test_bno055_startup_fails_when_the_chip_stays_silent_after_the_reset);
+    RUN_TEST(test_bno055_startup_fails_when_a_setting_reads_back_different);
+    RUN_TEST(test_bno055_read_fills_the_sample_when_ready);
+    RUN_TEST(test_bno055_read_fails_before_the_startup_is_done);
+    RUN_TEST(test_bno055_read_leaves_the_sample_unchanged_when_a_transfer_fails);
+    RUN_TEST(test_bno055_read_restarts_the_startup_after_a_sensor_reset);
+    RUN_TEST(test_bno055_read_restarts_the_startup_after_a_system_error);
+    RUN_TEST(test_bno055_startup_waits_until_the_fusion_runs);
+    RUN_TEST(test_bno055_startup_fails_when_the_fusion_doesnt_start);
+    RUN_TEST(test_bno055_read_fails_while_the_fusion_doesnt_run);
+    RUN_TEST(test_bno055_read_skips_the_reserved_register);
     return UNITY_END();
 }

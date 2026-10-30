@@ -21,27 +21,29 @@ AdafruitMotorController motor_controller_left = AdafruitMotorController(MOTOR_LE
 
 BaseController<AdafruitMotorController, Adafruit_MotorShield> base_controller(nh, &motor_controller_left, &motor_controller_right);
 
-// The Arduino clock for the IMU publisher, which the unit tests replace with a fake one
-struct ArduinoClock
+// The IMU's objects, private to this file
+namespace
 {
-    static uint32_t millis() { return ::millis(); }
-    static uint32_t micros() { return ::micros(); }
-};
+    // The Arduino clock for the IMU publisher, which the unit tests replace with a fake one
+    struct ArduinoClock
+    {
+        static uint32_t millis() { return ::millis(); }
+        static uint32_t micros() { return ::micros(); }
+    };
 
-// The IMU, on the same I2C bus as the motor driver. It publishes imu/data_raw, which rosserial
-// puts in its node's namespace (/diffbot/imu/data_raw). The robot drives without an IMU too;
-// IMU_ENABLED 0 in diffbot_base_config.h turns it off for a robot without one.
-WireBusT<TwoWire> wire_bus(Wire);
-Bno055 imu(wire_bus, IMU_BNO055_ADDRESS);
-ImuPublisher<NodeHandle, ArduinoClock> imu_publisher(nh, imu);
+    // The IMU, on the same I2C bus as the motor driver. It publishes imu/data_raw, which rosserial
+    // puts in its node's namespace (/diffbot/imu/data_raw). The robot drives without an IMU too.
+    // IMU_PUBLISHER_CONFIG in diffbot_base_config.h turns it off for a robot without one.
+    WireBusT<TwoWire> wire_bus(Wire);
+    Bno055 imu(wire_bus, IMU_BNO055_ADDRESS);
+    ImuPublisher<NodeHandle, ArduinoClock> imu_publisher(nh, imu, IMU_PUBLISHER_CONFIG);
+}
 
 
 void setup()
 {
-#if IMU_ENABLED
     // Advertise before base_controller.setup() connects: rosserial announces the topics then
     imu_publisher.advertise();
-#endif
     Wire.begin();
     base_controller.setup();
     base_controller.init();
@@ -75,9 +77,7 @@ void loop()
         base_controller.eStop();
     }
 
-#if IMU_ENABLED
     imu_publisher.update();
-#endif
 
     // This block displays the encoder readings. change DEBUG to 0 if you don't want to display
     if(base_controller.debug())
