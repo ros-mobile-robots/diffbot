@@ -54,7 +54,7 @@ public:
 void setUp() {}
 void tearDown() {}
 
-void test_write_register()
+void test_wire_bus_write_register_sends_register_and_value_and_reports_a_missing_ack()
 {
     FakeWire wire;
     diffbot::WireBusT<FakeWire> bus(wire);
@@ -66,7 +66,7 @@ void test_write_register()
     TEST_ASSERT_FALSE(bus.writeRegister(0x28, 0x3D, 0x08));
 }
 
-void test_read_registers_with_a_repeated_start()
+void test_wire_bus_read_registers_uses_a_repeated_start()
 {
     FakeWire wire;
     diffbot::WireBusT<FakeWire> bus(wire);
@@ -78,7 +78,7 @@ void test_read_registers_with_a_repeated_start()
     TEST_ASSERT_EQUAL_HEX8(0x12, data[2]);
 }
 
-void test_read_fails_when_the_register_write_fails()
+void test_wire_bus_read_registers_fails_when_the_register_write_fails()
 {
     FakeWire wire;
     wire.end_result = 2;
@@ -87,7 +87,7 @@ void test_read_fails_when_the_register_write_fails()
     TEST_ASSERT_FALSE(bus.readRegisters(0x28, 0x08, data, 3));
 }
 
-void test_short_reads_fail_and_leave_nothing_behind()
+void test_wire_bus_read_registers_fails_on_a_short_read_and_drains_the_bytes()
 {
     // The count requestFrom() reports and the bytes really received both have to be the length:
     // the Teensy 4's Wire can report 4 on a failed bus acquisition, with or without data
@@ -112,9 +112,9 @@ void test_short_reads_fail_and_leave_nothing_behind()
 int main(int argc, char** argv)
 {
     UNITY_BEGIN();
-    RUN_TEST(test_write_register);
-    RUN_TEST(test_read_registers_with_a_repeated_start);
-    RUN_TEST(test_read_fails_when_the_register_write_fails);
-    RUN_TEST(test_short_reads_fail_and_leave_nothing_behind);
+    RUN_TEST(test_wire_bus_write_register_sends_register_and_value_and_reports_a_missing_ack);
+    RUN_TEST(test_wire_bus_read_registers_uses_a_repeated_start);
+    RUN_TEST(test_wire_bus_read_registers_fails_when_the_register_write_fails);
+    RUN_TEST(test_wire_bus_read_registers_fails_on_a_short_read_and_drains_the_bytes);
     return UNITY_END();
 }

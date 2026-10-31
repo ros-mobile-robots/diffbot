@@ -21,6 +21,8 @@ public:
     bool resetting = false;
     bool back_after_reset = true;
     int reset_count = 0;
+    /// Every writeRegister() and readRegisters() call, successful or not
+    int transfers = 0;
     /// SYS_STATUS after the switch to IMUPLUS: the fusion runs
     uint8_t fusion_status = Bno055::SYS_STATUS_FUSION_RUNNING;
     /// Registers read in one transfer must not include this reserved one
@@ -40,6 +42,7 @@ public:
 
     bool writeRegister(uint8_t addr, uint8_t reg, uint8_t value) override
     {
+        ++transfers;
         if (fail_writes || addr != address || (resetting && !back_after_reset))
             return false;
         if (reg == Bno055::REG_SYS_TRIGGER && (value & 0x20))
@@ -61,6 +64,7 @@ public:
 
     bool readRegisters(uint8_t addr, uint8_t reg, uint8_t* data, size_t length) override
     {
+        ++transfers;
         if (fail_reads || addr != address || (resetting && !back_after_reset))
             return false;
         if (reg <= 0x3C && reg + length > 0x3C)

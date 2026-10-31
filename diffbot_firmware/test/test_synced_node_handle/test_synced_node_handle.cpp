@@ -29,7 +29,7 @@ void reply(NodeHandle& nh, uint32_t ms, uint32_t sec = HOST_SEC)
 void setUp() { FakeClock::setMs(0); }
 void tearDown() {}
 
-void test_not_synced_before_the_reply()
+void test_synced_node_handle_is_not_synced_before_the_time_reply()
 {
     NodeHandle nh;
     nh.initNode();
@@ -42,7 +42,7 @@ void test_not_synced_before_the_reply()
     TEST_ASSERT_EQUAL_UINT32(HOST_SEC, nh.now().sec);
 }
 
-void test_a_reply_in_the_same_millisecond_counts()
+void test_synced_node_handle_counts_a_reply_in_the_negotiations_millisecond()
 {
     // rosserial counts in milliseconds; a reply in the negotiation's millisecond leaves its
     // counters equal, but the clock is set
@@ -53,7 +53,7 @@ void test_a_reply_in_the_same_millisecond_counts()
     TEST_ASSERT_TRUE(nh.timeSynced());
 }
 
-void test_periodic_requests_keep_it_synced()
+void test_synced_node_handle_stays_synced_while_periodic_replies_arrive()
 {
     NodeHandle nh;
     nh.initNode();
@@ -80,7 +80,7 @@ void test_periodic_requests_keep_it_synced()
     TEST_ASSERT_EQUAL(7, replies);
 }
 
-void test_a_new_negotiation_waits_for_its_reply()
+void test_synced_node_handle_is_not_synced_after_a_new_negotiation_until_its_reply()
 {
     NodeHandle nh;
     nh.initNode();
@@ -96,7 +96,7 @@ void test_a_new_negotiation_waits_for_its_reply()
     TEST_ASSERT_EQUAL_UINT32(HOST_SEC - 100, nh.now().sec);
 }
 
-void test_a_reply_before_a_negotiation_doesnt_count()
+void test_synced_node_handle_ignores_a_reply_that_arrives_before_a_negotiation()
 {
     // Both frames arrive in one spinOnce(): the reply belongs to the old connection
     NodeHandle nh;
@@ -110,7 +110,7 @@ void test_a_reply_before_a_negotiation_doesnt_count()
     TEST_ASSERT_FALSE(nh.timeSynced());
 }
 
-void test_a_negotiation_in_a_requests_millisecond()
+void test_synced_node_handle_is_not_synced_after_a_negotiation_in_a_requests_millisecond()
 {
     // A periodic request and then a new negotiation in the same millisecond, in two calls: the
     // negotiation still ends the sync
@@ -134,7 +134,7 @@ void test_a_negotiation_in_a_requests_millisecond()
     TEST_ASSERT_TRUE(nh.timeSynced());
 }
 
-void test_a_reply_that_keeps_the_clock_counts()
+void test_synced_node_handle_counts_a_reply_that_leaves_the_clock_unchanged()
 {
     // After a reconnect, the host's reply can leave the clock offsets exactly as they were
     NodeHandle nh;
@@ -148,7 +148,7 @@ void test_a_reply_that_keeps_the_clock_counts()
     TEST_ASSERT_EQUAL_UINT32(HOST_SEC + 1, nh.now().sec);
 }
 
-void test_disconnect_ends_the_sync()
+void test_synced_node_handle_is_not_synced_after_a_disconnect()
 {
     NodeHandle nh;
     nh.initNode();
@@ -160,7 +160,7 @@ void test_disconnect_ends_the_sync()
     TEST_ASSERT_FALSE(nh.timeSynced());
 }
 
-void test_no_reply_for_too_long_ends_the_sync()
+void test_synced_node_handle_is_not_synced_after_11_s_without_a_reply()
 {
     // rosserial drops the connection 11 s after the last reply
     NodeHandle nh;
@@ -176,7 +176,7 @@ void test_no_reply_for_too_long_ends_the_sync()
     TEST_ASSERT_FALSE(nh.timeSynced());
 }
 
-void test_millis_wrap_between_request_and_reply()
+void test_synced_node_handle_counts_a_reply_across_the_millis_wrap()
 {
     NodeHandle nh;
     nh.initNode();
@@ -188,15 +188,15 @@ void test_millis_wrap_between_request_and_reply()
 int main(int argc, char** argv)
 {
     UNITY_BEGIN();
-    RUN_TEST(test_not_synced_before_the_reply);
-    RUN_TEST(test_a_reply_in_the_same_millisecond_counts);
-    RUN_TEST(test_periodic_requests_keep_it_synced);
-    RUN_TEST(test_a_new_negotiation_waits_for_its_reply);
-    RUN_TEST(test_a_reply_before_a_negotiation_doesnt_count);
-    RUN_TEST(test_a_negotiation_in_a_requests_millisecond);
-    RUN_TEST(test_a_reply_that_keeps_the_clock_counts);
-    RUN_TEST(test_disconnect_ends_the_sync);
-    RUN_TEST(test_no_reply_for_too_long_ends_the_sync);
-    RUN_TEST(test_millis_wrap_between_request_and_reply);
+    RUN_TEST(test_synced_node_handle_is_not_synced_before_the_time_reply);
+    RUN_TEST(test_synced_node_handle_counts_a_reply_in_the_negotiations_millisecond);
+    RUN_TEST(test_synced_node_handle_stays_synced_while_periodic_replies_arrive);
+    RUN_TEST(test_synced_node_handle_is_not_synced_after_a_new_negotiation_until_its_reply);
+    RUN_TEST(test_synced_node_handle_ignores_a_reply_that_arrives_before_a_negotiation);
+    RUN_TEST(test_synced_node_handle_is_not_synced_after_a_negotiation_in_a_requests_millisecond);
+    RUN_TEST(test_synced_node_handle_counts_a_reply_that_leaves_the_clock_unchanged);
+    RUN_TEST(test_synced_node_handle_is_not_synced_after_a_disconnect);
+    RUN_TEST(test_synced_node_handle_is_not_synced_after_11_s_without_a_reply);
+    RUN_TEST(test_synced_node_handle_counts_a_reply_across_the_millis_wrap);
     return UNITY_END();
 }
