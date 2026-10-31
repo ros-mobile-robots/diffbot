@@ -12,7 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # Every board in platformio.ini, so none of them can break unnoticed
+      # Every board in platformio.ini, so none of them can break unnoticed (the native
+      # environment is for the unit tests below)
       matrix:
         env: [teensy31, teensy40]
 
@@ -44,3 +45,24 @@ jobs:
             pio-core-${{ runner.os }}-${{ runner.arch }}-${{ matrix.env }}-
       - name: Build the firmware
         run: .docker/firmware/run.sh pio run -e ${{ matrix.env }}
+
+  # The firmware's unit tests that run on the PC, without a Teensy (the native environment in
+  # platformio.ini), for example the BNO055 driver with a fake I2C bus. They run in the same
+  # firmware container as the builds, with a cache of their own for the native platform.
+  unit_tests:
+    name: unit tests (native)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Settings for the firmware container
+        run: |
+          echo "PIO_CORE=$RUNNER_TEMP/pio-core" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/pio-core"
+      - uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/pio-core
+          key: pio-core-${{ runner.os }}-${{ runner.arch }}-native-${{ hashFiles('.docker/firmware/requirements.txt', 'diffbot_firmware/platformio.ini') }}
+          restore-keys: |
+            pio-core-${{ runner.os }}-${{ runner.arch }}-native-
+      - name: Run the unit tests
+        run: .docker/firmware/run.sh pio test -e native

@@ -25,14 +25,14 @@ catkin build --catkin-make-args run_tests && catkin_test_results build   # all t
 rostest diffbot_gazebo sim_drive_diffbot.test                            # or sim_drive_remo.test
 ```
 
-The firmware needs PlatformIO, which isn't in the dev container. Build it in its own container (`.docker/firmware`), on the host, not in the dev container: `.docker/firmware/run.sh pio run -e teensy31` and `.docker/firmware/run.sh pio run -e teensy40`. The script builds the image (cached when unchanged) and runs the command in `diffbot_firmware` as the host user (`LOCAL_UID` and `LOCAL_GID` override the IDs). Or install PlatformIO on the host with its installer script or in a virtual environment (CONTRIBUTING.md shows both), not with `pip` into the system Python, and run `pio run -e teensy31 && pio run -e teensy40` in `diffbot_firmware`.
+The firmware needs PlatformIO, which isn't in the dev container. Build it in its own container (`.docker/firmware`), on the host, not in the dev container: `.docker/firmware/run.sh pio run -e teensy31` and `.docker/firmware/run.sh pio run -e teensy40`, and the unit tests with `.docker/firmware/run.sh pio test -e native`. The script builds the image (cached when unchanged) and runs the command in `diffbot_firmware` as the host user (`LOCAL_UID` and `LOCAL_GID` override the IDs). Or install PlatformIO on the host with its installer script or in a virtual environment (CONTRIBUTING.md shows both), not with `pip` into the system Python, and run `pio run -e teensy31 && pio run -e teensy40` and `pio test -e native` in `diffbot_firmware`.
 
 Without a display, Gazebo runs headless in the tests. Expect about a minute per robot for the simulation test.
 
 ## Before you call a change done
 
 - **Model, controller or simulation changes:** run both robots' simulation tests and report the measured motions from the result files, not only pass/fail. [Simulation Test](https://ros-mobile-robots.com/development/simulation-test/) explains what they measure.
-- **Firmware changes:** build both PlatformIO environments.
+- **Firmware changes:** build both Teensy environments and run the unit tests on the PC, in the firmware container: `.docker/firmware/run.sh pio test -e native`.
 - **Python code:** PEP 8 with the settings of ROS 2's `ament_flake8` (99 columns, google import order, one import per line, single quotes), function docstrings after PEP 257 whose first line is a command ("Return …", "Check …"), type hints that mypy checks for Python 3.8, Noetic's version, and names that say what a value holds, for example `left_joint_names` for a list of joint names. `diffbot_gazebo/test/test_drive.py` and `test_geometry_consistency.py` follow it. Until CI checks it (#117), install flake8 with ament's plugins, mypy 1.10.1 (newer versions can't check for Python 3.8) and the PyYAML type stubs in a virtual environment, and run from the repository root:
 
   ```bash

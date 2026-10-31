@@ -1,11 +1,18 @@
 #include <ros.h>
+#include <Wire.h>
 
 #include "diffbot_base_config.h"
 #include "base_controller.h"
 #include "adafruit_feather_wing/adafruit_feather_wing.h"
+#include "bno055.h"
+#include "imu_publisher.h"
+#include "synced_node_handle.h"
+#include "wire_bus.h"
 
 
-ros::NodeHandle nh;
+// The node handle also tells when its clock is synchronized with the host (synced_node_handle.h)
+typedef diffbot::SyncedNodeHandleT<ros::NodeHandle> NodeHandle;
+NodeHandle nh;
 
 using namespace diffbot;
 
@@ -14,9 +21,30 @@ AdafruitMotorController motor_controller_left = AdafruitMotorController(MOTOR_LE
 
 BaseController<AdafruitMotorController, Adafruit_MotorShield> base_controller(nh, &motor_controller_left, &motor_controller_right);
 
+// The IMU's objects, private to this file
+namespace
+{
+    // The Arduino clock for the IMU publisher, which the unit tests replace with a fake one
+    struct ArduinoClock
+    {
+        static uint32_t millis() { return ::millis(); }
+        static uint32_t micros() { return ::micros(); }
+    };
+
+    // The IMU, on the same I2C bus as the motor driver. It publishes imu/data_raw, which rosserial
+    // puts in its node's namespace (/diffbot/imu/data_raw). The robot drives without an IMU too.
+    // IMU_PUBLISHER_CONFIG in diffbot_base_config.h turns it off for a robot without one.
+    WireBusT<TwoWire> wire_bus(Wire);
+    Bno055 imu(wire_bus, IMU_BNO055_ADDRESS);
+    ImuPublisher<NodeHandle, ArduinoClock> imu_publisher(nh, imu, IMU_PUBLISHER_CONFIG);
+}
+
 
 void setup()
 {
+    // Advertise before base_controller.setup() connects: rosserial announces the topics then
+    imu_publisher.advertise();
+    Wire.begin();
     base_controller.setup();
     base_controller.init();
 
@@ -29,8 +57,6 @@ void setup()
 
 void loop()
 {
-    static bool imu_is_initialized;
-
     // Use the Teensy's elapsed time for scheduling (see BaseController::LastUpdateTime).
     uint32_t now_ms = millis();
 
@@ -51,24 +77,7 @@ void loop()
         base_controller.eStop();
     }
 
-    // This block publishes the IMU data based on a defined imu rate
-    if (now_ms - base_controller.lastUpdateTime().imu >= base_controller.publishRate().period().imu_ * 1000.0)
-    {
-        // Sanity check if the IMU is connected
-        if (!imu_is_initialized)
-        {
-            //imu_is_initialized = initIMU();
-            if(imu_is_initialized)
-                nh.loginfo("IMU Initialized");
-            else
-                nh.logfatal("IMU failed to initialize. Check your IMU connection.");
-        }
-        else
-        {
-            //publishIMU();
-        }
-        base_controller.lastUpdateTime().imu = now_ms;
-    }
+    imu_publisher.update();
 
     // This block displays the encoder readings. change DEBUG to 0 if you don't want to display
     if(base_controller.debug())
