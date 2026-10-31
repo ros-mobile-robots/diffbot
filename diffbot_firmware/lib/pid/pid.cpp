@@ -1,4 +1,3 @@
-#include "Arduino.h"
 #include "pid.h"
 
 diffbot::PID::PID(float min_val, float max_val, float kp, float ki, float kd):
@@ -6,7 +5,11 @@ diffbot::PID::PID(float min_val, float max_val, float kp, float ki, float kd):
     max_val_(max_val),
     kp_(kp),
     ki_(ki),
-    kd_(kd)
+    kd_(kd),
+    proportional_(0),
+    integral_(0),
+    derivative_(0),
+    prev_error_(0)
 {
 }
 
@@ -29,7 +32,16 @@ double diffbot::PID::compute(float setpoint, float measured_value)
     pid = (kp_ * proportional_) + (ki_ * integral_) + (kd_ * derivative_);
     prev_error_ = error;
 
-    return constrain(pid, min_val_, max_val_);
+    // Limit the output to the motor driver's range
+    if (pid < min_val_)
+    {
+        return min_val_;
+    }
+    if (pid > max_val_)
+    {
+        return max_val_;
+    }
+    return pid;
 }
 
 void diffbot::PID::updateConstants(float kp, float ki, float kd)
@@ -37,4 +49,12 @@ void diffbot::PID::updateConstants(float kp, float ki, float kd)
     kp_ = kp;
     ki_ = ki;
     kd_ = kd;
+}
+
+void diffbot::PID::reset()
+{
+    proportional_ = 0;
+    integral_ = 0;
+    derivative_ = 0;
+    prev_error_ = 0;
 }

@@ -40,9 +40,9 @@ namespace diffbot {
      * To keep track when a new update is needed, the \ref last_update_time_ member is used, 
      * which stores the time stamps when the last update happened. 
      * Additionally the \ref LastUpdateTime::command_received time stamp
-     * is used to check for connection losses to the high level hardware interface, which then
-     * sets the target velocities to zero (see \ref eStop), if no command message was received for a
-     * specified amount of time.
+     * is used to check for connection losses to the high level hardware interface: if no command
+     * message was received for COMMAND_TIMEOUT_MS, loop() stops the motors (see \ref eStop and
+     * CommandTimeout).
      * 
      * The BaseController subscribes to the target wheel command angular velocities
      * (\ref diffbot_msgs::WheelsCmdStamped on the "wheel_cmd_velocities" topic) with the 
@@ -161,7 +161,7 @@ namespace diffbot {
          *
          * Records when commands arrive and scheduled updates run. loop() subtracts
          * these readings from the current reading to decide whether, for example,
-         * 50 ms have passed since a control step or 5 s since a wheel command.
+         * 50 ms have passed since a control step or 1 s since a wheel command.
          *
          * These readings come from millis(), the Teensy's elapsed-millisecond counter.
          * Synchronizing ROS time with the robot's computer does not change this counter.
@@ -214,6 +214,8 @@ namespace diffbot {
          * @return false 
          */
         inline bool debug() { return debug_; };
+        /// How many wheel commands have arrived, for the command timeout (CommandTimeout)
+        inline uint32_t commandCount() const { return command_count_; };
 
         /**
          * @brief Initializes the main node handle and setup publisher and subscriber.
@@ -237,14 +239,13 @@ namespace diffbot {
         void init();
 
         /**
-         * @brief Sets both target wheel velocities to zero after a command timeout.
+         * @brief Stops the motors after a command timeout.
          *
-         * Sets the \ref wheel_cmd_velocity_left_ and \ref wheel_cmd_velocity_right_ to zero.
-         * It doesn't stop the motors directly or reset the PIDs: the next control step uses the
-         * zero targets, and stored PID state can keep the motor output nonzero (#146).
-         * This method is called when the \ref commandCallback wasn't called within the 
-         * \ref LastUpdateTime::command_received period on the /diffbot/wheel_cmd_velocities topic.
-         * 
+         * Sets the \ref wheel_cmd_velocity_left_ and \ref wheel_cmd_velocity_right_ to zero,
+         * resets both PIDs, so that no stored error drives the motors later, and sets both motors'
+         * speed to zero (on the FeatherWing: released, so they coast). loop() calls it once when no
+         * wheel command arrived for COMMAND_TIMEOUT_MS, and doesn't call \ref write until the next
+         * command arrives.
          */
         void eStop();
 
@@ -290,8 +291,8 @@ namespace diffbot {
          * \endcode
          * 
          * In this method the \ref lastUpdateTime::command_received time stamp is set to the current time.
-         * This is used for the eStop functionality. In case no diffbot_msgs::WheelsCmdStamped messages are 
-         * received on the wheel_cmd_velocities topic, the eStop method is called (see main loop in main.cpp)
+         * loop() compares it with COMMAND_TIMEOUT_MS: when no diffbot_msgs::WheelsCmdStamped message
+         * arrives on the wheel_cmd_velocities topic for that long, it stops the motors (\ref eStop).
          * 
          * @param cmd_msg Message containing the commanded wheel velocities.
          */
@@ -378,6 +379,7 @@ namespace diffbot {
 
         // DEBUG
         bool debug_;
+        uint32_t command_count_ = 0;
     };
 
 
@@ -477,9 +479,9 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::commandCallback(co
     wheel_cmd_velocity_left_ = cmd_msg.wheels_cmd.angular_velocities.joint[0];
     wheel_cmd_velocity_right_ = cmd_msg.wheels_cmd.angular_velocities.joint[1];
 
-    // Used for the eStop. In case no diffbot_msgs::WheelsCmdStamped messages are received on the wheel_cmd_velocities 
-    // topic, the eStop method is called (see main loop in main.cpp)
+    // For the command timeout in loop(): without new commands, it stops the motors (eStop())
     lastUpdateTime().command_received = millis();
+    ++command_count_;
 }
 
 // ROS Subscriber setup to reset both encoders to zero
@@ -564,6 +566,12 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::eStop()
 {
     wheel_cmd_velocity_left_ = 0;
     wheel_cmd_velocity_right_ = 0;
+    motor_pid_left_.reset();
+    motor_pid_right_.reset();
+    motor_cmd_left_ = 0;
+    motor_cmd_right_ = 0;
+    p_motor_controller_left_->setSpeed(0);
+    p_motor_controller_right_->setSpeed(0);
 }
 
 template <typename TMotorController, typename TMotorDriver>

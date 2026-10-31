@@ -3,6 +3,8 @@
 
 #include "diffbot_base_config.h"
 #include "base_controller.h"
+#include "command_timeout.h"
+#include "drive_step.h"
 #include "adafruit_feather_wing/adafruit_feather_wing.h"
 #include "bno055.h"
 #include "imu_publisher.h"
@@ -21,9 +23,12 @@ AdafruitMotorController motor_controller_left = AdafruitMotorController(MOTOR_LE
 
 BaseController<AdafruitMotorController, Adafruit_MotorShield> base_controller(nh, &motor_controller_left, &motor_controller_right);
 
-// The IMU's objects, private to this file
+// The command timeout and the IMU, private to this file
 namespace
 {
+    // Stops the motors when the wheel commands from the robot's computer stop arriving (loop())
+    CommandTimeout command_timeout(COMMAND_TIMEOUT_MS);
+
     // The Arduino clock for the IMU publisher, which the unit tests replace with a fake one
     struct ArduinoClock
     {
@@ -60,22 +65,11 @@ void loop()
     // Use the Teensy's elapsed time for scheduling (see BaseController::LastUpdateTime).
     uint32_t now_ms = millis();
 
-    // The main control loop for the base_conroller.
-    // This block drives the robot based on a defined control rate
-    if (now_ms - base_controller.lastUpdateTime().control >= 1000.0 / base_controller.publishRate().control_)
-    {
-        base_controller.read();
-        base_controller.write();
-        base_controller.lastUpdateTime().control = now_ms;
-    }
-
-    // After 5 s without a wheel command, set both target velocities to zero.
-    // eStop() does not directly stop the motors or reset the PIDs.
-    if (now_ms - base_controller.lastUpdateTime().command_received >= E_STOP_COMMAND_RECEIVED_DURATION * 1000UL)
-    {
-        nh.logwarn("Wheel command timeout: targets set to zero");
-        base_controller.eStop();
-    }
+    // Without a wheel command for COMMAND_TIMEOUT_MS, stop the motors and reset the PIDs, then log
+    // once. The control step drives the motors again after the next command (lib/drive_step).
+    driveStep(base_controller, command_timeout, now_ms,
+              1000.0 / base_controller.publishRate().control_,
+              []() { nh.logwarn("Wheel command timeout: motors stopped"); });
 
     imu_publisher.update();
 
