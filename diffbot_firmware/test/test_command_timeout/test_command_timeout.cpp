@@ -11,7 +11,7 @@ void tearDown() {}
 
 static const uint32_t TIMEOUT_MS = 1000;
 
-void test_starts_timed_out_until_the_first_command()
+void test_command_timeout_is_timed_out_until_the_first_command()
 {
     diffbot::CommandTimeout timeout(TIMEOUT_MS);
     TEST_ASSERT_TRUE(timeout.timedOut());
@@ -23,7 +23,7 @@ void test_starts_timed_out_until_the_first_command()
     TEST_ASSERT_FALSE(timeout.timedOut());
 }
 
-void test_fires_once_when_the_command_becomes_too_old()
+void test_command_timeout_fires_once_when_the_command_becomes_too_old()
 {
     diffbot::CommandTimeout timeout(TIMEOUT_MS);
     TEST_ASSERT_FALSE(timeout.update(5000, 5000, 1));
@@ -36,7 +36,7 @@ void test_fires_once_when_the_command_becomes_too_old()
     TEST_ASSERT_TRUE(timeout.timedOut());
 }
 
-void test_a_new_command_ends_the_timeout_and_rearms_it()
+void test_command_timeout_ends_and_rearms_when_a_new_command_arrives()
 {
     diffbot::CommandTimeout timeout(TIMEOUT_MS);
     timeout.update(5000, 5000, 1);
@@ -49,7 +49,7 @@ void test_a_new_command_ends_the_timeout_and_rearms_it()
     TEST_ASSERT_TRUE(timeout.timedOut());
 }
 
-void test_millis_returning_to_zero()
+void test_command_timeout_measures_the_age_across_the_millis_wrap()
 {
     diffbot::CommandTimeout timeout(TIMEOUT_MS);
     // The last command 200 ms before millis() returns to zero
@@ -61,7 +61,7 @@ void test_millis_returning_to_zero()
 
 // Without a new command for a whole cycle of millis(), about 49.7 days, the old time looks new
 // again. The timeout must stay on until a command really arrives.
-void test_stays_timed_out_through_a_whole_cycle_without_commands()
+void test_command_timeout_stays_timed_out_through_a_whole_millis_cycle_without_commands()
 {
     diffbot::CommandTimeout timeout(TIMEOUT_MS);
     timeout.update(5000, 5000, 1);
@@ -76,10 +76,10 @@ void test_stays_timed_out_through_a_whole_cycle_without_commands()
 int main(int argc, char** argv)
 {
     UNITY_BEGIN();
-    RUN_TEST(test_starts_timed_out_until_the_first_command);
-    RUN_TEST(test_fires_once_when_the_command_becomes_too_old);
-    RUN_TEST(test_a_new_command_ends_the_timeout_and_rearms_it);
-    RUN_TEST(test_millis_returning_to_zero);
-    RUN_TEST(test_stays_timed_out_through_a_whole_cycle_without_commands);
+    RUN_TEST(test_command_timeout_is_timed_out_until_the_first_command);
+    RUN_TEST(test_command_timeout_fires_once_when_the_command_becomes_too_old);
+    RUN_TEST(test_command_timeout_ends_and_rearms_when_a_new_command_arrives);
+    RUN_TEST(test_command_timeout_measures_the_age_across_the_millis_wrap);
+    RUN_TEST(test_command_timeout_stays_timed_out_through_a_whole_millis_cycle_without_commands);
     return UNITY_END();
 }

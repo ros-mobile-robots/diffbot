@@ -11,7 +11,7 @@ void tearDown() {}
 static const float KP = 0.6f, KI = 0.3f, KD = 0.5f;
 static const float OUT_MAX = 255.0f;
 
-void test_starts_without_stored_error()
+void test_pid_starts_without_stored_error()
 {
     diffbot::PID pid(-OUT_MAX, OUT_MAX, KP, KI, KD);
     TEST_ASSERT_EQUAL_FLOAT(0.0f, (float)pid.integral());
@@ -20,7 +20,7 @@ void test_starts_without_stored_error()
     TEST_ASSERT_FLOAT_WITHIN(1e-5f, KP + KI + KD, (float)pid.compute(1.0f, 0.0f));
 }
 
-void test_output_is_limited()
+void test_pid_limits_its_output()
 {
     diffbot::PID pid(-OUT_MAX, OUT_MAX, KP, KI, KD);
     TEST_ASSERT_EQUAL_FLOAT(OUT_MAX, (float)pid.compute(1000.0f, 0.0f));
@@ -31,7 +31,7 @@ void test_output_is_limited()
 // The case of #146: a wheel held back winds the integral up, so a target of zero alone keeps
 // the output at full power. After reset(), a target of zero with the wheel still turning gives
 // no positive output.
-void test_reset_clears_a_wound_up_integral()
+void test_pid_reset_clears_a_wound_up_integral()
 {
     diffbot::PID pid(-OUT_MAX, OUT_MAX, KP, KI, KD);
     for (int i = 0; i < 100; ++i)
@@ -50,8 +50,8 @@ void test_reset_clears_a_wound_up_integral()
 int main(int argc, char** argv)
 {
     UNITY_BEGIN();
-    RUN_TEST(test_starts_without_stored_error);
-    RUN_TEST(test_output_is_limited);
-    RUN_TEST(test_reset_clears_a_wound_up_integral);
+    RUN_TEST(test_pid_starts_without_stored_error);
+    RUN_TEST(test_pid_limits_its_output);
+    RUN_TEST(test_pid_reset_clears_a_wound_up_integral);
     return UNITY_END();
 }

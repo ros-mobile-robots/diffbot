@@ -1,6 +1,8 @@
 #ifndef DIFFBOT_BASE_CONFIG_H
 #define DIFFBOT_BASE_CONFIG_H
 
+#include <stdint.h>
+
 
 
 /// Encoder pins
@@ -34,7 +36,7 @@
 // Stop the motors if no wheel command arrived for this many milliseconds. The hardware interface on
 // the robot's computer sends a command 10 times a second, also while the robot stands, so this is
 // about ten missed commands. Check on the robot that it doesn't stop while driving normally.
-#define COMMAND_TIMEOUT_MS 1000
+constexpr uint32_t COMMAND_TIMEOUT_MS = 1000;
 
 /// IMU: Bosch BNO055 on the Teensy's I2C bus (Wire, the same bus as the motor driver)
 #include "imu_config.h"

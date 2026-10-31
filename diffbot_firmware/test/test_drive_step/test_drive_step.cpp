@@ -53,7 +53,7 @@ static void step(FakeBaseController& controller, diffbot::CommandTimeout& timeou
     });
 }
 
-void test_no_drive_before_the_first_command()
+void test_drive_step_doesnt_drive_before_the_first_command()
 {
     calls.clear();
     FakeBaseController controller;
@@ -66,7 +66,7 @@ void test_no_drive_before_the_first_command()
     TEST_ASSERT_EQUAL_INT(0, controller.motor_output);
 }
 
-void test_timeout_stops_before_logging_and_keeps_reading()
+void test_drive_step_stops_the_motors_before_logging_and_keeps_reading_on_timeout()
 {
     calls.clear();
     FakeBaseController controller;
@@ -94,7 +94,7 @@ void test_timeout_stops_before_logging_and_keeps_reading()
     TEST_ASSERT_EQUAL_INT(0, controller.motor_output);
 }
 
-void test_the_next_command_drives_again()
+void test_drive_step_drives_again_after_the_next_command()
 {
     calls.clear();
     FakeBaseController controller;
@@ -114,8 +114,8 @@ void test_the_next_command_drives_again()
 int main(int argc, char** argv)
 {
     UNITY_BEGIN();
-    RUN_TEST(test_no_drive_before_the_first_command);
-    RUN_TEST(test_timeout_stops_before_logging_and_keeps_reading);
-    RUN_TEST(test_the_next_command_drives_again);
+    RUN_TEST(test_drive_step_doesnt_drive_before_the_first_command);
+    RUN_TEST(test_drive_step_stops_the_motors_before_logging_and_keeps_reading_on_timeout);
+    RUN_TEST(test_drive_step_drives_again_after_the_next_command);
     return UNITY_END();
 }
