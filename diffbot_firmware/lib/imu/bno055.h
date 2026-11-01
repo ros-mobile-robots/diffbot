@@ -10,10 +10,13 @@ namespace diffbot
     /**
      * @brief One sample of the IMU, in REP 103 units and in the sensor's own axes.
      *
-     * The rates and accelerations are read in one burst, so the chip's register shadowing keeps
-     * them consistent (datasheet section 3.7). In the fusion mode, the chip corrects both for
-     * their offsets (datasheet sections 3.6.5.1 and 3.6.5.3), so they aren't the sensors'
-     * uncorrected output. They aren't bias-free either.
+     * The rates and accelerations are read in one burst. Register shadowing prevents mixing
+     * an axis's low and high bytes from different updates (datasheet section 3.7).
+     * The datasheet does not specify that all six values share a measurement time.
+     *
+     * In fusion mode, the chip corrects both sensors' outputs for their offsets
+     * (datasheet sections 3.6.5.1 and 3.6.5.3). They aren't the sensors' uncorrected output.
+     * They aren't bias-free either.
      */
     struct ImuSample
     {
