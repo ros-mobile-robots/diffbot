@@ -1,5 +1,10 @@
+#include <stdint.h>
+
+// Arduino's entry headers: millis(), micros(), TwoWire and Wire are declared in board-specific
+// headers behind them (core_pins.h, WireKinetis.h or WireIMXRT.h)
+#include <Arduino.h> // IWYU pragma: keep
 #include <ros.h>
-#include <Wire.h>
+#include <Wire.h> // IWYU pragma: keep
 
 #include "diffbot_base_config.h"
 #include "base_controller.h"
