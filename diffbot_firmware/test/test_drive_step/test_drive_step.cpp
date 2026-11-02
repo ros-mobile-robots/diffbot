@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "command_timeout.h"
 #include "drive_step.h"
 
 void setUp() {}
