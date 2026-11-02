@@ -3,8 +3,16 @@
 //   pio test -e native
 #include <unity.h>
 
+#include <stdint.h>
+
+#include <ros/node_handle.h>
+#include <ros/time.h>
+#include <rosserial_msgs/TopicInfo.h>
+#include <sensor_msgs/Imu.h>
+
 #include "../fakes/fake_bno055.h"
 #include "../fakes/fake_rosserial.h"
+#include "bno055.h"
 #include "imu_config.h"
 #include "imu_publisher.h"
 #include "synced_node_handle.h"

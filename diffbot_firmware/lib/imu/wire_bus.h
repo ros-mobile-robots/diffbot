@@ -1,6 +1,9 @@
 #ifndef DIFFBOT_WIRE_BUS_H
 #define DIFFBOT_WIRE_BUS_H
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include "i2c_bus.h"
 
 namespace diffbot

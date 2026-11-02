@@ -4,9 +4,11 @@
 #ifndef DIFFBOT_FAKE_BNO055_H
 #define DIFFBOT_FAKE_BNO055_H
 
+#include <stdint.h>
 #include <string.h>
 
 #include "bno055.h"
+#include "i2c_bus.h"
 
 class FakeBno055Bus : public diffbot::I2cBus
 {
