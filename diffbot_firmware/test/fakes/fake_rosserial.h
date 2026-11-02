@@ -8,6 +8,7 @@
 
 #include <deque>
 #include <initializer_list>
+#include <string>
 #include <vector>
 
 #include <ros/node_handle.h>
@@ -89,6 +90,25 @@ public:
         for (const auto& frame : output)
             if (frame.size() > 6 && (frame[5] | (frame[6] << 8)) == topic)
                 ++n;
+        return n;
+    }
+
+    /// Log messages (loginfo, logwarn, ...) written with this text in them
+    int countLogs(const char* text) const
+    {
+        // A log frame: the 7-byte header, the level (1 byte), the text's length (4 bytes), the
+        // text, and the checksum (1 byte)
+        const size_t text_begin = 7 + 1 + 4;
+        int n = 0;
+        for (const auto& frame : output)
+        {
+            if (frame.size() <= text_begin
+                || (frame[5] | (frame[6] << 8)) != rosserial_msgs::TopicInfo::ID_LOG)
+                continue;
+            std::string message(frame.begin() + text_begin, frame.end() - 1);
+            if (message.find(text) != std::string::npos)
+                ++n;
+        }
         return n;
     }
 };

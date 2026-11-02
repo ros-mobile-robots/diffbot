@@ -17,12 +17,14 @@ namespace diffbot
      *
      * The start-up doesn't wait for the sensor: each \ref update does the start-up step that is
      * due and returns, so the loop can run between start-up steps. The I2C transfers themselves
-     * stay synchronous. A missing or failed IMU is tried again after retry_ms. A sample is
-     * published only after a successful read that took at most read_budget_us, and only while the
-     * clock is synchronized with the host, so a stalled or unplugged IMU stops the topic instead
-     * of repeating old values with new time stamps. The read budget is checked after the read
-     * returns: it drops a slow sample, but it can't interrupt a transfer. With enabled false, it
-     * doesn't advertise the topic and doesn't touch the I2C bus.
+     * stay synchronous. Each start-up's outcome is logged, and a missing or failed IMU is tried
+     * again retry_ms after it failed. A sample is published only after a successful read that
+     * took at most read_budget_us, and only while the clock is synchronized with the host, so a
+     * stalled or unplugged IMU stops the topic instead of repeating old values with new time
+     * stamps. The read budget is checked after the read returns: it drops a slow sample, but it
+     * can't interrupt a transfer. Ten failed reads in a row start the sensor again. A successful
+     * read ends the row, also one too slow to publish, and so does a new start-up. With enabled
+     * false, it doesn't advertise the topic and doesn't touch the I2C bus.
      *
      * The sampling period counts on the Teensy's own clock (Clock::millis), not on ROS time: ROS
      * time jumps when the host's clock is corrected or when the Teensy connects to a host whose
@@ -71,7 +73,9 @@ namespace diffbot
         }
 
         void updateSensorLifecycle(uint32_t now_ms);
-        void reportState(Bno055::State state);
+        void observeState(Bno055::State state, uint32_t now_ms);
+        void reportStateChange(Bno055::State state);
+        void restartSensor();
         bool takeSamplingSlot(uint32_t now_ms);
         void readAndPublishSample();
         void recordReadFailure();
@@ -82,8 +86,10 @@ namespace diffbot
         const ImuPublisherConfig config_;
         sensor_msgs::Imu message_;
         ros::Publisher publisher_;
-        Bno055::State reported_state_ = Bno055::STARTING;
-        uint32_t retry_ms_ = 0;
+        /// The driver's state at the last update, or STARTING after the publisher restarted it
+        Bno055::State last_observed_state_ = Bno055::STARTING;
+        /// When the driver became ABSENT or FAILED: the next try is retry_ms later
+        uint32_t retry_started_ms_ = 0;
         uint32_t sampled_ms_ = 0;
         int failed_reads_ = 0;
     };
@@ -103,25 +109,32 @@ namespace diffbot
     }
 
     /// Advances the driver's start-up, reports its outcome, and starts a missing or failed
-    /// sensor again after retry_ms
+    /// sensor again retry_ms after it failed
     template <class NodeHandle, class Clock>
     void ImuPublisher<NodeHandle, Clock>::updateSensorLifecycle(uint32_t now_ms)
     {
-        const Bno055::State state = imu_.update(now_ms);
-        if (state != reported_state_)
-        {
-            reportState(state);
-            retry_ms_ = now_ms;
-        }
-        if (waitsForRetry(state) && now_ms - retry_ms_ >= config_.retry_ms)
-        {
-            imu_.restart();
-            retry_ms_ = now_ms;
-        }
+        observeState(imu_.update(now_ms), now_ms);
+        if (waitsForRetry(last_observed_state_) && now_ms - retry_started_ms_ >= config_.retry_ms)
+            restartSensor();
+    }
+
+    /// Acts on a change of the driver's state. Every state but READY ends a row of failed reads,
+    /// ABSENT and FAILED start the retry time, and the log tells the start-up's outcome
+    template <class NodeHandle, class Clock>
+    void ImuPublisher<NodeHandle, Clock>::observeState(Bno055::State state, uint32_t now_ms)
+    {
+        if (state == last_observed_state_)
+            return;
+        last_observed_state_ = state;
+        if (state != Bno055::READY)
+            failed_reads_ = 0;
+        if (waitsForRetry(state))
+            retry_started_ms_ = now_ms;
+        reportStateChange(state);
     }
 
     template <class NodeHandle, class Clock>
-    void ImuPublisher<NodeHandle, Clock>::reportState(Bno055::State state)
+    void ImuPublisher<NodeHandle, Clock>::reportStateChange(Bno055::State state)
     {
         if (state == Bno055::READY)
             nh_.loginfo("IMU: BNO055 started, publishing imu/data_raw");
@@ -130,8 +143,16 @@ namespace diffbot
                         "The robot drives without it.");
         else if (state == Bno055::FAILED)
             nh_.logwarn("IMU: the BNO055 didn't start, trying again later");
-        if (state == Bno055::READY || waitsForRetry(state))
-            reported_state_ = state;
+    }
+
+    /// Starts the sensor again. The restart counts as a change of state, so the new start-up's
+    /// outcome is reported even when it is the same as before, and failed reads count from zero
+    template <class NodeHandle, class Clock>
+    void ImuPublisher<NodeHandle, Clock>::restartSensor()
+    {
+        imu_.restart();
+        last_observed_state_ = imu_.state();
+        failed_reads_ = 0;
     }
 
     /// True once per period_ms, on the Teensy's clock. The schedule goes on while the sensor
@@ -155,13 +176,16 @@ namespace diffbot
         ImuSample sample;
         const bool read_ok = imu_.read(sample);
         const uint32_t duration_us = Clock::micros() - start_us;
-        if (read_ok && duration_us <= config_.read_budget_us)
+        if (read_ok)
         {
+            // The bus and the sensor work, even when the read was too slow to publish its sample
             failed_reads_ = 0;
-            publish(stamp, sample);
+            if (duration_us <= config_.read_budget_us)
+                publish(stamp, sample);
         }
-        else if (!read_ok && imu_.state() == Bno055::READY)
+        else if (imu_.state() == Bno055::READY)
             recordReadFailure();
+        // Otherwise the driver has started the sensor again, which ends the row of failed reads
     }
 
     template <class NodeHandle, class Clock>
@@ -169,9 +193,8 @@ namespace diffbot
     {
         if (++failed_reads_ < RESTART_AFTER_FAILED_READS)
             return;
-        failed_reads_ = 0;
-        imu_.restart();
         nh_.logwarn("IMU: reading the BNO055 failed 10 times in a row, starting it again");
+        restartSensor();
     }
 
     /**
