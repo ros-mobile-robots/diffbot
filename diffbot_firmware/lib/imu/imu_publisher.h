@@ -15,12 +15,14 @@ namespace diffbot
      * @brief Drives the IMU's start-up and publishes it on imu/data_raw, with the settings of an
      * \ref ImuPublisherConfig.
      *
-     * The start-up doesn't wait: each \ref update does at most a few short transfers, so the
-     * control loop keeps its rate while the sensor resets. A missing or failed IMU is tried again
-     * after retry_ms. A sample is published only after a successful read that took at most
-     * read_budget_us, and only while the clock is synchronized with the host, so a stalled or
-     * unplugged IMU stops the topic instead of repeating old values with new time stamps. With
-     * enabled false, it doesn't advertise the topic and doesn't touch the I2C bus.
+     * The start-up doesn't wait for the sensor: each \ref update does the start-up step that is
+     * due and returns, so the loop can run between start-up steps. The I2C transfers themselves
+     * stay synchronous. A missing or failed IMU is tried again after retry_ms. A sample is
+     * published only after a successful read that took at most read_budget_us, and only while the
+     * clock is synchronized with the host, so a stalled or unplugged IMU stops the topic instead
+     * of repeating old values with new time stamps. The read budget is checked after the read
+     * returns: it drops a slow sample, but it can't interrupt a transfer. With enabled false, it
+     * doesn't advertise the topic and doesn't touch the I2C bus.
      *
      * The sampling period counts on the Teensy's own clock (Clock::millis), not on ROS time: ROS
      * time jumps when the host's clock is corrected or when the Teensy connects to a host whose
@@ -30,8 +32,10 @@ namespace diffbot
      * the time when the sensor measured: the read returns the registers' latest values, and the
      * BNO055 doesn't tell when it wrote them.
      *
-     * Header-only and a template, so that the native unit tests run it with a fake serial port and
-     * clock (test/test_imu_publisher).
+     * The template's definitions are in this header, so that the firmware and the native unit
+     * tests can instantiate it with different NodeHandle and Clock types. The tests use
+     * `SyncedNodeHandleT<ros::NodeHandle_<FakeSerial>>` and FakeClock: rosserial's parser is real,
+     * its serial port and the clock are fake (test/test_imu_publisher/test_imu_publisher.cpp).
      *
      * @tparam NodeHandle \ref SyncedNodeHandleT
      * @tparam Clock A type with static millis() and micros(), as the Arduino functions
@@ -60,6 +64,17 @@ namespace diffbot
         const sensor_msgs::Imu& message() const { return message_; }
 
     private:
+        /// ABSENT and FAILED: the sensor waits for the next try after retry_ms
+        static bool waitsForRetry(Bno055::State state)
+        {
+            return state == Bno055::ABSENT || state == Bno055::FAILED;
+        }
+
+        void updateSensorLifecycle(uint32_t now_ms);
+        void reportState(Bno055::State state);
+        bool takeSamplingSlot(uint32_t now_ms);
+        void readAndPublishSample();
+        void recordReadFailure();
         void publish(const ros::Time& stamp, const ImuSample& sample);
 
         NodeHandle& nh_;
@@ -78,51 +93,85 @@ namespace diffbot
     {
         if (!config_.enabled)
             return;
-        uint32_t now_ms = Clock::millis();
-        Bno055::State state = imu_.update(now_ms);
+        const uint32_t now_ms = Clock::millis();
+        updateSensorLifecycle(now_ms);
+        if (!takeSamplingSlot(now_ms))
+            return;
+        if (imu_.state() != Bno055::READY || !nh_.timeSynced())
+            return;
+        readAndPublishSample();
+    }
+
+    /// Advances the driver's start-up, reports its outcome, and starts a missing or failed
+    /// sensor again after retry_ms
+    template <class NodeHandle, class Clock>
+    void ImuPublisher<NodeHandle, Clock>::updateSensorLifecycle(uint32_t now_ms)
+    {
+        const Bno055::State state = imu_.update(now_ms);
         if (state != reported_state_)
         {
-            if (state == Bno055::READY)
-                nh_.loginfo("IMU: BNO055 started, publishing imu/data_raw");
-            else if (state == Bno055::ABSENT)
-                nh_.logwarn("IMU: no BNO055 found, trying again later. The robot drives without it.");
-            else if (state == Bno055::FAILED)
-                nh_.logwarn("IMU: the BNO055 didn't start, trying again later");
-            if (state == Bno055::READY || state == Bno055::ABSENT || state == Bno055::FAILED)
-                reported_state_ = state;
+            reportState(state);
             retry_ms_ = now_ms;
         }
-        if ((state == Bno055::ABSENT || state == Bno055::FAILED)
-            && now_ms - retry_ms_ >= config_.retry_ms)
+        if (waitsForRetry(state) && now_ms - retry_ms_ >= config_.retry_ms)
         {
             imu_.restart();
             retry_ms_ = now_ms;
         }
+    }
 
+    template <class NodeHandle, class Clock>
+    void ImuPublisher<NodeHandle, Clock>::reportState(Bno055::State state)
+    {
+        if (state == Bno055::READY)
+            nh_.loginfo("IMU: BNO055 started, publishing imu/data_raw");
+        else if (state == Bno055::ABSENT)
+            nh_.logwarn("IMU: no BNO055 found, trying again later. "
+                        "The robot drives without it.");
+        else if (state == Bno055::FAILED)
+            nh_.logwarn("IMU: the BNO055 didn't start, trying again later");
+        if (state == Bno055::READY || waitsForRetry(state))
+            reported_state_ = state;
+    }
+
+    /// True once per period_ms, on the Teensy's clock. The schedule goes on while the sensor
+    /// isn't ready or the clock isn't synchronized
+    template <class NodeHandle, class Clock>
+    bool ImuPublisher<NodeHandle, Clock>::takeSamplingSlot(uint32_t now_ms)
+    {
         // Unsigned, so it stays right when millis() wraps
         if (now_ms - sampled_ms_ < config_.period_ms)
-            return;
+            return false;
         sampled_ms_ = now_ms;
-        if (state != Bno055::READY || !nh_.timeSynced())
-            return;
+        return true;
+    }
 
+    template <class NodeHandle, class Clock>
+    void ImuPublisher<NodeHandle, Clock>::readAndPublishSample()
+    {
         // The time when the read begins (see the class's description)
-        ros::Time stamp = nh_.now();
-        uint32_t start_us = Clock::micros();
+        const ros::Time stamp = nh_.now();
+        const uint32_t start_us = Clock::micros();
         ImuSample sample;
-        bool ok = imu_.read(sample);
-        uint32_t duration_us = Clock::micros() - start_us;
-        if (ok && duration_us <= config_.read_budget_us)
+        const bool read_ok = imu_.read(sample);
+        const uint32_t duration_us = Clock::micros() - start_us;
+        if (read_ok && duration_us <= config_.read_budget_us)
         {
             failed_reads_ = 0;
             publish(stamp, sample);
         }
-        else if (!ok && imu_.state() == Bno055::READY && ++failed_reads_ >= RESTART_AFTER_FAILED_READS)
-        {
-            failed_reads_ = 0;
-            imu_.restart();
-            nh_.logwarn("IMU: reading the BNO055 failed 10 times in a row, starting it again");
-        }
+        else if (!read_ok && imu_.state() == Bno055::READY)
+            recordReadFailure();
+    }
+
+    template <class NodeHandle, class Clock>
+    void ImuPublisher<NodeHandle, Clock>::recordReadFailure()
+    {
+        if (++failed_reads_ < RESTART_AFTER_FAILED_READS)
+            return;
+        failed_reads_ = 0;
+        imu_.restart();
+        nh_.logwarn("IMU: reading the BNO055 failed 10 times in a row, starting it again");
     }
 
     /**
