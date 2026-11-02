@@ -1,5 +1,9 @@
 #include "bno055.h"
 
+#include <stdint.h>
+
+#include "i2c_bus.h"
+
 namespace
 {
     using diffbot::Bno055;

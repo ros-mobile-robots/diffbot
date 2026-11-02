@@ -2,6 +2,11 @@
 // the PC: pio test -e native
 #include <unity.h>
 
+#include <stdint.h>
+
+#include <ros/node_handle.h>
+#include <rosserial_msgs/TopicInfo.h>
+
 #include "../fakes/fake_rosserial.h"
 #include "synced_node_handle.h"
 

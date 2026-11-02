@@ -4,6 +4,7 @@
 #ifndef DIFFBOT_FAKE_ROSSERIAL_H
 #define DIFFBOT_FAKE_ROSSERIAL_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <deque>
@@ -11,7 +12,6 @@
 #include <string>
 #include <vector>
 
-#include <ros/node_handle.h>
 #include <rosserial_msgs/TopicInfo.h>
 
 // The Teensy's millis() and micros(), set by the tests

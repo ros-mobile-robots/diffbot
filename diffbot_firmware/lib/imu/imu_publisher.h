@@ -3,7 +3,10 @@
 
 #include <stdint.h>
 
-#include <ros/node_handle.h>
+// ros::Publisher comes from rosserial's entry header: its ros/publisher.h compiles only after
+// ros/node_handle.h, as the two include each other
+#include <ros/node_handle.h> // IWYU pragma: keep
+#include <ros/time.h>
 #include <sensor_msgs/Imu.h>
 
 #include "bno055.h"
