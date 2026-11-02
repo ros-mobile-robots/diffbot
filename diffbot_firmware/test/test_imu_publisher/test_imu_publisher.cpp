@@ -86,6 +86,18 @@ struct Robot
         return nh.getHardware()->countTopics() - before;
     }
 
+    /// Runs the loop once per millisecond until the driver is in the given state, at most until
+    /// limit_ms. Returns the time
+    uint32_t runUntilState(Bno055::State wanted, uint32_t limit_ms)
+    {
+        while (imu.state() != wanted && FakeClock::millis() < limit_ms)
+            runUntil(FakeClock::millis() + 1);
+        return FakeClock::millis();
+    }
+
+    /// Log messages sent with this text in them
+    int countLogs(const char* text) { return nh.getHardware()->countLogs(text); }
+
     /// Connects at 10 ms and runs until 2000 ms: then the IMU has started and the clock is
     /// synchronized
     void startReadyAndSynced()
@@ -215,6 +227,86 @@ void test_imu_publisher_restarts_the_sensor_after_ten_failed_reads()
     TEST_ASSERT_TRUE(robot.runUntil(retry_ms + 2000) > 0);
 }
 
+void test_imu_publisher_keeps_the_sensor_when_a_slow_read_succeeds_between_failures()
+{
+    // Nine failed reads, one that succeeds but is too slow to publish, and one more failure:
+    // not ten failures in a row
+    Robot robot;
+    robot.startReadyAndSynced();
+    robot.bus.fail_reads = true;
+    const uint32_t ninth_read_ms =
+        2000 + (Publisher::RESTART_AFTER_FAILED_READS - 1) * TEST_CONFIG.period_ms;
+    robot.runUntil(ninth_read_ms);
+    robot.bus.fail_reads = false;
+    read_duration_us = TEST_CONFIG.read_budget_us + 1;
+    TEST_ASSERT_EQUAL(0, robot.runUntil(ninth_read_ms + TEST_CONFIG.period_ms));
+    read_duration_us = 0;
+    robot.bus.fail_reads = true;
+    robot.runUntil(ninth_read_ms + 2 * TEST_CONFIG.period_ms);
+    TEST_ASSERT_EQUAL(Bno055::READY, robot.imu.state());
+    TEST_ASSERT_EQUAL(0, robot.countLogs("failed 10 times in a row"));
+}
+
+void test_imu_publisher_counts_failed_reads_from_zero_after_the_driver_restarts()
+{
+    // Nine failed reads, then the sensor resets itself, and the driver starts it again. A failed
+    // read right after that start-up is the first of a new row
+    Robot robot;
+    robot.startReadyAndSynced();
+    robot.bus.fail_reads = true;
+    const uint32_t ninth_read_ms =
+        2000 + (Publisher::RESTART_AFTER_FAILED_READS - 1) * TEST_CONFIG.period_ms;
+    robot.runUntil(ninth_read_ms);
+    robot.bus.fail_reads = false;
+    robot.bus.registers[Bno055::REG_OPR_MODE] = Bno055::MODE_CONFIG; // a brown-out
+    robot.runUntil(ninth_read_ms + TEST_CONFIG.period_ms);
+    TEST_ASSERT_EQUAL(Bno055::STARTING, robot.imu.state());
+    robot.runUntilState(Bno055::READY, ninth_read_ms + 2000);
+    TEST_ASSERT_EQUAL(Bno055::READY, robot.imu.state());
+    robot.bus.fail_reads = true;
+    robot.runUntil(FakeClock::millis() + TEST_CONFIG.period_ms);
+    TEST_ASSERT_EQUAL(Bno055::READY, robot.imu.state());
+    TEST_ASSERT_EQUAL(0, robot.countLogs("failed 10 times in a row"));
+}
+
+void test_imu_publisher_warns_at_each_retry_while_the_sensor_is_absent()
+{
+    Robot robot;
+    robot.bus.fail_reads = true; // nothing answers at the address
+    robot.connect(10);
+    robot.runUntil(11);
+    TEST_ASSERT_EQUAL(Bno055::ABSENT, robot.imu.state());
+    TEST_ASSERT_EQUAL(1, robot.countLogs("no BNO055 found"));
+    robot.runUntil(11 + TEST_CONFIG.retry_ms - 1);
+    TEST_ASSERT_EQUAL(1, robot.countLogs("no BNO055 found"));
+    // Tried again retry_ms after the failure, and missing again
+    robot.runUntil(11 + TEST_CONFIG.retry_ms + 1);
+    TEST_ASSERT_EQUAL(Bno055::ABSENT, robot.imu.state());
+    TEST_ASSERT_EQUAL(2, robot.countLogs("no BNO055 found"));
+}
+
+void test_imu_publisher_retries_retry_ms_after_each_failed_startup()
+{
+    // A sensor that doesn't take its units: each start-up fails, and each failure is reported.
+    // The next try counts from the failure, not from an earlier step of the start-up
+    Robot robot;
+    robot.bus.ignore_writes_to = Bno055::REG_UNIT_SEL;
+    robot.connect(10);
+    uint32_t failed_ms = robot.runUntilState(Bno055::FAILED, 3000);
+    TEST_ASSERT_EQUAL(Bno055::FAILED, robot.imu.state());
+    for (int failures = 1; failures <= 2; ++failures)
+    {
+        TEST_ASSERT_EQUAL(failures, robot.countLogs("didn't start"));
+        robot.runUntil(failed_ms + TEST_CONFIG.retry_ms - 1);
+        TEST_ASSERT_EQUAL(Bno055::FAILED, robot.imu.state());
+        robot.runUntil(failed_ms + TEST_CONFIG.retry_ms);
+        TEST_ASSERT_EQUAL(Bno055::STARTING, robot.imu.state());
+        failed_ms = robot.runUntilState(Bno055::FAILED, failed_ms + TEST_CONFIG.retry_ms + 3000);
+        TEST_ASSERT_EQUAL(Bno055::FAILED, robot.imu.state());
+    }
+    TEST_ASSERT_EQUAL(3, robot.countLogs("didn't start"));
+}
+
 void test_imu_publisher_publishes_nothing_while_the_fusion_doesnt_run()
 {
     Robot robot;
@@ -253,6 +345,10 @@ int main(int argc, char** argv)
     RUN_TEST(test_imu_publisher_stamps_the_sample_when_the_read_begins);
     RUN_TEST(test_imu_publisher_drops_a_sample_whose_read_exceeds_the_budget);
     RUN_TEST(test_imu_publisher_restarts_the_sensor_after_ten_failed_reads);
+    RUN_TEST(test_imu_publisher_keeps_the_sensor_when_a_slow_read_succeeds_between_failures);
+    RUN_TEST(test_imu_publisher_counts_failed_reads_from_zero_after_the_driver_restarts);
+    RUN_TEST(test_imu_publisher_warns_at_each_retry_while_the_sensor_is_absent);
+    RUN_TEST(test_imu_publisher_retries_retry_ms_after_each_failed_startup);
     RUN_TEST(test_imu_publisher_publishes_nothing_while_the_fusion_doesnt_run);
     RUN_TEST(test_imu_publisher_publishes_nothing_after_a_disconnect);
     RUN_TEST(test_imu_publisher_disabled_advertises_nothing_and_leaves_the_sensor_alone);

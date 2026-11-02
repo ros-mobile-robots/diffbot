@@ -1,6 +1,6 @@
 // A BNO055 on a fake I2C bus, for the native unit tests: a register array that can fail
-// transfers, ignore writes to one register, and stay silent after a reset until the test says
-// it's back.
+// transfers, or only the reads that start at one register, ignore writes to one register, and
+// stay silent after a reset until the test says it's back.
 #ifndef DIFFBOT_FAKE_BNO055_H
 #define DIFFBOT_FAKE_BNO055_H
 
@@ -17,13 +17,15 @@ public:
     uint8_t address = Bno055::ADDRESS_DEFAULT;
     bool fail_reads = false;
     bool fail_writes = false;
+    /// Reads that start at this register fail, for example to fail one of a sample's reads
+    int fail_reads_starting_at = -1;
     int ignore_writes_to = -1;
     bool resetting = false;
     bool back_after_reset = true;
     int reset_count = 0;
     /// Every writeRegister() and readRegisters() call, successful or not
     int transfers = 0;
-    /// SYS_STATUS after the switch to IMUPLUS: the fusion runs
+    /// SYS_STATUS after the switch to IMU mode: the fusion runs
     uint8_t fusion_status = Bno055::SYS_STATUS_FUSION_RUNNING;
     /// Registers read in one transfer must not include this reserved one
     int reserved_reads = 0;
@@ -45,7 +47,7 @@ public:
         ++transfers;
         if (fail_writes || addr != address || (resetting && !back_after_reset))
             return false;
-        if (reg == Bno055::REG_SYS_TRIGGER && (value & 0x20))
+        if (reg == Bno055::REG_SYS_TRIGGER && (value & Bno055::SYS_TRIGGER_RESET))
         {
             ++reset_count;
             resetting = true;
@@ -58,7 +60,7 @@ public:
             return true;
         registers[reg] = value;
         if (reg == Bno055::REG_OPR_MODE)
-            registers[Bno055::REG_SYS_STATUS] = value == Bno055::MODE_IMUPLUS ? fusion_status : 0x00;
+            registers[Bno055::REG_SYS_STATUS] = value == Bno055::MODE_IMU ? fusion_status : 0x00;
         return true;
     }
 
@@ -66,6 +68,8 @@ public:
     {
         ++transfers;
         if (fail_reads || addr != address || (resetting && !back_after_reset))
+            return false;
+        if (reg == fail_reads_starting_at)
             return false;
         if (reg <= 0x3C && reg + length > 0x3C)
             ++reserved_reads;
