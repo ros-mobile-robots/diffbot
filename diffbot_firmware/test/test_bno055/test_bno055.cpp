@@ -15,7 +15,7 @@ using namespace diffbot;
 typedef FakeBno055Bus FakeBus;
 
 // Calls update every millisecond until the given state or a time limit, and returns the time.
-// It counts the time as the driver does, unsigned, so it also runs across the rollover of millis()
+// It counts the time as the driver does, unsigned, so it also runs across the wrap of millis()
 uint32_t runUntil(Bno055& imu, Bno055::State wanted, uint32_t start_ms, uint32_t limit_ms)
 {
     uint32_t t = start_ms;
@@ -264,7 +264,7 @@ void test_bno055_startup_fails_when_the_fusion_doesnt_start()
 void test_bno055_startup_counts_the_fusion_timeout_from_the_imu_mode_request()
 {
     // Waiting for IMU mode and polling SYS_STATUS are one timed phase. It starts just before
-    // millis() rolls over, and its deadline comes after the rollover
+    // millis() wraps, and its deadline comes after the wrap
     FakeBus bus;
     bus.fusion_status = 0x03; // system initialization, the fusion doesn't start
     Bno055 imu(bus);
@@ -425,9 +425,9 @@ void test_bno055_startup_fails_at_the_fusion_deadline_while_waiting_for_the_imu_
     checkFusionDeadlineInImuModeWait(0);
 }
 
-void test_bno055_startup_keeps_its_deadlines_across_the_millis_rollover()
+void test_bno055_startup_keeps_its_deadlines_across_the_millis_wrap()
 {
-    // Both timed phases start before millis() rolls over, and their deadlines come after it
+    // Both timed phases start before millis() wraps, and their deadlines come after it
     const uint32_t start_ms = UINT32_MAX - 1000;
     checkResetDeadline(start_ms);
     checkLateResetPoll(start_ms);
@@ -488,7 +488,7 @@ int main(int argc, char** argv)
     RUN_TEST(test_bno055_startup_fails_at_the_fusion_deadline_without_another_poll);
     RUN_TEST(test_bno055_startup_fails_when_the_fusion_poll_comes_after_its_deadline);
     RUN_TEST(test_bno055_startup_fails_at_the_fusion_deadline_while_waiting_for_the_imu_mode);
-    RUN_TEST(test_bno055_startup_keeps_its_deadlines_across_the_millis_rollover);
+    RUN_TEST(test_bno055_startup_keeps_its_deadlines_across_the_millis_wrap);
     RUN_TEST(test_bno055_read_fails_while_the_fusion_doesnt_run);
     RUN_TEST(test_bno055_read_skips_the_reserved_register);
     return UNITY_END();

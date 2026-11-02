@@ -331,7 +331,7 @@ void test_imu_publisher_publishes_nothing_after_a_disconnect()
     TEST_ASSERT_EQUAL(0, robot.runUntil(3000));
 }
 
-void test_imu_publisher_disabled_advertises_nothing_and_leaves_the_sensor_alone()
+void test_imu_publisher_advertises_nothing_and_leaves_the_sensor_alone_when_disabled()
 {
     ImuPublisherConfig disabled = TEST_CONFIG;
     disabled.enabled = false;
@@ -359,6 +359,6 @@ int main(int argc, char** argv)
     RUN_TEST(test_imu_publisher_retries_retry_ms_after_each_failed_startup);
     RUN_TEST(test_imu_publisher_publishes_nothing_while_the_fusion_doesnt_run);
     RUN_TEST(test_imu_publisher_publishes_nothing_after_a_disconnect);
-    RUN_TEST(test_imu_publisher_disabled_advertises_nothing_and_leaves_the_sensor_alone);
+    RUN_TEST(test_imu_publisher_advertises_nothing_and_leaves_the_sensor_alone_when_disabled);
     return UNITY_END();
 }
