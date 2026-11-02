@@ -90,8 +90,8 @@ void test_bno055_startup_fails_when_the_chip_stays_silent_after_the_reset()
     Bno055 imu(bus);
     uint32_t t = runUntil(imu, Bno055::FAILED, 0, 5000);
     TEST_ASSERT_EQUAL(Bno055::FAILED, imu.state());
-    TEST_ASSERT_TRUE(t <= Bno055::CONFIG_SETTLE_MS + Bno055::RESET_TIMEOUT_MS
-                              + Bno055::RESET_POLL_MS + 1);
+    // At the deadline, RESET_TIMEOUT_MS after the reset request
+    TEST_ASSERT_EQUAL_UINT32(Bno055::CONFIG_SETTLE_MS + Bno055::RESET_TIMEOUT_MS, t);
 }
 
 void test_bno055_startup_fails_when_a_setting_reads_back_different()
@@ -250,9 +250,9 @@ void test_bno055_startup_fails_when_the_fusion_doesnt_start()
     uint32_t t = runUntil(imu, Bno055::WAITING_FUSION, 0, 3000);
     uint32_t failed = runUntil(imu, Bno055::FAILED, t, 3000);
     TEST_ASSERT_EQUAL(Bno055::FAILED, imu.state());
-    // FUSION_TIMEOUT_MS after the switch to IMU mode, which was IMU_SETTLE_MS before t
-    TEST_ASSERT_TRUE(failed - t + Bno055::IMU_SETTLE_MS
-                     <= Bno055::FUSION_TIMEOUT_MS + Bno055::FUSION_POLL_MS + 1);
+    // At the deadline, FUSION_TIMEOUT_MS after the switch to IMU mode, which was IMU_SETTLE_MS
+    // before t
+    TEST_ASSERT_EQUAL_UINT32(Bno055::FUSION_TIMEOUT_MS, failed - t + Bno055::IMU_SETTLE_MS);
 
     FakeBus error;
     error.fusion_status = Bno055::SYS_STATUS_ERROR;
@@ -277,11 +277,163 @@ void test_bno055_startup_counts_the_fusion_timeout_from_the_imu_mode_request()
     TEST_ASSERT_EQUAL(Bno055::WAITING_IMU_MODE, imu.update(mode_request_ms));
     uint32_t failed_ms = runUntil(imu, Bno055::FAILED, mode_request_ms + 1, 3000);
     TEST_ASSERT_EQUAL(Bno055::FAILED, imu.state());
-    // At the first poll from the deadline on. From the switch to WAITING_FUSION, it would be
-    // IMU_SETTLE_MS later
-    const uint32_t failed_after_ms = failed_ms - mode_request_ms;
-    TEST_ASSERT_TRUE(failed_after_ms >= Bno055::FUSION_TIMEOUT_MS);
-    TEST_ASSERT_TRUE(failed_after_ms <= Bno055::FUSION_TIMEOUT_MS + Bno055::FUSION_POLL_MS);
+    // At the deadline. Counted from the switch to WAITING_FUSION, it would be IMU_SETTLE_MS later
+    TEST_ASSERT_EQUAL_UINT32(mode_request_ms + Bno055::FUSION_TIMEOUT_MS, failed_ms);
+}
+
+// Drives a test's start-up from start_ms to WAITING_RESET, and returns the reset request's time
+uint32_t startUntilResetWait(Bno055& imu, uint32_t start_ms)
+{
+    TEST_ASSERT_EQUAL(Bno055::WAITING_CONFIG, imu.update(start_ms));
+    const uint32_t reset_request_ms = start_ms + Bno055::CONFIG_SETTLE_MS;
+    TEST_ASSERT_EQUAL(Bno055::WAITING_RESET, imu.update(reset_request_ms));
+    return reset_request_ms;
+}
+
+// Drives it on to WAITING_IMU_MODE, with the chip back after the reset, and returns the time of
+// the IMU mode request
+uint32_t startUntilImuModeWait(Bno055& imu, FakeBus& bus, uint32_t start_ms)
+{
+    const uint32_t reset_request_ms = startUntilResetWait(imu, start_ms);
+    bus.resetting = false;
+    const uint32_t mode_request_ms = reset_request_ms + Bno055::RESET_FIRST_POLL_MS;
+    TEST_ASSERT_EQUAL(Bno055::WAITING_IMU_MODE, imu.update(mode_request_ms));
+    return mode_request_ms;
+}
+
+// Drives it on to WAITING_FUSION, and returns the time of the IMU mode request
+uint32_t startUntilFusionWait(Bno055& imu, FakeBus& bus, uint32_t start_ms)
+{
+    const uint32_t mode_request_ms = startUntilImuModeWait(imu, bus, start_ms);
+    TEST_ASSERT_EQUAL(Bno055::WAITING_FUSION,
+                      imu.update(mode_request_ms + Bno055::IMU_SETTLE_MS));
+    return mode_request_ms;
+}
+
+// The reset's deadline: a poll just before it counts, the call at the deadline fails the start-up
+// without another poll, though the next poll would have been due after it
+void checkResetDeadline(uint32_t start_ms)
+{
+    FakeBus in_time;
+    in_time.back_after_reset = false;
+    Bno055 answered(in_time);
+    uint32_t reset_request_ms = startUntilResetWait(answered, start_ms);
+    in_time.back_after_reset = true;
+    TEST_ASSERT_EQUAL(Bno055::WAITING_IMU_MODE,
+                      answered.update(reset_request_ms + Bno055::RESET_TIMEOUT_MS - 1));
+
+    FakeBus bus;
+    bus.back_after_reset = false;
+    Bno055 imu(bus);
+    reset_request_ms = startUntilResetWait(imu, start_ms);
+    TEST_ASSERT_EQUAL(Bno055::WAITING_RESET,
+                      imu.update(reset_request_ms + Bno055::RESET_TIMEOUT_MS - 1));
+    bus.back_after_reset = true;
+    const int transfers = bus.transfers;
+    TEST_ASSERT_EQUAL(Bno055::FAILED, imu.update(reset_request_ms + Bno055::RESET_TIMEOUT_MS));
+    TEST_ASSERT_EQUAL(transfers, bus.transfers);
+}
+
+// The loop calls late, after the reset's deadline: the chip answers by then, but the start-up
+// fails without a transfer
+void checkLateResetPoll(uint32_t start_ms)
+{
+    FakeBus bus;
+    Bno055 imu(bus);
+    const uint32_t reset_request_ms = startUntilResetWait(imu, start_ms);
+    bus.resetting = false;
+    const int transfers = bus.transfers;
+    TEST_ASSERT_EQUAL(Bno055::FAILED,
+                      imu.update(reset_request_ms + Bno055::RESET_TIMEOUT_MS + 300));
+    TEST_ASSERT_EQUAL(transfers, bus.transfers);
+}
+
+// The fusion's deadline, from the IMU mode request: a poll just before it counts, the call at
+// the deadline fails the start-up without another poll
+void checkFusionDeadline(uint32_t start_ms)
+{
+    FakeBus in_time;
+    in_time.fusion_status = 0x03; // system initialization
+    Bno055 started(in_time);
+    uint32_t mode_request_ms = startUntilFusionWait(started, in_time, start_ms);
+    in_time.registers[Bno055::REG_SYS_STATUS] = Bno055::SYS_STATUS_FUSION_RUNNING;
+    TEST_ASSERT_EQUAL(Bno055::READY,
+                      started.update(mode_request_ms + Bno055::FUSION_TIMEOUT_MS - 1));
+
+    FakeBus bus;
+    bus.fusion_status = 0x03;
+    Bno055 imu(bus);
+    mode_request_ms = startUntilFusionWait(imu, bus, start_ms);
+    TEST_ASSERT_EQUAL(Bno055::WAITING_FUSION,
+                      imu.update(mode_request_ms + Bno055::FUSION_TIMEOUT_MS - 1));
+    bus.registers[Bno055::REG_SYS_STATUS] = Bno055::SYS_STATUS_FUSION_RUNNING;
+    const int transfers = bus.transfers;
+    TEST_ASSERT_EQUAL(Bno055::FAILED, imu.update(mode_request_ms + Bno055::FUSION_TIMEOUT_MS));
+    TEST_ASSERT_EQUAL(transfers, bus.transfers);
+}
+
+// The loop calls late, after the fusion's deadline: the fusion runs by then, but the start-up
+// fails without a transfer
+void checkLateFusionPoll(uint32_t start_ms)
+{
+    FakeBus bus;
+    Bno055 imu(bus);
+    const uint32_t mode_request_ms = startUntilFusionWait(imu, bus, start_ms);
+    const int transfers = bus.transfers;
+    TEST_ASSERT_EQUAL(Bno055::FAILED,
+                      imu.update(mode_request_ms + Bno055::FUSION_TIMEOUT_MS + 300));
+    TEST_ASSERT_EQUAL(transfers, bus.transfers);
+}
+
+// The loop comes back only at or after the fusion's deadline, while the driver still waits for
+// the switch to IMU mode: the start-up fails at that call, without a transfer
+void checkFusionDeadlineInImuModeWait(uint32_t start_ms)
+{
+    for (uint32_t late_ms : {Bno055::FUSION_TIMEOUT_MS, Bno055::FUSION_TIMEOUT_MS + 300})
+    {
+        FakeBus bus;
+        Bno055 imu(bus);
+        const uint32_t mode_request_ms = startUntilImuModeWait(imu, bus, start_ms);
+        const int transfers = bus.transfers;
+        TEST_ASSERT_EQUAL(Bno055::FAILED, imu.update(mode_request_ms + late_ms));
+        TEST_ASSERT_EQUAL(transfers, bus.transfers);
+    }
+}
+
+void test_bno055_startup_fails_at_the_reset_deadline_without_another_poll()
+{
+    checkResetDeadline(0);
+}
+
+void test_bno055_startup_fails_when_the_reset_poll_comes_after_its_deadline()
+{
+    checkLateResetPoll(0);
+}
+
+void test_bno055_startup_fails_at_the_fusion_deadline_without_another_poll()
+{
+    checkFusionDeadline(0);
+}
+
+void test_bno055_startup_fails_when_the_fusion_poll_comes_after_its_deadline()
+{
+    checkLateFusionPoll(0);
+}
+
+void test_bno055_startup_fails_at_the_fusion_deadline_while_waiting_for_the_imu_mode()
+{
+    checkFusionDeadlineInImuModeWait(0);
+}
+
+void test_bno055_startup_keeps_its_deadlines_across_the_millis_rollover()
+{
+    // Both timed phases start before millis() rolls over, and their deadlines come after it
+    const uint32_t start_ms = UINT32_MAX - 1000;
+    checkResetDeadline(start_ms);
+    checkLateResetPoll(start_ms);
+    checkFusionDeadline(start_ms);
+    checkLateFusionPoll(start_ms);
+    checkFusionDeadlineInImuModeWait(start_ms);
 }
 
 void test_bno055_read_fails_while_the_fusion_doesnt_run()
@@ -331,6 +483,12 @@ int main(int argc, char** argv)
     RUN_TEST(test_bno055_startup_waits_until_the_fusion_runs);
     RUN_TEST(test_bno055_startup_fails_when_the_fusion_doesnt_start);
     RUN_TEST(test_bno055_startup_counts_the_fusion_timeout_from_the_imu_mode_request);
+    RUN_TEST(test_bno055_startup_fails_at_the_reset_deadline_without_another_poll);
+    RUN_TEST(test_bno055_startup_fails_when_the_reset_poll_comes_after_its_deadline);
+    RUN_TEST(test_bno055_startup_fails_at_the_fusion_deadline_without_another_poll);
+    RUN_TEST(test_bno055_startup_fails_when_the_fusion_poll_comes_after_its_deadline);
+    RUN_TEST(test_bno055_startup_fails_at_the_fusion_deadline_while_waiting_for_the_imu_mode);
+    RUN_TEST(test_bno055_startup_keeps_its_deadlines_across_the_millis_rollover);
     RUN_TEST(test_bno055_read_fails_while_the_fusion_doesnt_run);
     RUN_TEST(test_bno055_read_skips_the_reserved_register);
     return UNITY_END();

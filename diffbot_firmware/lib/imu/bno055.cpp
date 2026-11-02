@@ -105,12 +105,16 @@ void diffbot::Bno055::resetAfterConfigSettles(uint32_t now_ms)
 void diffbot::Bno055::pollResetCompletion(uint32_t now_ms)
 {
     const uint32_t elapsed_ms = phaseElapsedMs(now_ms);
+    // The deadline comes first: from it on, no poll counts, even from a call that comes late
+    if (elapsed_ms >= RESET_TIMEOUT_MS)
+    {
+        transitionTo(FAILED);
+        return;
+    }
     if (elapsed_ms < next_poll_elapsed_ms_)
         return;
     if (chipAnswers())
         configureAndRequestImuMode(now_ms);
-    else if (elapsed_ms >= RESET_TIMEOUT_MS)
-        transitionTo(FAILED);
     else
         next_poll_elapsed_ms_ = elapsed_ms + RESET_POLL_MS;
 }
@@ -118,6 +122,13 @@ void diffbot::Bno055::pollResetCompletion(uint32_t now_ms)
 void diffbot::Bno055::waitForImuMode(uint32_t now_ms)
 {
     const uint32_t elapsed_ms = phaseElapsedMs(now_ms);
+    // The fusion's deadline counts from the IMU mode request, so it holds here already: a loop
+    // that comes back only after it fails the start-up now, not at the next call
+    if (elapsed_ms >= FUSION_TIMEOUT_MS)
+    {
+        transitionTo(FAILED);
+        return;
+    }
     if (elapsed_ms < IMU_SETTLE_MS)
         return;
     // Poll SYS_STATUS from the next call on. The timed phase goes on: the fusion's deadline
@@ -128,16 +139,21 @@ void diffbot::Bno055::waitForImuMode(uint32_t now_ms)
 
 void diffbot::Bno055::pollFusionStatus(uint32_t now_ms)
 {
+    // The fusion starts after the mode switch. Until then SYS_STATUS reports an initialization
+    // state. Wait for it, but not past the deadline, which comes first as in WAITING_RESET
     const uint32_t elapsed_ms = phaseElapsedMs(now_ms);
+    if (elapsed_ms >= FUSION_TIMEOUT_MS)
+    {
+        transitionTo(FAILED);
+        return;
+    }
     if (elapsed_ms < next_poll_elapsed_ms_)
         return;
-    // The fusion starts after the mode switch. Until then SYS_STATUS reports an initialization
-    // state. Wait for it, but not forever
     uint8_t sys_status = 0;
     const bool read_ok = readRegister(REG_SYS_STATUS, sys_status);
     if (read_ok && sys_status == SYS_STATUS_FUSION_RUNNING)
         transitionTo(READY);
-    else if ((read_ok && sys_status == SYS_STATUS_ERROR) || elapsed_ms >= FUSION_TIMEOUT_MS)
+    else if (read_ok && sys_status == SYS_STATUS_ERROR)
         transitionTo(FAILED);
     else
         next_poll_elapsed_ms_ = elapsed_ms + FUSION_POLL_MS;

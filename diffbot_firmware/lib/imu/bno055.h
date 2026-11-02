@@ -156,7 +156,9 @@ namespace diffbot
         static const uint32_t CONFIG_SETTLE_MS = 25;
         static const uint32_t RESET_FIRST_POLL_MS = 650;
         static const uint32_t RESET_POLL_MS = 50;
-        static const uint32_t RESET_TIMEOUT_MS = 2000; ///< From the reset request
+        /// From the reset request. The two timeouts are deadlines: the first call from a deadline
+        /// on fails the start-up without another poll, also when the call comes late
+        static const uint32_t RESET_TIMEOUT_MS = 2000;
         /// Wait after the IMU mode request: the switch takes 7 ms from configuration mode
         static const uint32_t IMU_SETTLE_MS = 20;
         static const uint32_t FUSION_POLL_MS = 10;
