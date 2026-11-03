@@ -24,9 +24,14 @@ namespace diffbot
      *
      * rosserial calls the callback in the node handle's spinOnce().
      *
-     * @tparam Receiver A type with acceptCommand(WheelCommand, uint32_t), WheelControl on the
-     * robot
-     * @tparam Clock A type with millis(), as the Arduino function
+     * An adapter: it connects rosserial to the wheel control's inbound port. Its own ports, both
+     * template parameters so that the unit tests replace them:
+     * - The Receiver, WheelControl on the robot: acceptCommand(WheelCommand, uint32_t), with a
+     *   valid command and the time it arrived in ms.
+     * - The Clock: millis(), the Teensy's milliseconds since the start, as the Arduino function.
+     *
+     * @tparam Receiver See the ports above
+     * @tparam Clock See the ports above
      */
     template <class Receiver, class Clock>
     class RosWheelCommandSubscriber

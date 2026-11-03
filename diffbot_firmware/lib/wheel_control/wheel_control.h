@@ -36,12 +36,22 @@ namespace diffbot
      * during the setup and is already too old at the first step stops the motors and logs too.
      * Before the first command, step neither drives nor stops nor logs.
      *
-     * A template, so that the unit tests can check it with a fake controller and log
-     * (test/test_wheel_control).
+     * Ports: the functions through which the rest of the firmware uses this class, and the ones
+     * this class needs from it. Adapters connect them to rosserial and to the hardware.
+     * - Offered (inbound): acceptCommand(), called by the subscriber (RosWheelCommandSubscriber),
+     *   and step(), called by loop().
+     * - Needed (outbound), the Controller, BaseController on the robot:
+     *   - setWheelTargets(WheelCommand): stores both targets, without driving the motors.
+     *   - read(): reads the encoders and publishes the wheel states.
+     *   - write(): runs both PIDs towards the targets and drives the motors.
+     *   - eStop(): sets both targets to zero, resets both PIDs and sets both motors to zero,
+     *     which the FeatherWing turns into releasing them.
+     * - Needed (outbound), the LogTimeout: a callable without arguments that logs the timeout.
+     * Both are template parameters, so that the unit tests replace them with fakes
+     * (test/test_wheel_control) and the robot's build calls them directly.
      *
-     * @tparam Controller A type with setWheelTargets(WheelCommand), read(), write() and eStop(),
-     * BaseController on the robot
-     * @tparam LogTimeout A callable without arguments that logs the timeout
+     * @tparam Controller See the ports above
+     * @tparam LogTimeout See the ports above
      */
     template <class Controller, class LogTimeout>
     class WheelControl
