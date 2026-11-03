@@ -6,7 +6,7 @@ The firmware for the robots' Teensy microcontroller: it reads the wheel encoders
 |:--|:--|
 | [`src`](src) | `main.cpp`: the control loop |
 | [`lib`](lib) | The base controller, encoders, motor driver, PID, configuration, and the rosserial message headers in `ros_lib` |
-| [`test`](test) | Checks that run on the Teensy |
+| [`test`](test) | Unit tests that run on the PC (`test_*`, with fakes for the hardware in `fakes`), and checks that run on the Teensy |
 | [`sketches`](sketches) | Older Arduino sketches: the encoders alone over rosserial, the same with the BNO055 IMU, and a check of the encoders by hand |
 
 Build the firmware for your robot's Teensy in the firmware's container, [`.docker/firmware`](../.docker/firmware). It needs only Docker. Our script [`.docker/firmware/run.sh`](../.docker/firmware/run.sh) builds the image and runs a command in the container as your user, here PlatformIO's `pio`. From the repository's root folder, run the line for your robot:
@@ -16,7 +16,7 @@ Build the firmware for your robot's Teensy in the firmware's container, [`.docke
 .docker/firmware/run.sh pio run -e teensy31   # DiffBot: Teensy 3.2
 ```
 
-When you change the firmware, build both, as CI does, because the change has to work on both boards.
+When you change the firmware, build both and run the unit tests, `.docker/firmware/run.sh pio test -e native`, as CI does, because the change has to work on both boards.
 
 The firmware files land in `.pio/build/<board>/` in this folder, for example `firmware.hex`, which PJRC's [Teensy Loader](https://www.pjrc.com/teensy/loader.html) can flash. With PlatformIO installed on your PC ([CONTRIBUTING](../CONTRIBUTING.md)), `pio run -e teensy40` or `pio run -e teensy31` in this folder builds it too.
 
