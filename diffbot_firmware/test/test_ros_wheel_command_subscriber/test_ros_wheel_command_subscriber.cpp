@@ -1,5 +1,6 @@
 // Unit tests of RosWheelCommandSubscriber (lib/wheel_control/ros_wheel_command_subscriber.h) on
-// the PC: rosserial's real parser with a fake serial port (test/fakes). Run them with:
+// the PC: rosserial's real parser with a fake serial port, and in the last tests a WheelControl
+// with a fake controller behind the subscriber (test/fakes). Run them with:
 //   pio test -e native
 #include <unity.h>
 
@@ -11,9 +12,11 @@
 #include <diffbot_msgs/WheelsCmdStamped.h>
 #include <ros/node_handle.h>
 
+#include "../fakes/fake_base_controller.h"
 #include "../fakes/fake_rosserial.h"
 #include "ros_wheel_command_subscriber.h"
 #include "wheel_command.h"
+#include "wheel_control.h"
 
 // rosserial's own timeouts aren't under test: its clock (FakeSerial::time()) stays at zero
 uint64_t FakeClock::us = 0;
@@ -26,6 +29,15 @@ constexpr uint16_t WHEEL_COMMAND_TOPIC_ID = 100;
 // The host's header stamp in the messages, far from the arrival times in the tests, so that a test
 // fails if the subscriber takes the stamp as the arrival time
 constexpr uint32_t HOST_STAMP_SEC = 1700000000;
+
+// The wheel control's timing in the tests that pass the commands on to one, independent of the
+// robot's settings: a command expires 1000 ms after it arrived
+constexpr diffbot::WheelControlConfig TEST_CONFIG = {
+    1000, // command_timeout_ms
+    50,   // control_period_ms
+};
+
+typedef diffbot::WheelControl<FakeBaseController, FakeTimeoutLog> Control;
 
 // The Teensy's millis(), one per test
 struct TestClock
@@ -167,6 +179,34 @@ void test_ros_wheel_command_subscriber_rejects_nonfinite_right_value()
     TEST_ASSERT_EQUAL_UINT(0, receiver.accepted.size());
 }
 
+void test_ros_wheel_command_subscriber_preserves_expiry_for_setup_receipt()
+{
+    // The command arrives during setup(), 1000 ms before the first loop()
+    FakeBaseController controller;
+    Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
+    Subscription<Control> subscription(control);
+    subscription.receive({1.0f, -2.0f}, 100);
+    controller.clearCalls();
+
+    control.step(1100);
+
+    TEST_ASSERT_EQUAL_STRING("eStop log read", controller.calls.c_str());
+}
+
+void test_ros_wheel_command_subscriber_does_not_refresh_expiry_for_invalid_pair()
+{
+    FakeBaseController controller;
+    Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
+    Subscription<Control> subscription(control);
+    subscription.receive({1.0f, -2.0f}, 0);
+    subscription.receive({3.0f}, 900);
+    controller.clearCalls();
+
+    control.step(1000);
+
+    TEST_ASSERT_EQUAL_STRING("eStop log read", controller.calls.c_str());
+}
+
 int main(int argc, char** argv)
 {
     UNITY_BEGIN();
@@ -177,5 +217,7 @@ int main(int argc, char** argv)
     RUN_TEST(test_ros_wheel_command_subscriber_rejects_extra_values);
     RUN_TEST(test_ros_wheel_command_subscriber_rejects_nonfinite_left_value);
     RUN_TEST(test_ros_wheel_command_subscriber_rejects_nonfinite_right_value);
+    RUN_TEST(test_ros_wheel_command_subscriber_preserves_expiry_for_setup_receipt);
+    RUN_TEST(test_ros_wheel_command_subscriber_does_not_refresh_expiry_for_invalid_pair);
     return UNITY_END();
 }

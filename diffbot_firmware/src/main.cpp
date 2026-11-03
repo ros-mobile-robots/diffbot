@@ -8,12 +8,12 @@
 
 #include "diffbot_base_config.h"
 #include "base_controller.h"
-#include "command_timeout.h"
-#include "drive_step.h"
 #include "adafruit_feather_wing/adafruit_feather_wing.h"
 #include "bno055.h"
 #include "imu_publisher.h"
+#include "ros_wheel_command_subscriber.h"
 #include "synced_node_handle.h"
+#include "wheel_control.h"
 #include "wire_bus.h"
 
 
@@ -28,18 +28,39 @@ AdafruitMotorController motor_controller_left = AdafruitMotorController(MOTOR_LE
 
 BaseController<AdafruitMotorController, Adafruit_MotorShield> base_controller(nh, &motor_controller_left, &motor_controller_right);
 
-// The command timeout and the IMU, private to this file
+// The wheel control and the IMU, private to this file
 namespace
 {
-    // Stops the motors when the wheel commands from the robot's computer stop arriving (loop())
-    CommandTimeout command_timeout(COMMAND_TIMEOUT_MS);
-
-    // The Arduino clock for the IMU publisher, which the unit tests replace with a fake one
+    // The Arduino clock for the IMU publisher and the wheel commands' arrival times, which the
+    // unit tests replace with a fake one
     struct ArduinoClock
     {
         static uint32_t millis() { return ::millis(); }
         static uint32_t micros() { return ::micros(); }
     };
+
+    // Logs the command timeout, after WheelControl has stopped the motors
+    struct RosTimeoutLogger
+    {
+        NodeHandle& nh;
+        void operator()() { nh.logwarn("Wheel command timeout: motors stopped"); }
+    };
+
+    // The wheel control's timing. The control period is in whole milliseconds: 50 ms at 20 Hz
+    constexpr WheelControlConfig WHEEL_CONTROL_CONFIG = {
+        COMMAND_TIMEOUT_MS,                                  // command_timeout_ms
+        static_cast<uint32_t>(1000.0 / UPDATE_RATE_CONTROL), // control_period_ms
+    };
+    static_assert(WHEEL_CONTROL_CONFIG.valid(),
+                  "WHEEL_CONTROL_CONFIG: check COMMAND_TIMEOUT_MS and UPDATE_RATE_CONTROL");
+
+    // Drives the wheels only while the wheel commands from the robot's computer are new: the
+    // subscriber passes each valid command on to the wheel control, loop() calls its step
+    ArduinoClock wheel_clock;
+    WheelControl<decltype(base_controller), RosTimeoutLogger> wheel_control(
+        base_controller, WHEEL_CONTROL_CONFIG, RosTimeoutLogger{nh});
+    RosWheelCommandSubscriber<decltype(wheel_control), ArduinoClock> wheel_commands(
+        wheel_control, wheel_clock);
 
     // The IMU, on the same I2C bus as the motor driver. It publishes imu/data_raw, which rosserial
     // puts in its node's namespace (/diffbot/imu/data_raw). The robot drives without an IMU too.
@@ -52,7 +73,9 @@ namespace
 
 void setup()
 {
-    // Advertise before base_controller.setup() connects: rosserial announces the topics then
+    // Subscribe and advertise before base_controller.setup() connects: rosserial announces the
+    // topics then. Wheel commands that arrive during the setup reach the wheel control already
+    wheel_commands.subscribe(nh);
     imu_publisher.advertise();
     Wire.begin();
     base_controller.setup();
@@ -68,13 +91,10 @@ void setup()
 void loop()
 {
     // Use the Teensy's elapsed time for scheduling (see BaseController::LastUpdateTime).
-    uint32_t now_ms = millis();
+    const uint32_t now_ms = millis();
 
-    // Without a wheel command for COMMAND_TIMEOUT_MS, stop the motors and reset the PIDs, then log
-    // once. The control step drives the motors again after the next command (lib/drive_step).
-    driveStep(base_controller, command_timeout, now_ms,
-              1000.0 / base_controller.publishRate().control_,
-              []() { nh.logwarn("Wheel command timeout: motors stopped"); });
+    // Stops the motors when the wheel commands stop arriving, and runs the control step
+    wheel_control.step(now_ms);
 
     imu_publisher.update();
 
@@ -87,6 +107,7 @@ void loop()
             base_controller.lastUpdateTime().debug = now_ms;
         }
     }
-    // Call all the callbacks waiting to be called
+    // Call all the callbacks waiting to be called. Last, after the wheel control's step: a wheel
+    // command that arrived after now_ms was read would look about 49.7 days old to the step
     nh.spinOnce();
 }

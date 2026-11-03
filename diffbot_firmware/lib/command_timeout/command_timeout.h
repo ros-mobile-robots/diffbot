@@ -5,17 +5,19 @@
 
 namespace diffbot {
 
-    /** \brief Decides when the wheel commands from the robot's computer are too old.
+    /** \brief Decides when the last wheel command is too old to drive the motors.
      *
-     * loop() calls \ref update on every pass, before the control step, with the Teensy's elapsed
-     * milliseconds (millis()), the time the last wheel command arrived, and how many commands
-     * have arrived so far. When no command has arrived for the timeout, update() returns true
-     * once, so that the motors are stopped and the timeout is logged once, not on every pass.
-     * While \ref timedOut is true, the control step doesn't drive the motors.
+     * \ref commandArrived tells it when a command arrived, \ref update compares that time with the
+     * current one, and \ref timedOut answers whether the command is too old. The times are the
+     * Teensy's elapsed milliseconds (millis()), not ROS time, which jumps when the host's clock is
+     * corrected.
      *
-     * Only a new command ends the timeout, recognized by the changed command count, not by its
-     * time: after about 49.7 days, millis() returns to zero, and an old time would look new again.
-     * It starts timed out, so the motors aren't driven before the first command arrives.
+     * Only a new command ends the timeout, not the time: after about 49.7 days, millis() returns
+     * to zero, and an old command's time would look new again. It starts timed out, so the motors
+     * aren't driven before the first command arrives.
+     *
+     * It only decides: WheelControl stops the motors and logs, once, when timedOut() turns true
+     * in an update().
      *
      * Plain C++ without Arduino or rosserial, so the unit tests run it on the PC.
      */
@@ -24,34 +26,29 @@ namespace diffbot {
     public:
         explicit CommandTimeout(uint32_t timeout_ms) : timeout_ms_(timeout_ms) {}
 
-        /// Returns true once, on the pass when the last command becomes too old. The unsigned
-        /// difference stays right when millis() returns to zero.
-        bool update(uint32_t now_ms, uint32_t last_command_ms, uint32_t command_count)
+        /// A command arrived at received_ms: not timed out until the next update() at least
+        /// timeout_ms later
+        void commandArrived(uint32_t received_ms)
         {
-            if (timed_out_)
-            {
-                if (command_count == count_at_timeout_)
-                {
-                    return false;
-                }
-                timed_out_ = false;  // a new command arrived
-            }
-            if (now_ms - last_command_ms >= timeout_ms_)
-            {
-                timed_out_ = true;
-                count_at_timeout_ = command_count;
-                return true;
-            }
-            return false;
+            last_command_ms_ = received_ms;
+            timed_out_ = false;
         }
 
-        /// True from the timeout until the next command arrives, and before the first command
+        /// Times out when the last command is timeout_ms old. The unsigned difference stays right
+        /// when millis() returns to zero
+        void update(uint32_t now_ms)
+        {
+            if (!timed_out_ && now_ms - last_command_ms_ >= timeout_ms_)
+                timed_out_ = true;
+        }
+
+        /// True before the first command, and from a timeout until the next command arrives
         bool timedOut() const { return timed_out_; }
 
     private:
-        uint32_t timeout_ms_;
+        const uint32_t timeout_ms_;
+        uint32_t last_command_ms_ = 0;
         bool timed_out_ = true;
-        uint32_t count_at_timeout_ = 0;
     };
 }
 
