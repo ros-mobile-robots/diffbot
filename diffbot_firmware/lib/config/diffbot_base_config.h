@@ -33,9 +33,9 @@
 #define UPDATE_RATE_IMU 1
 #define UPDATE_RATE_DEBUG 5
 
-// Stop the motors if no wheel command arrived for this many milliseconds. The hardware interface on
-// the robot's computer sends a command 10 times a second, also while the robot stands, so this is
-// about ten missed commands. Check on the robot that it doesn't stop while driving normally.
+// Stop the motors when no wheel command arrived for this many milliseconds. diffbot_base's
+// DiffBotHWInterface::write() publishes wheel_cmd_velocities at a nominal 10 Hz, also zero speeds
+// while the robot stands, so 1000 ms is about ten missed commands.
 constexpr uint32_t COMMAND_TIMEOUT_MS = 1000;
 
 /// IMU: Bosch BNO055 on the Teensy's I2C bus (Wire, the same bus as the motor driver)
