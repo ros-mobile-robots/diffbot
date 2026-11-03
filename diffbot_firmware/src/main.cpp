@@ -28,7 +28,7 @@ AdafruitMotorController motor_controller_left = AdafruitMotorController(MOTOR_LE
 
 BaseController<AdafruitMotorController, Adafruit_MotorShield> base_controller(nh, &motor_controller_left, &motor_controller_right);
 
-// The wheel control and the IMU, private to this file
+// The wheel control, the IMU and the debug output, private to this file
 namespace
 {
     // The Arduino clock for the IMU publisher and the wheel commands' arrival times, which the
@@ -68,6 +68,21 @@ namespace
     WireBusT<TwoWire> wire_bus(Wire);
     Bno055 imu(wire_bus, IMU_BNO055_ADDRESS);
     ImuPublisher<NodeHandle, ArduinoClock> imu_publisher(nh, imu, IMU_PUBLISHER_CONFIG);
+
+    // Logs the encoder readings and the PID state at UPDATE_RATE_DEBUG, while the parameter
+    // /diffbot/debug/base_controller is true
+    void publishDebugIfDue(uint32_t now_ms)
+    {
+        if (base_controller.debug())
+        {
+            if (now_ms - base_controller.lastUpdateTime().debug
+                >= base_controller.publishRate().period().debug_ * 1000.0)
+            {
+                base_controller.printDebug();
+                base_controller.lastUpdateTime().debug = now_ms;
+            }
+        }
+    }
 }
 
 
@@ -98,15 +113,8 @@ void loop()
 
     imu_publisher.update();
 
-    // This block displays the encoder readings. change DEBUG to 0 if you don't want to display
-    if(base_controller.debug())
-    {
-        if (now_ms - base_controller.lastUpdateTime().debug >= base_controller.publishRate().period().debug_ * 1000.0)
-        {
-            base_controller.printDebug();
-            base_controller.lastUpdateTime().debug = now_ms;
-        }
-    }
+    publishDebugIfDue(now_ms);
+
     // Call all the callbacks waiting to be called. Last, after the wheel control's step: a wheel
     // command that arrived after now_ms was read would look about 49.7 days old to the step
     nh.spinOnce();
