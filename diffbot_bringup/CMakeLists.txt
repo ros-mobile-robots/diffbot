@@ -160,6 +160,12 @@ include_directories(
 #   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 # )
 
+# The tool for an IMU's bias and noise from a rosbag recorded at rest, for rosrun
+catkin_install_python(PROGRAMS
+  scripts/imu_noise_at_rest.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
 # install(TARGETS ${PROJECT_NAME}_node
@@ -200,3 +206,8 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+
+if(CATKIN_ENABLE_TESTING)
+  # The statistics of scripts/imu_noise_at_rest.py, on readings with known results
+  catkin_add_nosetests(test/test_imu_noise_at_rest.py)
+endif()
