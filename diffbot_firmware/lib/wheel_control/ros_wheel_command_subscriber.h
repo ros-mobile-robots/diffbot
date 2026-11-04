@@ -24,10 +24,10 @@ namespace diffbot
      *    which jumps when the computer's clock is corrected.
      * 3. Calls Receiver::receiveCommand() with the command and its arrival time in ms.
      *
-     * This class is the only part of the wheel control that uses rosserial. In ports-and-adapters
-     * terms, it is the adapter between rosserial and WheelControl's receiveCommand() port. The two
-     * template parameters are what the class needs from the rest of the firmware. The unit tests
-     * replace them with fakes:
+     * In ports and adapters terms, RosWheelCommandSubscriber is a primary adapter. The callback
+     * converts a rosserial message into a WheelCommand and calls WheelControl's primary port
+     * receiveCommand(). Receiver and Clock are template type parameters. The unit tests supply
+     * a fake receiver and a fake clock:
      * - Receiver: has receiveCommand(WheelCommand, uint32_t). WheelControl on the robot.
      * - Clock: has millis(), the milliseconds since the Teensy started. ArduinoClock on the robot.
      *

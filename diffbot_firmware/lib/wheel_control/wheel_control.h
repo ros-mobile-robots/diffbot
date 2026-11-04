@@ -37,19 +37,32 @@ namespace diffbot
      * step, step stops the motors and logs before either PID computes a motor output. Before the
      * first command, step neither drives nor stops nor logs.
      *
-     * Ports: the functions through which the rest of the firmware uses this class, and the ones
-     * this class needs from it. Adapters connect them to rosserial and to the hardware.
-     * - Offered (inbound): receiveCommand(), called by the subscriber (RosWheelCommandSubscriber),
-     *   and step(), called by loop().
-     * - Needed (outbound), the Controller, BaseController on the robot:
-     *   - setWheelTargets(WheelCommand): stores both targets, without driving the motors.
-     *   - read(): reads the encoders and publishes the wheel states.
-     *   - write(): runs both PIDs towards the targets and drives the motors.
-     *   - eStop(): sets both targets to zero, resets both PIDs and sets both motors to zero,
-     *     which the FeatherWing turns into releasing them.
-     * - Needed (outbound), the LogTimeout: a callable without arguments that logs the timeout.
-     * Both are template parameters, so that the unit tests replace them with fakes
-     * (test/test_wheel_control) and the robot's build calls them directly.
+     * Ports and adapters (Alistair Cockburn's hexagonal architecture): a port describes an
+     * interaction through one or more functions and their required behavior. An adapter connects
+     * those functions to external code or hardware. Here, WheelControl is the core. Cockburn
+     * calls the two kinds of ports primary and secondary. Other texts say driving and driven, or
+     * inbound and outbound.
+     *
+     * Primary ports: functions that other code calls to use WheelControl.
+     * - receiveCommand(): RosWheelCommandSubscriber, the primary adapter for rosserial, calls
+     *   this function with each valid command and the command's receipt time.
+     * - step(): loop() calls this function on every pass, with the current time in milliseconds.
+     *
+     * Secondary ports: functions that WheelControl calls, supplied by other code.
+     * - Controller, implemented by BaseController on the robot:
+     *   - setWheelTargets(WheelCommand): stores both targets without changing the motor outputs.
+     *   - read(): reads the encoders and publishes the wheel positions and velocities.
+     *   - write(): computes both PID outputs from the targets and measured velocities, then
+     *     sends the outputs to the motor controllers.
+     *   - eStop(): sets both targets to zero, resets both PIDs and sets both motor outputs to
+     *     zero. On the FeatherWing, zero output releases each motor, so the wheels can coast.
+     * - LogTimeout: a callable with no arguments, called after eStop() returns. On the robot,
+     *   RosTimeoutLogger in main.cpp logs the timeout through nh.logwarn().
+     *
+     * Controller and LogTimeout are template type parameters. The robot uses BaseController
+     * and RosTimeoutLogger, so calls from WheelControl to these functions are nonvirtual.
+     * The unit tests supply FakeBaseController and FakeTimeoutLog instead, through the same
+     * ports. See test/test_wheel_control.
      *
      * @tparam Controller See the ports above
      * @tparam LogTimeout See the ports above
