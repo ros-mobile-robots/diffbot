@@ -33,9 +33,9 @@ namespace diffbot
      *
      * The subscriber (RosWheelCommandSubscriber) calls receiveCommand from rosserial's spinOnce(),
      * including while setup waits for parameters. In loop(), spinOnce runs last and the next
-     * pass calls step with a new time. If the latest accepted command is already too old at the
-     * first step, step stops the motors and logs before any PID write. Before the first command,
-     * step neither drives nor stops nor logs.
+     * pass calls step with a new time. If the last valid command is already too old at the first
+     * step, step stops the motors and logs before either PID computes a motor output. Before the
+     * first command, step neither drives nor stops nor logs.
      *
      * Ports: the functions through which the rest of the firmware uses this class, and the ones
      * this class needs from it. Adapters connect them to rosserial and to the hardware.
@@ -69,8 +69,9 @@ namespace diffbot
         WheelControl(const WheelControl&) = delete;
         WheelControl& operator=(const WheelControl&) = delete;
 
-        /// Stores a complete, checked command that arrived at received_ms. It doesn't drive the
-        /// motors: the next control step does
+        /// Stores a valid command and restarts its timeout. received_ms is the Teensy's millis()
+        /// when the subscriber processed the command. A due control step drives the motors only
+        /// while the command is still fresh
         void receiveCommand(WheelCommand command, uint32_t received_ms)
         {
             controller_.setWheelTargets(command);
@@ -80,7 +81,7 @@ namespace diffbot
         /// Call in every loop(), with millis()
         void step(uint32_t now_ms)
         {
-            enforceTimeout(now_ms);
+            stopWhenCommandExpires(now_ms);
             if (now_ms - last_control_ms_ < control_period_ms_)
                 return;
             controller_.read();
@@ -90,8 +91,9 @@ namespace diffbot
         }
 
     private:
-        /// Stops the motors, then logs, on the step when the last command becomes too old
-        void enforceTimeout(uint32_t now_ms)
+        /// Checks the timeout on every call. On the first call that finds the last command
+        /// expired, stops the motors and then logs, once
+        void stopWhenCommandExpires(uint32_t now_ms)
         {
             const bool was_timed_out = timeout_.timedOut();
             timeout_.update(now_ms);
