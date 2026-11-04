@@ -9,11 +9,12 @@
 
 #include "wheel_command.h"
 
-// The motor output that write() sets: the PID's output while the wheels are driven, not zero
+// A nonzero marker that the fake's write() sets as the motor output. It makes a missing stop
+// visible: after eStop() the output is zero again
 constexpr int DRIVING_MOTOR_OUTPUT = 100;
 
-/// Records its calls in order, for example "setWheelTargets read write". motor_output is what the
-/// real controller sets the motors to: the PID's output after write(), zero after eStop()
+/// Records its calls in order, for example "setWheelTargets read write". motor_output is a
+/// simulated motor output: DRIVING_MOTOR_OUTPUT after write(), zero after eStop()
 struct FakeBaseController
 {
     std::string calls;
@@ -50,7 +51,8 @@ struct FakeBaseController
         calls += call;
     }
 
-    /// Forgets what was recorded so far, so that a test checks only what its action does
+    /// Clears the call trace and the logged output samples, so that a test checks only what its
+    /// action does. Leaves the targets and the motor output unchanged
     void clearCalls()
     {
         calls.clear();

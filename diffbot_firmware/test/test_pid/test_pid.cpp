@@ -15,13 +15,15 @@ constexpr float TEST_OUTPUT_LIMIT = 255.0f;
 constexpr float HELD_BACK_TARGET = 10.0f;
 constexpr float HELD_BACK_VELOCITY = 0.2f;
 
-// A PID with the test inputs
-diffbot::PID testPid()
+// Constructs a PID with the fixed test gains and output limits
+diffbot::PID makeTestPid()
 {
     return diffbot::PID(-TEST_OUTPUT_LIMIT, TEST_OUTPUT_LIMIT, TEST_KP, TEST_KI, TEST_KD);
 }
 
-// 100 control steps with the wheel held back wind the integral up to about 980
+// 100 control steps with the wheel held back. Each step adds the raw error, 10 - 0.2 = 9.8, to
+// integral(), which reaches about 980. That is neither the weighted I part of the output nor a
+// time integral in seconds
 void windUp(diffbot::PID& pid)
 {
     for (int i = 0; i < 100; ++i)
@@ -33,7 +35,7 @@ void tearDown() {}
 
 void test_pid_has_zero_state_when_constructed()
 {
-    diffbot::PID pid = testPid();
+    diffbot::PID pid = makeTestPid();
 
     TEST_ASSERT_EQUAL_FLOAT(0.0f, pid.proportional());
     TEST_ASSERT_EQUAL_FLOAT(0.0f, pid.integral());
@@ -43,7 +45,7 @@ void test_pid_has_zero_state_when_constructed()
 
 void test_pid_computes_first_output_without_previous_error()
 {
-    diffbot::PID pid = testPid();
+    diffbot::PID pid = makeTestPid();
 
     const double output = pid.compute(1.0f, 0.0f);
 
@@ -53,27 +55,29 @@ void test_pid_computes_first_output_without_previous_error()
 
 void test_pid_clamps_output_when_above_upper_limit()
 {
-    diffbot::PID pid = testPid();
+    diffbot::PID pid = makeTestPid();
 
-    const double output = pid.compute(1000.0f, 0.0f);
+    const float far_above_target = 1000.0f; // P, I and D together far exceed the limit
+    const double output = pid.compute(far_above_target, 0.0f);
 
     TEST_ASSERT_EQUAL_FLOAT(TEST_OUTPUT_LIMIT, output);
 }
 
 void test_pid_clamps_output_when_below_lower_limit()
 {
-    diffbot::PID pid = testPid();
+    diffbot::PID pid = makeTestPid();
 
-    const double output = pid.compute(-1000.0f, 0.0f);
+    const float far_below_target = -1000.0f; // P, I and D together far exceed the limit
+    const double output = pid.compute(far_below_target, 0.0f);
 
     TEST_ASSERT_EQUAL_FLOAT(-TEST_OUTPUT_LIMIT, output);
 }
 
-// Why BaseController::eStop() resets the PIDs: a target of zero alone doesn't undo the wound-up
-// integral, so the motor would keep running at the limit
+// Why BaseController::eStop() resets the PIDs: with these test inputs, zeroing only the target
+// leaves the computed output at the positive limit
 void test_pid_keeps_positive_output_when_only_target_is_zeroed()
 {
-    diffbot::PID pid = testPid();
+    diffbot::PID pid = makeTestPid();
     windUp(pid);
 
     const double output = pid.compute(0.0f, HELD_BACK_VELOCITY);
@@ -83,7 +87,7 @@ void test_pid_keeps_positive_output_when_only_target_is_zeroed()
 
 void test_pid_clears_stored_state_when_reset()
 {
-    diffbot::PID pid = testPid();
+    diffbot::PID pid = makeTestPid();
     windUp(pid);
     // A changed error, so that the derivative isn't zero either
     pid.compute(HELD_BACK_TARGET - 1.0f, HELD_BACK_VELOCITY);
@@ -98,7 +102,7 @@ void test_pid_clears_stored_state_when_reset()
 
 void test_pid_has_no_stale_positive_output_after_reset()
 {
-    diffbot::PID pid = testPid();
+    diffbot::PID pid = makeTestPid();
     windUp(pid);
     pid.reset();
 
