@@ -428,8 +428,6 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::init()
     delay(1);
 
     max_angular_velocity_ = max_linear_velocity_ / wheel_radius_;
-
-    delay(1000);
 }
 
 // ROS Subscriber setup to reset both encoders to zero

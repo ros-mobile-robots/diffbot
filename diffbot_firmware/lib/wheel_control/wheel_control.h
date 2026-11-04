@@ -32,9 +32,10 @@ namespace diffbot
      * motors (Controller::write) only while the last command is new.
      *
      * The subscriber (RosWheelCommandSubscriber) calls receiveCommand from rosserial's spinOnce(),
-     * at the end of loop(), and the next loop() calls step with a new time. A command that arrived
-     * during the setup and is already too old at the first step stops the motors and logs too.
-     * Before the first command, step neither drives nor stops nor logs.
+     * including while setup waits for parameters. In loop(), spinOnce runs last and the next
+     * pass calls step with a new time. If the latest accepted command is already too old at the
+     * first step, step stops the motors and logs before any PID write. Before the first command,
+     * step neither drives nor stops nor logs.
      *
      * Ports: the functions through which the rest of the firmware uses this class, and the ones
      * this class needs from it. Adapters connect them to rosserial and to the hardware.
