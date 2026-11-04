@@ -47,7 +47,7 @@ struct TestClock
 };
 
 // A command as the subscriber passed it on
-struct AcceptedCommand
+struct ReceivedCommand
 {
     diffbot::WheelCommand command;
     uint32_t received_ms;
@@ -56,11 +56,11 @@ struct AcceptedCommand
 // Records the commands the subscriber passes on
 struct FakeReceiver
 {
-    std::vector<AcceptedCommand> accepted;
+    std::vector<ReceivedCommand> received;
 
-    void acceptCommand(diffbot::WheelCommand command, uint32_t received_ms)
+    void receiveCommand(diffbot::WheelCommand command, uint32_t received_ms)
     {
-        accepted.push_back({command, received_ms});
+        received.push_back({command, received_ms});
     }
 };
 
@@ -107,10 +107,10 @@ void test_ros_wheel_command_subscriber_forwards_pair_with_local_receipt_time()
 
     subscription.receive({1.25f, -2.5f}, 123);
 
-    TEST_ASSERT_EQUAL_UINT(1, receiver.accepted.size());
-    TEST_ASSERT_EQUAL_FLOAT(1.25f, receiver.accepted[0].command.left_rad_s);
-    TEST_ASSERT_EQUAL_FLOAT(-2.5f, receiver.accepted[0].command.right_rad_s);
-    TEST_ASSERT_EQUAL_UINT32(123, receiver.accepted[0].received_ms);
+    TEST_ASSERT_EQUAL_UINT(1, receiver.received.size());
+    TEST_ASSERT_EQUAL_FLOAT(1.25f, receiver.received[0].command.left_rad_s);
+    TEST_ASSERT_EQUAL_FLOAT(-2.5f, receiver.received[0].command.right_rad_s);
+    TEST_ASSERT_EQUAL_UINT32(123, receiver.received[0].received_ms);
 }
 
 void test_ros_wheel_command_subscriber_forwards_every_same_tick_arrival()
@@ -121,9 +121,9 @@ void test_ros_wheel_command_subscriber_forwards_every_same_tick_arrival()
     subscription.receive({1.0f, 2.0f}, 123);
     subscription.receive({3.0f, 4.0f}, 123);
 
-    TEST_ASSERT_EQUAL_UINT(2, receiver.accepted.size());
-    TEST_ASSERT_EQUAL_FLOAT(3.0f, receiver.accepted[1].command.left_rad_s);
-    TEST_ASSERT_EQUAL_UINT32(123, receiver.accepted[1].received_ms);
+    TEST_ASSERT_EQUAL_UINT(2, receiver.received.size());
+    TEST_ASSERT_EQUAL_FLOAT(3.0f, receiver.received[1].command.left_rad_s);
+    TEST_ASSERT_EQUAL_UINT32(123, receiver.received[1].received_ms);
 }
 
 void test_ros_wheel_command_subscriber_reaches_own_receiver_with_two_instances()
@@ -135,8 +135,8 @@ void test_ros_wheel_command_subscriber_reaches_own_receiver_with_two_instances()
 
     second.receive({3.0f, 4.0f}, 123);
 
-    TEST_ASSERT_EQUAL_UINT(0, first_receiver.accepted.size());
-    TEST_ASSERT_EQUAL_UINT(1, second_receiver.accepted.size());
+    TEST_ASSERT_EQUAL_UINT(0, first_receiver.received.size());
+    TEST_ASSERT_EQUAL_UINT(1, second_receiver.received.size());
 }
 
 void test_ros_wheel_command_subscriber_rejects_incomplete_pair()
@@ -146,7 +146,7 @@ void test_ros_wheel_command_subscriber_rejects_incomplete_pair()
 
     subscription.receive({1.0f}, 123);
 
-    TEST_ASSERT_EQUAL_UINT(0, receiver.accepted.size());
+    TEST_ASSERT_EQUAL_UINT(0, receiver.received.size());
 }
 
 void test_ros_wheel_command_subscriber_rejects_extra_values()
@@ -156,7 +156,7 @@ void test_ros_wheel_command_subscriber_rejects_extra_values()
 
     subscription.receive({1.0f, 2.0f, 3.0f}, 123);
 
-    TEST_ASSERT_EQUAL_UINT(0, receiver.accepted.size());
+    TEST_ASSERT_EQUAL_UINT(0, receiver.received.size());
 }
 
 void test_ros_wheel_command_subscriber_rejects_nonfinite_left_value()
@@ -166,7 +166,7 @@ void test_ros_wheel_command_subscriber_rejects_nonfinite_left_value()
 
     subscription.receive({std::numeric_limits<float>::infinity(), 2.0f}, 123);
 
-    TEST_ASSERT_EQUAL_UINT(0, receiver.accepted.size());
+    TEST_ASSERT_EQUAL_UINT(0, receiver.received.size());
 }
 
 void test_ros_wheel_command_subscriber_rejects_nonfinite_right_value()
@@ -176,7 +176,7 @@ void test_ros_wheel_command_subscriber_rejects_nonfinite_right_value()
 
     subscription.receive({1.0f, std::numeric_limits<float>::quiet_NaN()}, 123);
 
-    TEST_ASSERT_EQUAL_UINT(0, receiver.accepted.size());
+    TEST_ASSERT_EQUAL_UINT(0, receiver.received.size());
 }
 
 void test_ros_wheel_command_subscriber_preserves_expiry_for_setup_receipt()

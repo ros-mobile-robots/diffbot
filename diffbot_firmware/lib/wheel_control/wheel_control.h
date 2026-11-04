@@ -24,21 +24,21 @@ namespace diffbot
     /**
      * @brief Drives the wheels only while the wheel commands are new.
      *
-     * \ref acceptCommand stores a command's targets and tells the private \ref CommandTimeout that
-     * a command arrived. \ref step, called in every loop(), checks the timeout first: when the
-     * last command has become too old, it stops the motors (Controller::eStop) and only then
+     * \ref receiveCommand stores a command's targets and tells the private \ref CommandTimeout
+     * that a command arrived. \ref step, called in every loop(), checks the timeout first: when
+     * the last command has become too old, it stops the motors (Controller::eStop) and only then
      * logs, once per timeout, because the log message can wait for USB. Then, every control
      * period, it reads and publishes the wheel states, also while timed out, and drives the
      * motors (Controller::write) only while the last command is new.
      *
-     * The subscriber (RosWheelCommandSubscriber) calls acceptCommand from rosserial's spinOnce(),
+     * The subscriber (RosWheelCommandSubscriber) calls receiveCommand from rosserial's spinOnce(),
      * at the end of loop(), and the next loop() calls step with a new time. A command that arrived
      * during the setup and is already too old at the first step stops the motors and logs too.
      * Before the first command, step neither drives nor stops nor logs.
      *
      * Ports: the functions through which the rest of the firmware uses this class, and the ones
      * this class needs from it. Adapters connect them to rosserial and to the hardware.
-     * - Offered (inbound): acceptCommand(), called by the subscriber (RosWheelCommandSubscriber),
+     * - Offered (inbound): receiveCommand(), called by the subscriber (RosWheelCommandSubscriber),
      *   and step(), called by loop().
      * - Needed (outbound), the Controller, BaseController on the robot:
      *   - setWheelTargets(WheelCommand): stores both targets, without driving the motors.
@@ -70,7 +70,7 @@ namespace diffbot
 
         /// Stores a complete, checked command that arrived at received_ms. It doesn't drive the
         /// motors: the next control step does
-        void acceptCommand(WheelCommand command, uint32_t received_ms)
+        void receiveCommand(WheelCommand command, uint32_t received_ms)
         {
             controller_.setWheelTargets(command);
             timeout_.commandArrived(received_ms);

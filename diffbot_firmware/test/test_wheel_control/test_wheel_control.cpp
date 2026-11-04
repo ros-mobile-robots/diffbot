@@ -39,7 +39,7 @@ void test_wheel_control_stores_targets_without_driving_on_command()
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
 
-    control.acceptCommand(TEST_COMMAND, 100);
+    control.receiveCommand(TEST_COMMAND, 100);
 
     TEST_ASSERT_EQUAL_STRING("setWheelTargets", controller.calls.c_str());
     TEST_ASSERT_EQUAL_FLOAT(TEST_COMMAND.left_rad_s, controller.targets.left_rad_s);
@@ -50,7 +50,7 @@ void test_wheel_control_reads_before_writing_when_command_fresh()
 {
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
-    control.acceptCommand(TEST_COMMAND, 100);
+    control.receiveCommand(TEST_COMMAND, 100);
     controller.clearCalls();
 
     control.step(150);
@@ -62,7 +62,7 @@ void test_wheel_control_stops_before_logging_when_command_expires()
 {
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
-    control.acceptCommand(TEST_COMMAND, 100);
+    control.receiveCommand(TEST_COMMAND, 100);
     control.step(150);
     controller.clearCalls();
 
@@ -78,7 +78,7 @@ void test_wheel_control_stops_and_logs_when_first_command_already_stale()
     // The first command arrives during setup() and is too old at the first loop()
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
-    control.acceptCommand(TEST_COMMAND, 100);
+    control.receiveCommand(TEST_COMMAND, 100);
     controller.clearCalls();
 
     control.step(1100);
@@ -92,9 +92,9 @@ void test_wheel_control_stops_and_logs_when_new_command_stale_after_timeout()
 {
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
-    control.acceptCommand(TEST_COMMAND, 100);
+    control.receiveCommand(TEST_COMMAND, 100);
     control.step(1100);
-    control.acceptCommand(TEST_COMMAND, 1200);
+    control.receiveCommand(TEST_COMMAND, 1200);
     controller.clearCalls();
 
     control.step(2200);
@@ -108,9 +108,9 @@ void test_wheel_control_resumes_when_new_command_has_same_timestamp()
     // as the old one
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
-    control.acceptCommand(TEST_COMMAND, 100);
+    control.receiveCommand(TEST_COMMAND, 100);
     control.step(1100);
-    control.acceptCommand(TEST_COMMAND, 100);
+    control.receiveCommand(TEST_COMMAND, 100);
     controller.clearCalls();
 
     control.step(100);
@@ -123,7 +123,7 @@ void test_wheel_control_remains_inhibited_after_complete_clock_cycle()
     // A whole cycle of millis() later, without a new command: the old command's time looks new
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
-    control.acceptCommand(TEST_COMMAND, 100);
+    control.receiveCommand(TEST_COMMAND, 100);
     control.step(1100);
     controller.clearCalls();
 
@@ -136,7 +136,7 @@ void test_wheel_control_stops_when_expiry_precedes_next_control_step()
 {
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
-    control.acceptCommand(TEST_COMMAND, 100);
+    control.receiveCommand(TEST_COMMAND, 100);
     control.step(1090);
     controller.clearCalls();
 
@@ -151,7 +151,7 @@ void test_wheel_control_reads_without_writing_while_timed_out()
 {
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
-    control.acceptCommand(TEST_COMMAND, 100);
+    control.receiveCommand(TEST_COMMAND, 100);
     control.step(1100);
     controller.clearCalls();
 
@@ -165,7 +165,7 @@ void test_wheel_control_does_not_repeat_stop_or_log_without_new_command()
 {
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
-    control.acceptCommand(TEST_COMMAND, 100);
+    control.receiveCommand(TEST_COMMAND, 100);
     control.step(1100);
     controller.clearCalls();
 
@@ -179,9 +179,9 @@ void test_wheel_control_resumes_on_schedule_after_fresh_command()
 {
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
-    control.acceptCommand(TEST_COMMAND, 100);
+    control.receiveCommand(TEST_COMMAND, 100);
     control.step(1100);
-    control.acceptCommand(TEST_COMMAND, 1120);
+    control.receiveCommand(TEST_COMMAND, 1120);
     controller.clearCalls();
 
     control.step(1150);
@@ -193,7 +193,7 @@ void test_wheel_control_waits_until_control_period_has_elapsed()
 {
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
-    control.acceptCommand(TEST_COMMAND, 0);
+    control.receiveCommand(TEST_COMMAND, 0);
     control.step(50);
     controller.clearCalls();
 
@@ -207,7 +207,7 @@ void test_wheel_control_runs_one_step_after_delayed_loop()
     // loop() was held up for many control periods: the steps it missed don't run afterwards
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
-    control.acceptCommand(TEST_COMMAND, 0);
+    control.receiveCommand(TEST_COMMAND, 0);
     control.step(50);
     controller.clearCalls();
 
@@ -221,9 +221,9 @@ void test_wheel_control_preserves_schedule_when_commands_arrive()
 {
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
-    control.acceptCommand(TEST_COMMAND, 0);
+    control.receiveCommand(TEST_COMMAND, 0);
     control.step(50);
-    control.acceptCommand(TEST_COMMAND, 99);
+    control.receiveCommand(TEST_COMMAND, 99);
     controller.clearCalls();
 
     control.step(100);
@@ -235,7 +235,7 @@ void test_wheel_control_runs_on_schedule_across_clock_wrap()
 {
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
-    control.acceptCommand(TEST_COMMAND, UINT32_MAX - 20);
+    control.receiveCommand(TEST_COMMAND, UINT32_MAX - 20);
     control.step(UINT32_MAX - 20);
     controller.clearCalls();
 

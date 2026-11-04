@@ -26,7 +26,7 @@ namespace diffbot
      *
      * An adapter: it connects rosserial to the wheel control's inbound port. Its own ports, both
      * template parameters so that the unit tests replace them:
-     * - The Receiver, WheelControl on the robot: acceptCommand(WheelCommand, uint32_t), with a
+     * - The Receiver, WheelControl on the robot: receiveCommand(WheelCommand, uint32_t), with a
      *   valid command and the time it arrived in ms.
      * - The Clock: millis(), the Teensy's milliseconds since the start, as the Arduino function.
      *
@@ -66,7 +66,7 @@ namespace diffbot
             const WheelCommand command{velocities.joint[0], velocities.joint[1]};
             if (!std::isfinite(command.left_rad_s) || !std::isfinite(command.right_rad_s))
                 return;
-            receiver_.acceptCommand(command, clock_.millis());
+            receiver_.receiveCommand(command, clock_.millis());
         }
 
         Receiver& receiver_;
