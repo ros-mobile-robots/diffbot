@@ -46,7 +46,11 @@ namespace
         void operator()() { nh.logwarn("Wheel command timeout: motors stopped"); }
     };
 
-    // The wheel control's timing. The control period is in whole milliseconds: 50 ms at 20 Hz
+    // WheelControl's timing, from the settings in diffbot_base_config.h: the command timeout, and
+    // the control period in whole milliseconds (50 ms at UPDATE_RATE_CONTROL = 20 Hz).
+    // The static_assert stops the build if a setting makes either value zero. The check is here,
+    // where the settings are constant expressions: WheelControl takes its config as an ordinary
+    // constructor argument, which static_assert can't check.
     constexpr WheelControlConfig WHEEL_CONTROL_CONFIG = {
         COMMAND_TIMEOUT_MS,                                  // command_timeout_ms
         static_cast<uint32_t>(1000.0 / UPDATE_RATE_CONTROL), // control_period_ms
@@ -88,8 +92,13 @@ namespace
 
 void setup()
 {
-    // Subscribe and advertise before base_controller.setup() connects: rosserial announces the
-    // topics then. Wheel commands that arrive during the setup reach the wheel control already
+    // Register the wheel-command subscriber and the IMU publisher first. base_controller.setup()
+    // starts rosserial (initNode) and calls spinOnce() until serial_node.py on the robot's
+    // computer has connected over USB. When spinOnce() receives the computer's topic-list
+    // request, rosserial answers with the topics registered so far. A topic registered later
+    // stays unknown to the computer until it asks again, for example after a reconnection.
+    // From the connection on, spinOnce() calls the subscriber's callback for each wheel command,
+    // also while base_controller.init() waits for its parameters.
     wheel_commands.subscribe(nh);
     imu_publisher.advertise();
     Wire.begin();

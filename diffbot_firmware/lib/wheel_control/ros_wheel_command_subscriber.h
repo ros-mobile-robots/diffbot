@@ -11,27 +11,28 @@
 namespace diffbot
 {
     /**
-     * @brief Receives the wheel commands on wheel_cmd_velocities and passes each valid one on to
-     * its receiver, with the time it arrived.
+     * @brief Subscribes to wheel_cmd_velocities and passes each valid wheel command to the wheel
+     * control.
      *
-     * diffbot_base's DiffBotHWInterface::write() publishes the commands, left and right wheel in
-     * rad/s. A message with exactly two finite values is valid. Any other message is dropped: it
-     * changes neither the targets nor the command timeout.
+     * On the robot's computer, DiffBotHWInterface::write() (diffbot_base) publishes the target
+     * speeds of the left and the right wheel, in rad/s. rosserial sends each message over USB to
+     * the Teensy. There, nh.spinOnce() reads the message and calls commandCallback(), which:
+     * 1. Drops a message that doesn't hold exactly two finite speeds. A dropped message changes
+     *    neither the targets nor the command timeout.
+     * 2. Reads the Teensy's clock (Clock::millis()) when the callback runs, as the arrival time.
+     *    The timeout starts at that processing time, not at the message's ROS header stamp,
+     *    which jumps when the computer's clock is corrected.
+     * 3. Calls Receiver::receiveCommand() with the command and its arrival time in ms.
      *
-     * The arrival time is the Teensy's clock (Clock::millis), not the message's header stamp: the
-     * command timeout measures how long ago a command arrived on the Teensy, and ROS time jumps
-     * when the host's clock is corrected.
+     * This class is the only part of the wheel control that uses rosserial. In ports-and-adapters
+     * terms, it is the adapter between rosserial and WheelControl's receiveCommand() port. The two
+     * template parameters are what the class needs from the rest of the firmware. The unit tests
+     * replace them with fakes:
+     * - Receiver: has receiveCommand(WheelCommand, uint32_t). WheelControl on the robot.
+     * - Clock: has millis(), the milliseconds since the Teensy started. ArduinoClock on the robot.
      *
-     * rosserial calls the callback in the node handle's spinOnce().
-     *
-     * An adapter: it connects rosserial to the wheel control's inbound port. Its own ports, both
-     * template parameters so that the unit tests replace them:
-     * - The Receiver, WheelControl on the robot: receiveCommand(WheelCommand, uint32_t), with a
-     *   valid command and the time it arrived in ms.
-     * - The Clock: millis(), the Teensy's milliseconds since the start, as the Arduino function.
-     *
-     * @tparam Receiver See the ports above
-     * @tparam Clock See the ports above
+     * @tparam Receiver See above
+     * @tparam Clock See above
      */
     template <class Receiver, class Clock>
     class RosWheelCommandSubscriber
@@ -49,8 +50,10 @@ namespace diffbot
         RosWheelCommandSubscriber(const RosWheelCommandSubscriber&) = delete;
         RosWheelCommandSubscriber& operator=(const RosWheelCommandSubscriber&) = delete;
 
-        /// Call before the node handle connects, so that rosserial announces the topic then, and
-        /// commands arriving during the setup already reach the receiver
+        /// Registers the subscriber with the node handle. Call it before BaseController::setup()
+        /// waits for the connection: when spinOnce() receives the computer's topic-list request,
+        /// rosserial answers with the topics registered so far, and the computer forwards wheel
+        /// commands only for a subscriber in that answer
         template <class NodeHandle>
         void subscribe(NodeHandle& nh)
         {
