@@ -62,6 +62,7 @@ CI runs on every pull request: [industrial_ci](https://github.com/ros-industrial
 - **Comments explain why** the code is the way it is, not what changed or how it used to be. The history belongs in the commit and the PR.
 - **Every feature also gets documentation** on ros-mobile-robots.com, a new or updated page: open a pull request in [ros-mobile-robots.github.io](https://github.com/ros-mobile-robots/ros-mobile-robots.github.io) and link it under `## Documentation` in the description, as `ros-mobile-robots/ros-mobile-robots.github.io#N`. If a page on ros-mobile-robots.com already explains the change, link that page instead. If nothing user-visible changes, write `None`. The PR description check fails until that section has one of the three. It runs again when you edit the description: look at that new run, because re-running the old one still sees the old text.
 - Follow [REP 103](https://www.ros.org/reps/rep-0103.html) for units and coordinate frames.
+- **Test names** say what the test checks, as a sentence: the subject, the result, then the condition, for example `test_bno055_startup_fails_at_the_reset_deadline_without_another_poll`. [AGENTS.md](AGENTS.md) has the full rule and the exception for existing Python tests.
 - **Python** follows PEP 8 with the settings of ROS 2's `ament_flake8`, with PEP 257 docstrings and type hints. [AGENTS.md](AGENTS.md) lists the commands that check it.
 
 ## AI-assisted contributions
