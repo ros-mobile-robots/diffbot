@@ -25,12 +25,13 @@ namespace diffbot {
      * @brief Communicates with the high-level hardware interface on the robot's single-board
      *        computer (SBC), and interacts with the encoders and the motor driver.
      *
-     * On the SBC, DiffBotHWInterface in diffbot_base is this firmware's counterpart. The two
-     * exchange ROS messages through rosserial:
+     * On the SBC, DiffBotHWInterface in diffbot_base is this firmware's counterpart. The firmware
+     * exchanges these ROS messages with nodes on the SBC through rosserial:
      * - measured_joint_states, from this class: \ref read publishes the measured wheel positions
      *   and velocities as a sensor_msgs::JointState with \ref pub_measured_joint_states_.
-     *   DiffBotHWInterface subscribes to this topic and holds the values for
-     *   diff_drive_controller's next update.
+     *   DiffBotHWInterface subscribes to this topic and stores the latest measurements. Before
+     *   each controller-manager update, DiffBotHWInterface::read() copies those measurements into
+     *   the joint state arrays exposed to diff_drive_controller.
      * - wheel_cmd_velocities, to the firmware: DiffBotHWInterface publishes the target angular
      *   velocities. RosWheelCommandSubscriber receives them, and WheelControl passes each valid
      *   command to \ref setWheelTargets, which stores the targets in \ref wheel_cmd_velocity_left_
