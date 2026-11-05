@@ -193,8 +193,8 @@ void test_ros_wheel_command_subscriber_drops_message_with_nan_right_value()
 
 void test_ros_wheel_command_subscriber_preserves_timeout_for_setup_command()
 {
-    // The command arrives during setup(). The first step() comes TEST_TIMEOUT_MS later, so the
-    // command is too old: the wheel control stops the motors and logs before it reads
+    // Models a command received during setup: the command arrives before the first step(), which
+    // comes TEST_TIMEOUT_MS later. The expired command causes eStop and the log before the read
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
     SubscriberTestFixture<Control> fixture(control);

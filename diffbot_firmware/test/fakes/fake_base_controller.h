@@ -1,6 +1,6 @@
-// The parts of BaseController that WheelControl uses (lib/wheel_control/wheel_control.h), and its
-// timeout log, for the native unit tests. Each test makes its own, so that it sees only its calls.
-// They check how WheelControl calls the controller, not what BaseController::eStop() itself does.
+// Fake implementations of WheelControl's controller and timeout-log ports for the native tests.
+// Each test constructs fresh fakes and inspects their recorded calls and simulated motor output.
+// These tests check WheelControl's use of the ports. BaseController::eStop() is not executed.
 #ifndef DIFFBOT_FAKE_BASE_CONTROLLER_H
 #define DIFFBOT_FAKE_BASE_CONTROLLER_H
 

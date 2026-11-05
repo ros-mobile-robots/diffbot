@@ -77,7 +77,7 @@ void test_wheel_control_stops_before_logging_when_command_expires()
 
 void test_wheel_control_stops_and_logs_when_first_command_already_stale()
 {
-    // The first command arrives during setup() and is too old at the first loop()
+    // Models a first command received during setup, which is too old at the first step()
     FakeBaseController controller;
     Control control(controller, TEST_CONFIG, FakeTimeoutLog{controller});
     control.receiveCommand(TEST_COMMAND, ARRIVAL_MS);
