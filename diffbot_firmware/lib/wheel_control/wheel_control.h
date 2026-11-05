@@ -22,76 +22,67 @@ namespace diffbot
     };
 
     /**
-     * @brief Drives the wheels only while the wheel commands are new.
+     * @brief Controls the wheel updates and stops the motors when the wheel commands stop.
      *
-     * \ref receiveCommand stores a command's targets and tells the private \ref CommandTimeout
-     * that a command arrived. \ref step, called in every loop(), checks the timeout first: when
-     * the last command has become too old, it stops the motors (Controller::eStop) and only then
-     * logs, once per timeout, because the log message can wait for USB. Then, every control
-     * period, it reads and publishes the wheel states, also while timed out, and drives the
-     * motors (Controller::write) only while the last command is new.
+     * The primary ports are the functions that other code calls:
+     * - receiveCommand() takes two valid target speeds and the command's receipt time in ms.
+     *   The function stores the targets and restarts the command timeout without writing motor
+     *   outputs. Commands can arrive before the first step().
+     * - step() runs on every pass of loop(), with the current millis() value from loop(). Each
+     *   call does the following work in order:
+     *   1. Checks the last command's age using now_ms. On the first check that finds the command
+     *      expired, calls Controller::eStop() and then LogTimeout. The stop comes first because
+     *      the log message goes over USB, and that write can wait for transmit space.
+     *   2. Returns if the control period has not elapsed since the previous control step.
+     *   3. Calls Controller::read(), also while driving is disabled.
+     *   4. Calls Controller::write() only if the timeout check permits driving.
+     *   5. Records now_ms as the time of this control step.
      *
-     * The subscriber (RosWheelCommandSubscriber) calls receiveCommand from rosserial's spinOnce(),
-     * including while setup waits for parameters. In loop(), spinOnce runs last and the next
-     * pass calls step with a new time. If the last valid command is already too old at the first
-     * step, step stops the motors and logs before either PID computes a motor output. Before the
-     * first command, step neither drives nor stops nor logs.
+     * Before the first command, step() reads on schedule without writing motor outputs or
+     * logging a timeout. After a timeout, a new valid command permits driving again, if that
+     * command has not expired when a scheduled control step checks the timeout.
      *
-     * Ports and adapters (Alistair Cockburn's hexagonal architecture): a port describes an
-     * interaction through one or more functions and their required behavior. An adapter connects
-     * those functions to external code or hardware. Here, WheelControl is the core. Cockburn
-     * calls the two kinds of ports primary and secondary. Other texts say driving and driven, or
-     * inbound and outbound.
+     * The secondary ports are the operations this class calls on its template arguments:
+     * - Controller:
+     *   - setWheelTargets(WheelCommand): stores both targets without writing motor outputs.
+     *   - read(): reads the encoders and publishes wheel positions and velocities.
+     *   - write(): computes both PID outputs and sends those outputs to the motor controllers.
+     *   - eStop(): clears both targets, resets both PIDs and sets both motor outputs to zero.
+     * - LogTimeout: a callable with no arguments that logs the timeout.
      *
-     * Primary ports: functions that other code calls to use WheelControl.
-     * - receiveCommand(): RosWheelCommandSubscriber, the primary adapter for rosserial, calls
-     *   this function with each valid command and the command's receipt time.
-     * - step(): loop() calls this function on every pass, with the current time in milliseconds.
+     * The unit tests supply fake implementations of the secondary ports. The firmware's README
+     * (diffbot_firmware/README.md) explains the pattern and names the implementations used on
+     * the robot.
      *
-     * Secondary ports: functions that WheelControl calls, supplied by other code.
-     * - Controller, implemented by BaseController on the robot:
-     *   - setWheelTargets(WheelCommand): stores both targets without changing the motor outputs.
-     *   - read(): reads the encoders and publishes the wheel positions and velocities.
-     *   - write(): computes both PID outputs from the targets and measured velocities, then
-     *     sends the outputs to the motor controllers.
-     *   - eStop(): sets both targets to zero, resets both PIDs and sets both motor outputs to
-     *     zero. On the FeatherWing, zero output releases each motor, so the wheels can coast.
-     * - LogTimeout: a callable with no arguments, called after eStop() returns. On the robot,
-     *   RosTimeoutLogger in main.cpp logs the timeout through nh.logwarn().
-     *
-     * Controller and LogTimeout are template type parameters. The robot uses BaseController
-     * and RosTimeoutLogger, so calls from WheelControl to these functions are nonvirtual.
-     * The unit tests supply FakeBaseController and FakeTimeoutLog instead, through the same
-     * ports. See test/test_wheel_control.
-     *
-     * @tparam Controller See the ports above
-     * @tparam LogTimeout See the ports above
+     * @tparam Controller Implements the controller operations listed above
+     * @tparam LogTimeout Implements the timeout log operation listed above
      */
     template <class Controller, class LogTimeout>
     class WheelControl
     {
     public:
-        /// config must be valid(). The controller and what the log uses must outlive this object
+        /// config.valid() must be true. The referenced controller must outlive this object.
+        /// log_timeout is copied. Objects referenced by that copy must also outlive this object
         WheelControl(Controller& controller, WheelControlConfig config, LogTimeout log_timeout)
             : controller_(controller), timeout_(config.command_timeout_ms),
               control_period_ms_(config.control_period_ms), log_timeout_(log_timeout)
         {
         }
 
-        // Not copyable: the subscriber tells this object, not a copy, about new commands
+        // Not copyable: the commands have to reach this object, not a copy
         WheelControl(const WheelControl&) = delete;
         WheelControl& operator=(const WheelControl&) = delete;
 
-        /// Stores a valid command and restarts its timeout. received_ms is the Teensy's millis()
-        /// when the subscriber processed the command. A due control step drives the motors only
-        /// while the command is still fresh
+        /// Stores a valid command and restarts the timeout without writing motor outputs.
+        /// received_ms is the Teensy's millis() when the caller received the command.
+        /// step() checks that command's age before allowing a scheduled motor write
         void receiveCommand(WheelCommand command, uint32_t received_ms)
         {
             controller_.setWheelTargets(command);
             timeout_.commandArrived(received_ms);
         }
 
-        /// Call in every loop(), with millis()
+        /// Call once per loop pass with a current millis() reading taken after command callbacks
         void step(uint32_t now_ms)
         {
             stopWhenCommandExpires(now_ms);

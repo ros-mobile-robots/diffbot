@@ -11,28 +11,39 @@
 namespace diffbot
 {
     /**
-     * @brief Subscribes to wheel_cmd_velocities and passes each valid wheel command to the wheel
-     * control.
+     * @brief Receives wheel_cmd_velocities and passes valid commands to the receiver.
      *
-     * On the robot's computer, DiffBotHWInterface::write() (diffbot_base) publishes the target
-     * speeds of the left and the right wheel, in rad/s. rosserial sends each message over USB to
-     * the Teensy. There, nh.spinOnce() reads the message and calls commandCallback(), which:
-     * 1. Drops a message that doesn't hold exactly two finite speeds. A dropped message changes
-     *    neither the targets nor the command timeout.
-     * 2. Reads the Teensy's clock (Clock::millis()) when the callback runs, as the arrival time.
-     *    The timeout starts at that processing time, not at the message's ROS header stamp,
-     *    which jumps when the computer's clock is corrected.
-     * 3. Calls Receiver::receiveCommand() with the command and its arrival time in ms.
+     * How a command reaches commandCallback():
+     * 1. DiffBotHWInterface::write() publishes the left and right target speeds in rad/s on the
+     *    robot's single-board computer (SBC).
+     * 2. serial_node.py, which is part of rosserial_python, forwards the message over USB serial.
+     *    The received bytes wait in the Teensy's USB serial receive buffers.
+     * 3. The node handle's spinOnce() reads and parses those bytes. The message's topic ID
+     *    selects a subscriber from the node handle's list of registered subscribers.
+     * 4. For wheel commands, that subscriber is subscriber_. The constructor below binds
+     *    subscriber_ to this object's commandCallback(). subscriber_ decodes the message and
+     *    calls that function.
      *
-     * In ports and adapters terms, RosWheelCommandSubscriber is a primary adapter. The callback
-     * converts a rosserial message into a WheelCommand and calls WheelControl's primary port
-     * receiveCommand(). Receiver and Clock are template type parameters. The unit tests supply
-     * a fake receiver and a fake clock:
-     * - Receiver: has receiveCommand(WheelCommand, uint32_t). WheelControl on the robot.
-     * - Clock: has millis(), the milliseconds since the Teensy started. ArduinoClock on the robot.
+     * In this firmware, commandCallback() runs inside spinOnce(), never in a USB interrupt.
+     * loop() calls spinOnce() last. BaseController::setup() also calls spinOnce() while waiting
+     * for the connection. During BaseController::init(), rosserial calls spinOnce() while
+     * waiting for parameter replies. Wheel commands can reach the callback during those waits.
      *
-     * @tparam Receiver See above
-     * @tparam Clock See above
+     * commandCallback() does three things:
+     * 1. Drops a message unless the message holds exactly two finite speeds. A dropped message
+     *    changes neither the targets nor the command timeout. Two zero speeds form a valid
+     *    command.
+     * 2. Reads Clock::millis() after these checks. WheelControl measures the command's age from
+     *    this processing time, which can be later than USB reception. The ROS header stamp is
+     *    unused, so changes in the SBC's ROS time don't affect the age.
+     * 3. Calls Receiver::receiveCommand() with both speeds and the receipt time in milliseconds.
+     *
+     * This class is a primary adapter: the callback calls WheelControl's primary port
+     * receiveCommand(). The firmware's README (diffbot_firmware/README.md) explains ports and
+     * adapters. The unit tests supply fakes for both template parameters.
+     *
+     * @tparam Receiver Provides receiveCommand(WheelCommand, uint32_t). WheelControl on the robot
+     * @tparam Clock Provides millis(), the wrapping millisecond counter. ArduinoClock on the robot
      */
     template <class Receiver, class Clock>
     class RosWheelCommandSubscriber
@@ -50,10 +61,11 @@ namespace diffbot
         RosWheelCommandSubscriber(const RosWheelCommandSubscriber&) = delete;
         RosWheelCommandSubscriber& operator=(const RosWheelCommandSubscriber&) = delete;
 
-        /// Registers the subscriber with the node handle. Call it before BaseController::setup()
-        /// waits for the connection: when spinOnce() receives the computer's topic-list request,
-        /// rosserial answers with the topics registered so far, and the computer forwards wheel
-        /// commands only for a subscriber in that answer
+        /// Registers subscriber_ with the node handle before the initial topic negotiation.
+        /// Call before BaseController::setup(). During setup, serial_node.py asks for the
+        /// Teensy's topics. The node handle sends one TopicInfo message for each registered
+        /// publisher and subscriber. For subscriber_, serial_node.py creates a ROS subscriber on
+        /// the SBC that forwards wheel_cmd_velocities messages to the Teensy
         template <class NodeHandle>
         void subscribe(NodeHandle& nh)
         {

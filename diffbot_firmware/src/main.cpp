@@ -58,8 +58,8 @@ namespace
     static_assert(WHEEL_CONTROL_CONFIG.valid(),
                   "WHEEL_CONTROL_CONFIG: check COMMAND_TIMEOUT_MS and UPDATE_RATE_CONTROL");
 
-    // Drives the wheels only while the wheel commands from the robot's computer are new: the
-    // subscriber passes each valid command on to the wheel control, loop() calls its step
+    // Connects the wheel control to the rest of the firmware. The subscriber passes each valid
+    // wheel command to wheel_control.receiveCommand(), and loop() calls wheel_control.step()
     ArduinoClock wheel_clock;
     WheelControl<decltype(base_controller), RosTimeoutLogger> wheel_control(
         base_controller, WHEEL_CONTROL_CONFIG, RosTimeoutLogger{nh});
@@ -92,13 +92,18 @@ namespace
 
 void setup()
 {
-    // Register the wheel-command subscriber and the IMU publisher first. base_controller.setup()
-    // starts rosserial (initNode) and calls spinOnce() until serial_node.py on the robot's
-    // computer has connected over USB. When spinOnce() receives the computer's topic-list
-    // request, rosserial answers with the topics registered so far. A topic registered later
-    // stays unknown to the computer until it asks again, for example after a reconnection.
-    // From the connection on, spinOnce() calls the subscriber's callback for each wheel command,
-    // also while base_controller.init() waits for its parameters.
+    // Register the wheel subscriber and the IMU publisher before topic negotiation, the handshake
+    // between the Teensy and the robot's single-board computer (SBC):
+    // 1. BaseController::setup() initializes the Teensy's node handle, registers the remaining
+    //    topics and calls spinOnce() until the node handle reports a connection.
+    // 2. On the SBC, serial_node.py opens the USB serial device and requests the Teensy's topic
+    //    descriptions. serial_node.py is part of rosserial_python, not of this repository.
+    // 3. spinOnce() handles that request and sends the registered publishers and subscribers.
+    // 4. serial_node.py creates the corresponding ROS endpoints on the SBC. Its ROS subscriber
+    //    forwards wheel commands to the Teensy, where spinOnce() dispatches the callback.
+    // Registering a new topic later doesn't notify the SBC until another topic negotiation.
+    // The two programs start independently. BaseController::init() also lets callbacks run
+    // through spinOnce() while waiting for parameter replies.
     wheel_commands.subscribe(nh);
     imu_publisher.advertise();
     Wire.begin();
@@ -124,7 +129,8 @@ void loop()
 
     publishDebugIfDue(now_ms);
 
-    // Call all the callbacks waiting to be called. Last, after the wheel control's step: a wheel
-    // command that arrived after now_ms was read would look about 49.7 days old to the step
+    // Parse incoming rosserial bytes and dispatch complete messages after the control step.
+    // The next loop pass reads now_ms after these callbacks. A callback timestamp later than
+    // now_ms would otherwise make unsigned subtraction report an age near 49.7 days
     nh.spinOnce();
 }

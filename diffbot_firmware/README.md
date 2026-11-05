@@ -5,7 +5,7 @@ The firmware for the robots' Teensy microcontroller: it reads the wheel encoders
 | Folder | What it's for |
 |:--|:--|
 | [`src`](src) | `main.cpp`: the control loop |
-| [`lib`](lib) | The base controller, encoders, motor driver, PID, configuration, and the rosserial message headers in `ros_lib` |
+| [`lib`](lib) | The wheel control, command timeout, base controller, encoders, motor driver, IMU, PID, configuration, and the rosserial message headers in `ros_lib` |
 | [`test`](test) | Unit tests that run on the PC (`test_*`, with fakes for the hardware in `fakes`), and checks that run on the Teensy |
 | [`sketches`](sketches) | Older Arduino sketches: the encoders alone over rosserial, the same with the BNO055 IMU, and a check of the encoders by hand |
 
@@ -19,5 +19,32 @@ Build the firmware for your robot's Teensy in the firmware's container, [`.docke
 When you change the firmware, build both and run the unit tests, `.docker/firmware/run.sh pio test -e native`, as CI does, because the change has to work on both boards.
 
 The firmware files land in `.pio/build/<board>/` in this folder, for example `firmware.hex`, which PJRC's [Teensy Loader](https://www.pjrc.com/teensy/loader.html) can flash. With PlatformIO installed on your PC ([CONTRIBUTING](../CONTRIBUTING.md)), `pio run -e teensy40` or `pio run -e teensy31` in this folder builds it too.
+
+## Ports and adapters
+
+The firmware is moving to Alistair Cockburn's [ports and adapters](https://alistair.cockburn.us/hexagonal-architecture/) structure, also called hexagonal architecture ([#148](https://github.com/ros-mobile-robots/diffbot/issues/148)). It separates the logic from the libraries and the hardware, so that the unit tests can run the logic on a PC. [Ports and adapters](https://ros-mobile-robots.com/packages/diffbot_base/low-level/#ports-and-adapters) on ros-mobile-robots.com shows it in diagrams.
+
+- The **core** contains the logic that we want to test independently. The firmware's portable core includes no Arduino, rosserial or vendor library headers.
+- A **port** defines an interaction across the core's boundary: the functions, their arguments and their required behavior. A port can be ordinary public functions, such as `WheelControl`'s `receiveCommand()` and `step()`. A secondary port can also be an abstract class, such as `I2cBus`, or requirements on a template argument, such as `Controller`.
+- An **adapter** connects a port to a particular environment, such as ROS, Arduino, a motor driver or a test harness.
+
+The two kinds of ports differ in who calls whom:
+
+| | Primary port | Secondary port |
+|:--|:--|:--|
+| Who calls the functions | an adapter | the core |
+| Who implements the functions | the core | an adapter |
+| Other names | driving, inbound | driven, outbound |
+
+Where the firmware stands today:
+
+| Core | Primary ports, with the adapter that calls each | Secondary ports, with the adapter that implements each |
+|:--|:--|:--|
+| [`WheelControl`](lib/wheel_control/wheel_control.h) | `receiveCommand()`: [`RosWheelCommandSubscriber`](lib/wheel_control/ros_wheel_command_subscriber.h)<br>`step()`: `loop()` in [`main.cpp`](src/main.cpp) | `Controller`: [`BaseController`](lib/base_controller/base_controller.h)<br>`LogTimeout`: `RosTimeoutLogger` in [`main.cpp`](src/main.cpp) |
+| [`Bno055`](lib/imu/bno055.h), the portable sensor driver | `update()`, `read()`, `restart()`, `state()`: [`ImuPublisher`](lib/imu/imu_publisher.h) | [`I2cBus`](lib/imu/i2c_bus.h): [`WireBusT`](lib/imu/wire_bus.h) |
+
+`main.cpp` creates the objects and connects them. `CommandTimeout` is internal to `WheelControl` and has no separate port across this boundary. `BaseController` supplies the `Controller` operations, and also contains PID logic and dependencies on rosserial, the encoder library and the motor library. The work planned in [#148](https://github.com/ros-mobile-robots/diffbot/issues/148) separates those responsibilities.
+
+## More
 
 [Low-Level Base Controller](https://ros-mobile-robots.com/packages/diffbot_base/low-level/) on ros-mobile-robots.com explains the code, and [Microcontroller](https://ros-mobile-robots.com/processing_units/teensy-mcu/) the Teensy.
