@@ -41,8 +41,9 @@ public:
     }
     void write(uint8_t* data, int length) { output.push_back(std::vector<uint8_t>(data, data + length)); }
 
-    /// Queues one frame from the host, in rosserial's format (protocol version 2)
-    void receive(uint16_t topic, const std::vector<uint8_t>& data = std::vector<uint8_t>())
+    /// Puts one frame into the input, as if the host had sent it over USB, in rosserial's format
+    /// (protocol version 2). The next spinOnce() reads and parses it
+    void queueFromHost(uint16_t topic, const std::vector<uint8_t>& data = std::vector<uint8_t>())
     {
         uint8_t length_low = data.size() & 0xFF;
         uint8_t length_high = (data.size() >> 8) & 0xFF;
@@ -61,7 +62,7 @@ public:
     }
 
     /// The host asks for the topics (a new connection)
-    void negotiation() { receive(rosserial_msgs::TopicInfo::ID_PUBLISHER); }
+    void negotiation() { queueFromHost(rosserial_msgs::TopicInfo::ID_PUBLISHER); }
 
     /// The host's answer to a time request: its ROS time
     void timeReply(uint32_t sec, uint32_t nsec = 0)
@@ -70,7 +71,7 @@ public:
         for (uint32_t value : {sec, nsec})
             for (int i = 0; i < 4; ++i)
                 data.push_back((value >> (8 * i)) & 0xFF);
-        receive(rosserial_msgs::TopicInfo::ID_TIME, data);
+        queueFromHost(rosserial_msgs::TopicInfo::ID_TIME, data);
     }
 
     /// Frames written on the firmware's own topics (ids from 100), not rosserial's
