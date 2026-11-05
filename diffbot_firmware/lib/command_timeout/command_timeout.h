@@ -5,21 +5,21 @@
 
 namespace diffbot {
 
-    /** \brief Decides when the last wheel command is too old to drive the motors.
+    /**
+     * @brief Tracks whether wheel commands permit motor drive.
      *
-     * \ref commandArrived tells it when a command arrived, \ref update compares that time with the
-     * current one, and \ref timedOut answers whether the command is too old. The times are the
-     * Teensy's elapsed milliseconds (millis()), not ROS time, which jumps when the host's clock is
-     * corrected.
+     * commandArrived(received_ms) records a valid command's receipt time and clears the timeout.
+     * update(now_ms) sets the timeout when the recorded command is at least timeout_ms old.
+     * timedOut() reports that stored state. The caller supplies Teensy millis() readings rather
+     * than ROS timestamps, so changes in the SBC's ROS time do not affect the timeout.
      *
-     * Only a new command ends the timeout, not the time: after about 49.7 days, millis() returns
-     * to zero, and an old command's time would look new again. It starts timed out, so the motors
-     * aren't driven before the first command arrives.
+     * The initial state is timed out, which prevents driving before the first command.
+     * After a command expires, the state stays timed out until commandArrived() is called again.
+     * This latch prevents an old command from becoming usable when millis() repeats a previous
+     * value after a full cycle of about 49.7 days.
      *
-     * It only decides: WheelControl stops the motors and logs, once, when timedOut() turns true
-     * in an update().
-     *
-     * Plain C++ without Arduino or rosserial, so the unit tests run it on the PC.
+     * This class does not access hardware. WheelControl detects the transition into a timeout,
+     * clears the motor outputs and logs once. Unit tests exercise this class on the PC.
      */
     class CommandTimeout
     {
@@ -34,8 +34,8 @@ namespace diffbot {
             timed_out_ = false;
         }
 
-        /// Times out when the last command is timeout_ms old. The unsigned difference stays right
-        /// when millis() returns to zero
+        /// Sets the timeout when the last command is at least timeout_ms old.
+        /// Unsigned subtraction handles a counter wrap if less than one full cycle has elapsed
         void update(uint32_t now_ms)
         {
             if (!timed_out_ && now_ms - last_command_ms_ >= timeout_ms_)

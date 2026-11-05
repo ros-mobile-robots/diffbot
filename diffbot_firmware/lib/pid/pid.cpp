@@ -18,7 +18,6 @@ double diffbot::PID::compute(float setpoint, float measured_value)
     double error;
     double pid;
 
-    //setpoint is constrained between min and max to prevent pid from having too much error
     error = setpoint - measured_value;
     proportional_ = error;
     integral_ += error;
