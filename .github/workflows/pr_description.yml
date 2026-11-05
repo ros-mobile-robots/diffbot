@@ -1,0 +1,82 @@
+name: PR description
+# The pull request template (.github/pull_request_template.md) has a placeholder under
+# "## Documentation" for the docs pull request or the page on ros-mobile-robots.com that explains
+# the change. This check makes sure it was filled in: with a docs pull request, a page on
+# ros-mobile-robots.com, or "None" when nothing user-visible changes. It checks the format, not
+# whether the linked page explains the change. That's for the review.
+on:
+  pull_request:
+    # edited: an edit of the description runs the check again with the new text. "Re-run jobs"
+    # on an old run doesn't, because a re-run keeps the old event and its old description.
+    # synchronize: each new commit gets the check too, as it does for the other workflows.
+    types: [opened, edited, reopened, synchronize]
+
+# Runs for the same pull request share a group, and a new one cancels the one still running
+concurrency:
+  group: pr-description-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+# The script reads only the event, so it needs no token permissions
+permissions: {}
+
+jobs:
+  documentation:
+    runs-on: ubuntu-latest
+    steps:
+      # The description comes in as an environment variable, not interpolated into run: with
+      # ${{ }}, so its text can't become part of the command: GitHub's "Secure use reference",
+      # script injection (docs.github.com/en/actions/reference/security/secure-use). The script
+      # never prints it either, because the runner treats some text in its log as commands.
+      - name: Check the Documentation section
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          python3 - <<'EOF'
+          import os
+          import re
+          import sys
+          from urllib.parse import urlsplit
+
+          # The template's comments are hints, not content
+          body = re.sub(r"<!--.*?-->", "", os.environ.get("BODY") or "", flags=re.S)
+          section = re.search(r"^##\s+Documentation\s*$(.*?)(?=^##\s|\Z)", body,
+                              flags=re.M | re.S | re.I)
+          text = section.group(1) if section else ""
+
+          # The docs repository's full reference, not part of a longer name or path
+          docs_pr = re.search(r"(?<![\w./-])ros-mobile-robots/ros-mobile-robots\.github\.io#\d+\b", text)
+
+          def linked(url):
+              """A docs pull request on GitHub, or a page on the documentation site."""
+              # Punctuation after a bare link ends the sentence, as in GitHub's autolinks
+              url = url.rstrip(".,:;!?*_~")
+              try:
+                  parts = urlsplit(url)
+              except ValueError:
+                  return False
+              host = (parts.hostname or "").lower()
+              if parts.scheme != "https" or parts.username is not None or parts.password is not None:
+                  return False
+              if host == "github.com":
+                  return re.fullmatch(r"/ros-mobile-robots/ros-mobile-robots\.github\.io/pull/\d+(/.*)?",
+                                      parts.path) is not None
+              return host in ("ros-mobile-robots.com", "www.ros-mobile-robots.com")
+
+          urls = re.findall(r"https?://[^\s<>()\[\]`\"']+", text)
+          # "None" or "None needed", alone or followed by a reason after a dash or colon
+          none = re.search(r"^\s*None(?: needed)?(?:\.?\s*$|\s*[-–—:]\s*\S)", text, flags=re.M)
+
+          if section is None:
+              problem = 'The description has no "## Documentation" section.'
+          elif docs_pr or none or any(linked(url) for url in urls):
+              print("The Documentation section is filled in.")
+              sys.exit(0)
+          else:
+              problem = ('The "## Documentation" section names neither a docs pull request nor '
+                         'a page on ros-mobile-robots.com, nor says None.')
+          print("::error title=PR description::" + problem + " Link the docs pull request as "
+                "ros-mobile-robots/ros-mobile-robots.github.io#N, or a page on "
+                "https://ros-mobile-robots.com, or write None if nothing user-visible changes. "
+                "Editing the description runs this check again.")
+          sys.exit(1)
+          EOF
