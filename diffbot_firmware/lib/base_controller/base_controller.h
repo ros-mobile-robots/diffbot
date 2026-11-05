@@ -22,22 +22,36 @@
 namespace diffbot {
 
     /**
-     * @brief Reads wheel encoders, controls motor outputs and exchanges ROS messages.
+     * @brief Communicates with the high-level hardware interface on the robot's single-board
+     *        computer (SBC), and interacts with the encoders and the motor driver.
      *
-     * WheelControl calls setWheelTargets() with valid commands received by
-     * RosWheelCommandSubscriber. setWheelTargets() stores the left and right targets in rad/s
-     * without writing motor outputs.
+     * On the SBC, DiffBotHWInterface in diffbot_base is this firmware's counterpart. The two
+     * exchange ROS messages through rosserial:
+     * - measured_joint_states, from this class: \ref read publishes the measured wheel positions
+     *   and velocities as a sensor_msgs::JointState with \ref pub_measured_joint_states_.
+     *   DiffBotHWInterface subscribes to this topic and holds the values for
+     *   diff_drive_controller's next update.
+     * - wheel_cmd_velocities, to the firmware: DiffBotHWInterface publishes the target angular
+     *   velocities. RosWheelCommandSubscriber receives them, and WheelControl passes each valid
+     *   command to \ref setWheelTargets, which stores the targets in \ref wheel_cmd_velocity_left_
+     *   and \ref wheel_cmd_velocity_right_ without writing motor outputs.
+     * - reset, pid_left and pid_right, to this class: these topics reset the encoders and change
+     *   the PIDs' gains. This class subscribes to them itself.
      *
-     * At each scheduled control step, WheelControl calls read() to measure wheel positions and
-     * velocities. read() publishes those measurements on measured_joint_states.
-     * DiffBotHWInterface on the robot's single-board computer (SBC) receives that feedback for
-     * the high-level controller. While the latest timeout check permits driving, WheelControl
-     * then calls write(), which computes both PID outputs and sends those outputs through
-     * MotorControllerIntf::setSpeed().
+     * The class holds the parts that touch the hardware and the control logic between them:
+     * - Encoders: \ref read gets the angular wheel positions and velocities from two
+     *   diffbot::Encoder objects (\ref encoder_left_, \ref encoder_right_) and stores them in
+     *   \ref joint_state_left_ and \ref joint_state_right_, and the encoder ticks in
+     *   \ref ticks_left_ and \ref ticks_right_.
+     * - PIDs: two PID controllers (\ref motor_pid_left_, \ref motor_pid_right_) compute each
+     *   motor's output from the error between the commanded and the measured angular velocity.
+     * - Motors: \ref write sends the outputs through \ref p_motor_controller_left_ and
+     *   \ref p_motor_controller_right_, pointers to the generic, motor-driver-agnostic interface
+     *   diffbot::MotorControllerIntf.
      *
-     * When a received command expires, WheelControl calls eStop() once. eStop() clears both
-     * targets, resets both PIDs and sets both motor outputs to zero. The FeatherWing releases
-     * the motors, allowing the wheels to coast.
+     * WheelControl (lib/wheel_control) decides when these functions run. At each scheduled control
+     * step, WheelControl calls \ref read and, while its timeout check permits driving, \ref write.
+     * When a received command expires, WheelControl calls \ref eStop once.
      *
      * main.cpp schedules debug output using the debug rate and last_update_time_.debug.
      * ImuPublisher schedules the IMU independently. The IMU fields retained in UpdateRate and
@@ -190,7 +204,8 @@ namespace diffbot {
         /**
          * @brief Clears both target speeds, PID states and motor outputs.
          *
-         * On the FeatherWing, setSpeed(0) releases the motors and the wheels coast.
+         * Resetting the PIDs means that no stored error drives the motors later. On the
+         * FeatherWing, setSpeed(0) releases the motors and the wheels coast.
          * WheelControl calls eStop() once when a valid command expires, before logging the
          * timeout. WheelControl suppresses write() until a new valid command permits driving.
          */
