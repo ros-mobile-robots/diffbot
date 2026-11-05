@@ -40,7 +40,7 @@ Where the firmware stands today:
 
 | Core | Primary ports, with the adapter that calls each | Secondary ports, with the adapter that implements each |
 |:--|:--|:--|
-| [`WheelControl`](lib/wheel_control/wheel_control.h) | `receiveCommand()`: [`RosWheelCommandSubscriber`](lib/wheel_control/ros_wheel_command_subscriber.h)<br>`step()`: `loop()` in [`main.cpp`](src/main.cpp) | `Controller`: [`BaseController`](lib/base_controller/base_controller.h)<br>`LogTimeout`: `RosTimeoutLogger` in [`main.cpp`](src/main.cpp) |
+| [`WheelControl`](lib/wheel_control/wheel_control.h) | `receiveCommand()`: [`RosWheelCommandSubscriber`](lib/ros_wheel_commands/ros_wheel_command_subscriber.h)<br>`step()`: `loop()` in [`main.cpp`](src/main.cpp) | `Controller`: [`BaseController`](lib/base_controller/base_controller.h)<br>`LogTimeout`: `RosTimeoutLogger` in [`main.cpp`](src/main.cpp) |
 | [`Bno055`](lib/imu/bno055.h), the portable sensor driver | `update()`, `read()`, `restart()`, `state()`: [`ImuPublisher`](lib/imu/imu_publisher.h) | [`I2cBus`](lib/imu/i2c_bus.h): [`WireBusT`](lib/imu/wire_bus.h) |
 
 `main.cpp` creates the objects and connects them. `CommandTimeout` is internal to `WheelControl` and has no separate port across this boundary. `BaseController` supplies the `Controller` operations, and also contains PID logic and dependencies on rosserial, the encoder library and the motor library. The work planned in [#148](https://github.com/ros-mobile-robots/diffbot/issues/148) separates those responsibilities.

@@ -1,5 +1,5 @@
-// Unit tests of RosWheelCommandSubscriber (lib/wheel_control/ros_wheel_command_subscriber.h) on
-// the PC: rosserial's real parser with a fake serial port, and in the last tests a WheelControl
+// Unit tests of RosWheelCommandSubscriber (lib/ros_wheel_commands/ros_wheel_command_subscriber.h)
+// on the PC: rosserial's real parser with a fake serial port, and in the last tests a WheelControl
 // with a fake controller behind the subscriber (test/fakes). Run them with:
 //   pio test -e native
 #include <unity.h>
