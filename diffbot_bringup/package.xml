@@ -50,6 +50,9 @@
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   <exec_depend>teleop_twist_keyboard</exec_depend>
+  <!-- scripts/imu_noise_at_rest.py reads a rosbag -->
+  <exec_depend>rosbag</exec_depend>
+  <test_depend>python3-nose</test_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
