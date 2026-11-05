@@ -2,7 +2,7 @@
 """Turns the simulated IMU into what the real one publishes.
 
 Gazebo's IMU plugin publishes sensor_msgs/Imu on imu/gazebo, with an orientation from the
-simulation. The real robot's firmware (diffbot_base/scripts/base_controller/lib/imu) publishes
+simulation. The real robot's firmware (diffbot_firmware/lib/imu) publishes
 imu/data_raw: the angular velocity and the acceleration, with the orientation marked unavailable
 (orientation_covariance[0] = -1, REP 145), because the EKF fuses only the angular velocity. This
 node copies each message from imu/gazebo to imu/data_raw with the orientation removed, and keeps
