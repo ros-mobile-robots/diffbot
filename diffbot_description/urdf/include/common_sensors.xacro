@@ -192,7 +192,10 @@
      IMU sensor that stands in for the real one in the simulation.
      - imu_link is the sensor's own frame; *origin places it on parent_link, as the board sits on
        the robot. The real robot's firmware publishes in the same frame (diffbot_base).
-     - The Gazebo plugin (gazebo_plugins' GazeboRosImuSensor, ROS 1) publishes sensor_msgs/Imu on
+     - The Gazebo plugin, libdiffbot_gazebo_ros_imu_sensor.so from diffbot_gazebo_plugins, is a
+       copy of gazebo_plugins' GazeboRosImuSensor (ROS 1) that doesn't run ROS callbacks in
+       Gazebo's physics thread. gazebo_plugins' own plugin does, and that can stop the simulation
+       while the controllers load (#185). The plugin publishes sensor_msgs/Imu on
        /diffbot/imu/gazebo at 50 Hz, the firmware's rate. Its message includes an orientation that
        the real sensor doesn't provide, so the simulation passes it through an adapter in
        diffbot_gazebo, which publishes /diffbot/imu/data_raw like the firmware.
@@ -240,7 +243,7 @@
     <sensor type="imu" name="imu">
       <always_on>true</always_on>
       <update_rate>50</update_rate>
-      <plugin name="imu_plugin" filename="libgazebo_ros_imu_sensor.so">
+      <plugin name="imu_plugin" filename="libdiffbot_gazebo_ros_imu_sensor.so">
         <robotNamespace>/diffbot</robotNamespace>
         <topicName>imu/gazebo</topicName>
         <frameName>imu_link</frameName>
