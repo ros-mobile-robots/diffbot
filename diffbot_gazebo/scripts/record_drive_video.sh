@@ -57,6 +57,7 @@ tee_pid=
 xvfb_pid=
 launch_pid=
 driver_pid=
+encoder_pid=
 
 log() {
     echo "record_drive_video.sh: $*"
@@ -180,6 +181,10 @@ cleanup() {
     if [[ -n $driver_pid ]]; then
         end_process "$driver_pid" TERM 10
     fi
+    # timeout passes SIGTERM on to the encoder's whole process group, ffmpeg included
+    if [[ -n $encoder_pid ]]; then
+        end_process "$encoder_pid" TERM 10
+    fi
     stop_simulation
     if [[ -n $xvfb_pid ]]; then
         end_process "$xvfb_pid" TERM 10
@@ -260,10 +265,19 @@ main() {
 
     log "Stopping the simulation"
     stop_simulation
-    timeout "$ENCODE_TIMEOUT" python3 "$script_dir/encode_drive_video.py" \
+    # Like the driver: in the background, so a signal ends the wait at once. The video and its
+    # JSON file go to the work folder first and into the output folder only when both are
+    # complete, so a failed or interrupted encoding leaves no file of them in the output
+    timeout --kill-after=10 "$ENCODE_TIMEOUT" python3 "$script_dir/encode_drive_video.py" \
         --frames "$work_dir/frames" --drive "$work_dir/drive.json" \
         --world "$work_dir/video.world" --model "$MODEL" --lockstep \
-        --video "$out_dir/$VIDEO_NAME.mp4" --info "$out_dir/$VIDEO_NAME.json"
+        --video "$work_dir/$VIDEO_NAME.mp4" --info "$work_dir/$VIDEO_NAME.json" &
+    encoder_pid=$!
+    local encoder_status=0
+    wait "$encoder_pid" || encoder_status=$?
+    encoder_pid=
+    ((encoder_status == 0)) || fail "encode_drive_video.py failed with exit status $encoder_status"
+    mv "$work_dir/$VIDEO_NAME.mp4" "$work_dir/$VIDEO_NAME.json" "$out_dir/"
     log "Done: $out_dir/$VIDEO_NAME.mp4"
 }
 
