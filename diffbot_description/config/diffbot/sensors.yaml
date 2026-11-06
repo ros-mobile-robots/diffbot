@@ -14,10 +14,10 @@ laser:
   enable_gpu: false
 
 imu:
-  # The BNO055 board that DiffBot and Remo share. 5 g is a provisional estimate for the board with
-  # its header pins, as in Remo's model, until the board is weighed. Adafruit lists 3 g for the
-  # bare board.
-  mass: 0.005
+  # IMU mass in kg: 3 g, the BNO055 board that DiffBot and Remo share, weighed with its header
+  # pins. DiffBot's base mass in base.yaml was weighed without the board, so this link adds the
+  # board's mass.
+  mass: 0.003
   size:             # A BNO055 breakout board, in m
     x: 0.027
     y: 0.020
