@@ -16,7 +16,7 @@ When the pin moves to a new version, an existing workspace keeps its old checkou
 cd ~/catkin_ws/src/remo_description
 git status                                          # no changes of your own?
 git fetch --tags
-git checkout 2.3.0                                  # the version in diffbot_dev.repos
+git checkout 2.2.0                                  # the version in diffbot_dev.repos
 ```
 
 ## Build and test
