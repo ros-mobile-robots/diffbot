@@ -13,6 +13,7 @@ ROS 1 Noetic packages for two differential drive robots, **DiffBot** and **Remo*
 | `diffbot_control` | `diff_drive_controller` configuration; per robot: `config/<model>/geometry.yaml` (wheel radius and separation) and `config/<model>/pid.yaml` (Gazebo's wheel gains, simulation only) |
 | `diffbot_description` | DiffBot's URDF (xacro) and its part sizes and masses in `config/diffbot/*.yaml` |
 | `diffbot_gazebo` | Worlds, launch files and the simulation test `test/test_drive.py` |
+| `diffbot_gazebo_plugins` | The simulated IMU's Gazebo plugin: a copy of gazebo_plugins' `GazeboRosImuSensor` without `ros::spinOnce()` (#185), under the Apache License 2.0 |
 | `diffbot_bringup`, `diffbot_robot`, `diffbot_navigation`, `diffbot_slam`, `diffbot_mbf`, `diffbot_msgs` | Bringup, navigation, SLAM, move_base_flex, messages |
 
 ## Commands
