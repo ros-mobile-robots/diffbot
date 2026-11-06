@@ -1,0 +1,32 @@
+<launch>
+    <!-- For the video recorder (scripts/record_drive_video.sh): the robot in Gazebo without a GUI,
+         with its controllers from diffbot_control, like test/sim_drive.launch, but on the world
+         with the video camera and with extra arguments for the Gazebo server, such as lockstep.
+         diffbot_view.launch can't pass such arguments on, so this file spawns the robot itself,
+         at the same pose -->
+    <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
+    <arg name="world_name" doc="world with the video camera (scripts/make_video_world.py)"/>
+    <!-- The recorder uses ports of its own, so it can run next to a simulation or the simulation
+         tests -->
+    <arg name="gazebo_port" doc="port of this recording's Gazebo server"/>
+    <arg name="extra_gazebo_args" default="" doc="more arguments for the Gazebo server"/>
+    <env name="GAZEBO_MASTER_URI" value="http://localhost:$(arg gazebo_port)"/>
+
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+        <arg name="world_name" value="$(arg world_name)"/>
+        <arg name="gui" value="false"/>
+        <arg name="extra_gazebo_args" value="$(arg extra_gazebo_args)"/>
+    </include>
+
+    <!-- The robot's URDF and where it starts, as in diffbot_view.launch -->
+    <arg name="description_package" default="$(eval find(arg('model') + '_description'))"/>
+    <arg name="urdf_file" default="$(arg description_package)/urdf/$(arg model).urdf.xacro"/>
+    <param name="diffbot/robot_description" command="$(find xacro)/xacro '$(arg urdf_file)'"/>
+    <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
+          args="-urdf -model diffbot -param /diffbot/robot_description -x -2.0 -y -0.5 -z 0.0"/>
+
+    <include file="$(find diffbot_control)/launch/diffbot_control.launch">
+        <arg name="model" value="$(arg model)"/>
+        <arg name="rqt_robot_steering" value="false"/>
+    </include>
+</launch>
