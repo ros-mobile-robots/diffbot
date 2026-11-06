@@ -58,6 +58,7 @@ xvfb_pid=
 launch_pid=
 driver_pid=
 encoder_pid=
+encoder_group=
 
 log() {
     echo "record_drive_video.sh: $*"
@@ -74,6 +75,28 @@ process_running() {
     local state
     state=$(ps -o stat= -p "$1") || return 1
     [[ ${state// /} != Z* ]]
+}
+
+# Whether a process of the process group still runs (zombies don't count)
+group_running() {
+    ps -e -o pgid=,stat= | awk -v group="$1" '$1 == group && $2 !~ /^Z/ { found = 1 }
+        END { exit !found }'
+}
+
+# Send SIGTERM to every process of the process group, give them some seconds to end, and kill
+# those that haven't. For processes whose parent has already ended, such as ffmpeg after its
+# encoder was killed
+end_group() {
+    local group=$1 seconds=$2 tenths=0
+    kill -s TERM -- "-$group" 2> /dev/null || true
+    while group_running "$group" && ((tenths < seconds * 10)); do
+        sleep 0.1
+        tenths=$((tenths + 1))
+    done
+    if group_running "$group"; then
+        log "process group $group didn't end within $seconds s of SIGTERM, killing it"
+        kill -s KILL -- "-$group" 2> /dev/null || true
+    fi
 }
 
 # Send the process a signal, give it some seconds to end, kill it if it hasn't, and reap it
@@ -181,9 +204,13 @@ cleanup() {
     if [[ -n $driver_pid ]]; then
         end_process "$driver_pid" TERM 10
     fi
-    # timeout passes SIGTERM on to the encoder's whole process group, ffmpeg included
+    # The encoder's process group: timeout, encode_drive_video.py and its ffmpeg. After timeout
+    # has ended, a process of the group may still run, so the group gets a deadline of its own
     if [[ -n $encoder_pid ]]; then
         end_process "$encoder_pid" TERM 10
+    fi
+    if [[ -n $encoder_group ]]; then
+        end_group "$encoder_group" 10
     fi
     stop_simulation
     if [[ -n $xvfb_pid ]]; then
@@ -268,15 +295,18 @@ main() {
     # Like the driver: in the background, so a signal ends the wait at once. The video and its
     # JSON file go to the work folder first and into the output folder only when both are
     # complete, so a failed or interrupted encoding leaves no file of them in the output
-    timeout --kill-after=10 "$ENCODE_TIMEOUT" python3 "$script_dir/encode_drive_video.py" \
+    # setsid: the encoder gets a session and process group of their own, whose ID is its PID
+    setsid timeout --kill-after=10 "$ENCODE_TIMEOUT" python3 "$script_dir/encode_drive_video.py" \
         --frames "$work_dir/frames" --drive "$work_dir/drive.json" \
         --world "$work_dir/video.world" --model "$MODEL" --lockstep \
         --video "$work_dir/$VIDEO_NAME.mp4" --info "$work_dir/$VIDEO_NAME.json" &
     encoder_pid=$!
+    encoder_group=$encoder_pid
     local encoder_status=0
     wait "$encoder_pid" || encoder_status=$?
     encoder_pid=
     ((encoder_status == 0)) || fail "encode_drive_video.py failed with exit status $encoder_status"
+    encoder_group=
     mv "$work_dir/$VIDEO_NAME.mp4" "$work_dir/$VIDEO_NAME.json" "$out_dir/"
     log "Done: $out_dir/$VIDEO_NAME.mp4"
 }
