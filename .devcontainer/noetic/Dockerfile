@@ -37,6 +37,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         net-tools \
     && rm -rf /var/lib/apt/lists/*
 
+# Install what diffbot_gazebo's video recorder (scripts/record_drive_video.sh) needs to render
+# Gazebo's camera without a screen, as on CI's runners, which have no display and no GPU:
+# - xvfb: Xvfb, a virtual X server, the display for the Gazebo server
+# - xauth: creates the secret (cookie) that only the recorder's programs use to open that display
+# - libgl1-mesa-dri: Mesa's software OpenGL renderer (llvmpipe), which draws the camera image on
+#   the CPU
+# - ffmpeg: encodes the camera's frames as an MP4 video and checks the video (ffprobe)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        xvfb \
+        xauth \
+        libgl1-mesa-dri \
+        ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create the user ros with UID 1000, the usual UID of the first user on Linux, who may use sudo
 # without a password. If your UID differs, VS Code and the Dev Container CLI change the user's
 # UID to yours when they create the container, so files created in it belong to you on the host.

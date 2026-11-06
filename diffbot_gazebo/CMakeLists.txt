@@ -196,6 +196,19 @@ install(DIRECTORY launch models worlds
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
+# The video recorder (rosrun diffbot_gazebo record_drive_video.sh) and the Python scripts it runs,
+# which it finds next to itself. catkin_install_python also points their first line (#!) to the
+# workspace's Python
+install(PROGRAMS scripts/record_drive_video.sh
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+catkin_install_python(PROGRAMS
+  scripts/drive_for_video.py
+  scripts/encode_drive_video.py
+  scripts/make_video_world.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
 #############
 ## Testing ##
 #############
