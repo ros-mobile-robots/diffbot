@@ -1,9 +1,11 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="diffbot">
 
-  <!-- Where the simulation's IMU (imu_link) sits on chassis_link: on the plate, with the board's
-       axes along the robot's (x forward, z up). DiffBot has no IMU on the robot yet; a real one's
-       mounting goes here, or override these, for example imu_xyz:='0 0 0.02' imu_rpy:='0 0 0'. -->
+  <!-- Where the IMU (imu_link) sits on chassis_link. DiffBot uses the same BNO055 board as Remo,
+       moved between the robots, but its mounting on DiffBot isn't measured yet. So these defaults
+       are placeholders: on the plate, with the board's axes along the robot's (x forward, z up).
+       The measured mounting goes here. To try another one, override them, for example
+       imu_xyz:='0 0 0.02' imu_rpy:='0 0 0'. -->
   <xacro:arg name="imu_xyz" default="0 0 0.01" />
   <xacro:arg name="imu_rpy" default="0 0 0" />
 
