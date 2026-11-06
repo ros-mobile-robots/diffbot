@@ -14,9 +14,10 @@ laser:
   enable_gpu: false
 
 imu:
-  # DiffBot has no IMU on the robot yet: the simulation's IMU weighs next to nothing, 1 g on top of
-  # the robot's weighed mass. A BNO055 board weighs about 5 g.
-  mass: 0.001
+  # The BNO055 board that DiffBot and Remo share. 5 g is a provisional estimate for the board with
+  # its header pins, as in Remo's model, until the board is weighed. Adafruit lists 3 g for the
+  # bare board.
+  mass: 0.005
   size:             # A BNO055 breakout board, in m
     x: 0.027
     y: 0.020
