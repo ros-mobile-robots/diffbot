@@ -2,7 +2,13 @@
 <package format="2">
   <name>diffbot_description</name>
   <version>1.1.0</version>
-  <description>The diffbot_description package</description>
+  <description>
+    The diffbot_description package. The wheel meshes meshes/components/wheel.stl,
+    meshes/diffbot/wheel_rim.stl and meshes/diffbot/wheel_tire.stl are the model "Wheel D65x25"
+    by KlimukVI from GrabCAD, https://grabcad.com/library/wheel-d65x25-1. GrabCAD's terms apply
+    to them, not the BSD license. See wheel.LICENSE.md and wheel_rim_and_tire.LICENSE.md next to
+    them.
+  </description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
@@ -14,6 +20,7 @@
   <!-- Commonly used license strings: -->
   <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
   <license>BSDv3</license>
+  <license>GrabCAD terms</license>
 
 
   <!-- Url tags are optional, but multiple are allowed, one per tag -->
