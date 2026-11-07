@@ -66,8 +66,13 @@
   <test_depend>gazebo_msgs</test_depend>
   <test_depend>nav_msgs</test_depend>
   <test_depend>tf</test_depend>
+  <test_depend>tf2_msgs</test_depend>
   <!-- test_geometry_consistency.py reads the real robot's launch file and the parameters as YAML -->
   <test_depend>diffbot_base</test_depend>
+  <!-- test_ekf_switch.py loads their launch files -->
+  <test_depend>diffbot_bringup</test_depend>
+  <test_depend>diffbot_navigation</test_depend>
+  <test_depend>diffbot_mbf</test_depend>
   <test_depend>python3-nose</test_depend>
   <test_depend>python3-yaml</test_depend>
   <!-- The Remo test also needs remo_description. It isn't declared here: it isn't a released ROS

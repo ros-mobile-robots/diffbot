@@ -169,6 +169,13 @@ target_link_libraries(${PROJECT_NAME}
 ## Install ##
 #############
 
+# The launch and configuration files, so that roslaunch finds them in an install space too, for
+# example in industrial_ci, which tests from there (diffbot_gazebo's tests read launch/diffbot.launch).
+# The hardware interface's executable isn't installed yet (#113).
+install(DIRECTORY config launch
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
+
 # all install targets should use catkin DESTINATION variables
 # See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
 

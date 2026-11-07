@@ -1,0 +1,20 @@
+<launch>
+    <!-- The EKF: fuses the wheel odometry with the IMU's yaw rate (config/ekf.yaml) and publishes
+         /diffbot/odometry/filtered and the transform odom → base_footprint, for the robot and the
+         simulation alike. The launch files that include this one (diffbot_base/launch/diffbot.launch,
+         diffbot_control.launch) also turn off the controller's own odom transform, so that only
+         one node publishes it -->
+    <group ns="diffbot">
+        <!-- Passes on only current, valid IMU samples, from imu/data_raw to imu/data_validated
+             (the reasons are in the script) -->
+        <node name="imu_gate" pkg="diffbot_control" type="imu_gate.py" output="screen">
+            <param name="frame_id" value="imu_link"/>
+            <param name="max_age" value="0.1"/>
+            <param name="max_future" value="0.02"/>
+        </node>
+
+        <node name="ekf_localization" pkg="robot_localization" type="ekf_localization_node" output="screen">
+            <rosparam command="load" file="$(find diffbot_control)/config/ekf.yaml"/>
+        </node>
+    </group>
+</launch>

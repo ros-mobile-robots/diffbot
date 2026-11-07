@@ -72,6 +72,19 @@
   <exec_depend>rosparam_shortcuts</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>transmission_interface</exec_depend>
+  <!-- The EKF (launch/ekf.launch) and the IMU gate in front of it (scripts/imu_gate.py) -->
+  <exec_depend>robot_localization</exec_depend>
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>diagnostic_msgs</exec_depend>
+  <exec_depend>diagnostic_updater</exec_depend>
+  <test_depend>rostest</test_depend>
+  <test_depend>rosunit</test_depend>
+  <test_depend>python3-nose</test_depend>
+  <test_depend>diffbot_description</test_depend>
+  <test_depend>xacro</test_depend>
+  <test_depend>nav_msgs</test_depend>
+  <test_depend>rosgraph_msgs</test_depend>
+  <test_depend>tf2_ros</test_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

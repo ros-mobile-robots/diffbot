@@ -1,7 +1,8 @@
 <launch>
-    <!-- Starts the diffbot model in Gazebo and runs three tests on it: publishtest checks that the
+    <!-- Starts the diffbot model in Gazebo and runs four tests on it: publishtest checks that the
          controllers publish, test_drive.py drives the robot and checks its odometry and true pose,
-         test_imu.py checks the simulated IMU. rostest starts the simulation again for each test -->
+         test_imu.py checks the simulated IMU, test_odom_tf.py that only the drive controller
+         publishes odom → base_footprint. rostest starts the simulation again for each test -->
     <include file="$(find diffbot_gazebo)/test/sim_drive.launch">
         <arg name="model" value="diffbot"/>
         <arg name="gazebo_port" value="11351"/>
@@ -27,4 +28,9 @@
     <!-- The simulated IMU (test_imu.py): rate, frame, the orientation marked unavailable, gravity
          at rest, and the yaw rate's sign in a left turn -->
     <test test-name="imu_diffbot" pkg="diffbot_gazebo" type="test_imu.py" time-limit="120"/>
+    <!-- Without the EKF, the drive controller publishes odom → base_footprint, from inside
+         Gazebo (gazebo_ros_control), and nobody else -->
+    <test test-name="odom_tf_diffbot" pkg="diffbot_gazebo" type="test_odom_tf.py" time-limit="180">
+        <param name="publisher" value="/gazebo"/>
+    </test>
 </launch>

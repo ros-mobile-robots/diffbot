@@ -1,6 +1,7 @@
 <launch>
     <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
     <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
+    <arg name="ekf" default="false" doc="fuse the IMU's yaw rate with the wheel odometry in an EKF (diffbot_control/launch/ekf.launch)"/>
     
     <!-- The `minimal.launch` is used to load the DiffBot's robot descripton
         and the controller configuration onto the ROS parameter server using the launch file from the 
@@ -13,6 +14,7 @@
 
     <include file="$(find diffbot_bringup)/launch/minimal.launch">
         <arg name="model" value="$(arg model)" />
+        <arg name="ekf" value="$(arg ekf)" />
     </include>
 
     <!-- Starting robot state publish which will publish tf -->

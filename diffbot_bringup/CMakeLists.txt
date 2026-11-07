@@ -150,6 +150,13 @@ include_directories(
 ## Install ##
 #############
 
+# The launch files and what they load, so that roslaunch finds them in an install space too, for
+# example in industrial_ci, which tests from there (diffbot_gazebo's test_ekf_switch.py reads
+# launch/bringup.launch and launch/bringup_with_laser.launch). Part of #113.
+install(DIRECTORY camera_info launch rviz
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
+
 # all install targets should use catkin DESTINATION variables
 # See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
 

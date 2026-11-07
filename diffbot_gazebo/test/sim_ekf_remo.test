@@ -1,0 +1,15 @@
+<launch>
+    <!-- Starts the remo model in Gazebo with the EKF (ekf:=true) and runs test_ekf.py on it: its
+         drive controller gets a wheel separation 25 % larger than the robot's (geometry.yaml's
+         0.144 m), so that the wheel odometry falls behind the true turn, and the EKF has to follow
+         the IMU. The same test checks that only the EKF publishes odom → base_footprint -->
+    <include file="$(find diffbot_gazebo)/test/sim_drive.launch">
+        <arg name="model" value="remo"/>
+        <arg name="gazebo_port" value="11354"/>
+        <arg name="ekf" value="true"/>
+    </include>
+    <!-- After geometry.yaml, which sim_drive.launch loads: this value wins -->
+    <param name="/diffbot/mobile_base_controller/wheel_separation" value="0.18"/>
+
+    <test test-name="ekf_remo" pkg="diffbot_gazebo" type="test_ekf.py" time-limit="180"/>
+</launch>

@@ -1,0 +1,12 @@
+<launch>
+    <!-- The EKF of ekf.launch (imu_gate.py and robot_localization), fed by test_ekf_synthetic.py,
+         which also drives the simulated clock. DiffBot's URDF gives the IMU's frame: its
+         robot_state_publisher publishes the fixed joints, imu_joint among them, as on the robot -->
+    <param name="use_sim_time" value="true"/>
+    <param name="diffbot/robot_description"
+           command="$(find xacro)/xacro '$(find diffbot_description)/urdf/diffbot.urdf.xacro'"/>
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" ns="diffbot"/>
+    <include file="$(find diffbot_control)/launch/ekf.launch"/>
+
+    <test test-name="ekf_synthetic" pkg="diffbot_control" type="test_ekf_synthetic.py" time-limit="120"/>
+</launch>
