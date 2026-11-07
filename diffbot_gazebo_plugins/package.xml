@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>diffbot_gazebo_plugins</name>
+  <version>1.1.0</version>
+  <description>
+    Gazebo plugins for DiffBot's and Remo's simulation: a copy of gazebo_plugins' IMU sensor
+    plugin that doesn't run ROS callbacks in Gazebo's physics thread.
+  </description>
+
+  <maintainer email="fp@fjp.at">Franz Pucher</maintainer>
+
+  <!-- The IMU sensor plugin is a modified copy of gazebo_plugins' source, which is under the
+       Apache License 2.0. LICENSE has its text. -->
+  <license>Apache-2.0</license>
+
+  <url type="repository">https://github.com/ros-mobile-robots/diffbot</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <!-- Gazebo's headers and libraries, through the package that gazebo_plugins builds with -->
+  <depend>gazebo_dev</depend>
+  <depend>roscpp</depend>
+  <depend>sensor_msgs</depend>
+  <!-- The plugin needs ROS initialized in Gazebo, which gazebo_ros' API plugin does when
+       gazebo_ros' launch files start Gazebo -->
+  <exec_depend>gazebo_ros</exec_depend>
+</package>
