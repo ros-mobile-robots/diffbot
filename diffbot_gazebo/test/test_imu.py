@@ -24,6 +24,7 @@ COMMAND = '/diffbot/mobile_base_controller/cmd_vel'
 ODOMETRY = '/diffbot/mobile_base_controller/odom'
 FRAME = 'imu_link'
 QUEUE_SIZE = 100  # messages, 2 s at RATE: the test collects them all
+COMMAND_QUEUE_SIZE = 1  # only the latest command matters
 
 RATE = 50.0  # Hz, the firmware's rate
 RATE_TOLERANCE = 0.9  # the share of RATE that the topic must reach at least
@@ -38,8 +39,9 @@ MEASURE = 2.0  # s of simulation time that each test collects the IMU's messages
 
 # REP 145: orientation_covariance[0] = -1 marks the orientation as unavailable
 ORIENTATION_UNAVAILABLE = -1.0
-# The z-z element of the row-major 3x3 angular velocity covariance: the yaw rate's variance
-YAW_RATE_VARIANCE = 8
+# The index of the z-z element in the row-major 3x3 angular velocity covariance, which holds
+# the yaw rate's variance
+YAW_RATE_VARIANCE_INDEX = 8
 GRAVITY = 9.81  # m/s², what the upward axis reads at rest
 GRAVITY_TOLERANCE = 0.5  # m/s²
 TURN_RATE = 0.5  # rad/s, the commanded left turn
@@ -51,7 +53,7 @@ class TestImu(unittest.TestCase):
     def setUp(self) -> None:
         self.messages: List[Imu] = []
         rospy.Subscriber(TOPIC, Imu, self.messages.append, queue_size=QUEUE_SIZE)
-        self.command = rospy.Publisher(COMMAND, Twist, queue_size=1)
+        self.command = rospy.Publisher(COMMAND, Twist, queue_size=COMMAND_QUEUE_SIZE)
         rospy.wait_for_message(TOPIC, Imu, timeout=STARTUP_TIMEOUT)
         # Gazebo's IMU publishes before the controller spawner has started the drive controller:
         # wait until the controller publishes its odometry and listens to the commands
@@ -86,7 +88,7 @@ class TestImu(unittest.TestCase):
             for value in (message.angular_velocity.z, message.linear_acceleration.z):
                 self.assertTrue(math.isfinite(value))
             # The EKF needs a positive, finite variance for the yaw rate it fuses
-            variance = message.angular_velocity_covariance[YAW_RATE_VARIANCE]
+            variance = message.angular_velocity_covariance[YAW_RATE_VARIANCE_INDEX]
             self.assertTrue(math.isfinite(variance) and variance > 0.0,
                             "the yaw rate's variance should be positive, is {}".format(variance))
         gravity = sum(m.linear_acceleration.z for m in messages) / len(messages)
