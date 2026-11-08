@@ -54,6 +54,8 @@ cd diffbot_firmware
 
 CI runs on every pull request: [industrial_ci](https://github.com/ros-industrial/industrial_ci) builds and tests the workspace for Noetic, the firmware is built for both boards and its unit tests run, and the dev container image is built.
 
+To see what a change does in the simulation, CI can record a video of DiffBot driving in Gazebo, on request: a maintainer adds the label `sim-video` to the pull request, or runs the workflow **Simulation video** by hand on a branch, from the repository's Actions tab. Ask for it in the pull request. The run's summary links the artifact with the MP4 video, a JSON file with the model, the commit, the commands and the settings, and the logs. The artifact is kept for 14 days. Each label added gives one recording: for another one, remove the label and add it again. The video is a new drive after nothing else, with the simulation test's commands, not a recording of the tests, so it doesn't show why a test failed. In the dev container, `rosrun diffbot_gazebo record_drive_video.sh` records the same video. [The script](diffbot_gazebo/scripts/record_drive_video.sh) explains its steps.
+
 ## Pull requests
 
 - **One feature or fix per pull request**, on a branch named `feat/…`, `fix/…`, `docs/…` or `chore/…`. Keep unrelated changes for another PR.

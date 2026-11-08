@@ -56,6 +56,15 @@
   <exec_depend>diffbot_control</exec_depend>
   <exec_depend>diffbot_description</exec_depend>
   <exec_depend>xacro</exec_depend>
+  <!-- The video recorder (scripts/record_drive_video.sh). It also needs Xvfb, xauth and ffmpeg,
+       which the dev container installs. They aren't declared here, so the package doesn't
+       bring them to every computer that only simulates -->
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>rosgraph</exec_depend>
+  <exec_depend>rosgraph_msgs</exec_depend>
+  <exec_depend>roslaunch</exec_depend>
+  <exec_depend>rospy</exec_depend>
   <test_depend>rostest</test_depend>
   <test_depend>rospy</test_depend>
   <test_depend>geometry_msgs</test_depend>
