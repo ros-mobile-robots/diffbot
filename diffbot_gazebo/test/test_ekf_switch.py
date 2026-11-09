@@ -8,6 +8,8 @@ looks at the nodes, parameters and remappings it would start.
   sample validator and the EKF in /diffbot, with ekf.yaml's parameters, and sets the drive
   controller's enable_odom_tf to false, so that only the EKF publishes odom → base_footprint.
   ekf:=false, the default, starts neither and leaves the controller's transform on.
+- The launch files to start with ekf:=true also start robot_state_publisher. The EKF needs its
+  transform imu_link → base_footprint and drops every IMU sample without it.
 - The planners (diffbot_navigation's and diffbot_mbf's move_base) read the EKF's odometry with
   ekf:=true and the controller's without it.
 catkin runs it with nose (catkin_add_nosetests in CMakeLists.txt).
@@ -26,6 +28,7 @@ import rospkg
 
 EKF = '/diffbot/ekf_localization'
 VALIDATOR = '/diffbot/imu_validator'
+STATE_PUBLISHER = '/diffbot/robot_state_publisher'
 ODOM_TF = '/diffbot/mobile_base_controller/enable_odom_tf'
 CONTROLLER_ODOMETRY = '/diffbot/mobile_base_controller/odom'
 FILTERED = '/diffbot/odometry/filtered'
@@ -88,6 +91,9 @@ class TestEkfSwitch(unittest.TestCase):
         self.assertEqual('mobile_base_controller/odom', parameters[EKF + '/odom0'])
         self.assertEqual('imu/data_validated', parameters[EKF + '/imu0'])
         self.assertEqual('imu_link', parameters[VALIDATOR + '/frame_id'])
+        # The EKF looks up imu_link → base_footprint, which robot_state_publisher publishes
+        self.assertIn(STATE_PUBLISHER, sorted(nodes),
+                      '{} starts the EKF without robot_state_publisher'.format(launch_file))
 
     def check_estimator(self, package: str, launch_file: str, **args: str) -> None:
         """Check both positions of the switch in the package's launch file."""

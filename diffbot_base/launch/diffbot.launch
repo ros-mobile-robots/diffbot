@@ -2,7 +2,7 @@
 <launch>
     <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
     <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
-    <arg name="ekf" default="false" doc="fuse the IMU's yaw rate with the wheel odometry in an EKF (diffbot_control/launch/ekf.launch)"/>
+    <arg name="ekf" default="false" doc="fuse the IMU's yaw rate with the wheel odometry in an EKF (diffbot_control/launch/ekf.launch). The EKF needs the transform from imu_link to base_footprint, which robot_state_publisher publishes. This file doesn't start robot_state_publisher: use bringup.launch or bringup_with_laser.launch with ekf:=true"/>
     <arg name="description_package" default="$(eval find(arg('model') + '_description'))" />
     <arg name="urdf_file" default="$(find xacro)/xacro '$(arg description_package)/urdf/$(arg model).urdf.xacro'" />
 
@@ -27,7 +27,11 @@
 
     <!-- With the EKF, it publishes the transform odom → base_footprint, not the controller. Set in
          both positions: a value left on the parameter server by an earlier run with the EKF would
-         otherwise keep the controller's transform off -->
+         otherwise keep the controller's transform off.
+         The EKF turns the IMU's yaw rate into the robot's frame with the transform
+         imu_link → base_footprint, which robot_state_publisher publishes from the URDF. This file
+         doesn't start robot_state_publisher: diffbot_bringup's bringup.launch and
+         bringup_with_laser.launch do. Without that transform, the EKF drops every IMU sample -->
     <param name="/diffbot/mobile_base_controller/enable_odom_tf" type="bool" value="$(eval not arg('ekf'))"/>
     <include if="$(arg ekf)" file="$(find diffbot_control)/launch/ekf.launch"/>
 

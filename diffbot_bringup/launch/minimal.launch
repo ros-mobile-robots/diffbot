@@ -9,7 +9,7 @@
 
   <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
   <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
-  <arg name="ekf" default="false" doc="fuse the IMU's yaw rate with the wheel odometry in an EKF (diffbot_control/launch/ekf.launch)"/>
+  <arg name="ekf" default="false" doc="fuse the IMU's yaw rate with the wheel odometry in an EKF (diffbot_control/launch/ekf.launch). The EKF needs the transform from imu_link to base_footprint, which robot_state_publisher publishes. This file doesn't start robot_state_publisher: use bringup.launch or bringup_with_laser.launch with ekf:=true"/>
   
   <!-- Base Controller for Motor Driver, Encoders and IMU -->
   <!-- Run rosserial to connect with the Teensy 3.2 board connected to the motor encoders -->
