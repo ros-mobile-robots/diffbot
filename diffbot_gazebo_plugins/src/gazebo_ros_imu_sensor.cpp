@@ -26,6 +26,11 @@
  *   (https://github.com/ros-mobile-robots/diffbot/issues/185). This plugin only publishes, so it
  *   has no callbacks of its own to run. gazebo_ros_api_plugin's spinner threads serve the global
  *   queue.
+ * - UpdateChild() starts its update rate check anew when the sensor's time is earlier than the
+ *   time of the last update. A reset of the simulation (/gazebo/reset_simulation) sets Gazebo's
+ *   clock back to zero. gazebo_plugins' plugin keeps the time of its last update from before the
+ *   reset, and publishes nothing until the clock has passed that time. gazebo_plugins'
+ *   gazebo_ros_p3d.cpp treats a clock that went back the same way.
  * - The class is in the namespace diffbot_gazebo_plugins (see gazebo_ros_imu_sensor.h).
  * - Without the optional profiler calls (ENABLE_PROFILER), which this package doesn't enable.
  * - The lines are at most 99 characters, and the file includes the header of every name it
@@ -127,6 +132,9 @@ void GazeboRosImuSensor::Load(gazebo::sensors::SensorPtr sensor_, sdf::ElementPt
 void GazeboRosImuSensor::UpdateChild(const gazebo::common::UpdateInfo &/*_info*/)
 {
   gazebo::common::Time current_time = sensor->LastUpdateTime();
+
+  if(current_time < last_time) //the clock went back (a reset): start the update rate check anew
+    last_time = current_time;
 
   if(update_rate>0 && (current_time-last_time).Double() < 1.0/update_rate) //update rate check
     return;

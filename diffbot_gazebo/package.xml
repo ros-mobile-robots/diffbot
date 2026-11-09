@@ -65,6 +65,8 @@
   <test_depend>geometry_msgs</test_depend>
   <test_depend>gazebo_msgs</test_depend>
   <test_depend>nav_msgs</test_depend>
+  <!-- test_imu_reset.py calls /gazebo/reset_simulation, a std_srvs/Empty service -->
+  <test_depend>std_srvs</test_depend>
   <test_depend>tf</test_depend>
   <test_depend>tf2_msgs</test_depend>
   <!-- test_geometry_consistency.py reads the real robot's launch file and the parameters as YAML -->
