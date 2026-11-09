@@ -31,6 +31,10 @@
  *   clock back to zero. gazebo_plugins' plugin keeps the time of its last update from before the
  *   reset, and publishes nothing until the clock has passed that time. gazebo_plugins'
  *   gazebo_ros_p3d.cpp treats a clock that went back the same way.
+ * - The constructor sets the node handle's pointer to NULL, and the destructor calls the node
+ *   handle's shutdown() only when Load() has created it. Load() returns before that when the
+ *   sensor isn't an IMU sensor, when frameName is missing or when ROS isn't initialized.
+ *   gazebo_plugins' plugin then calls shutdown() through a pointer that was never set.
  * - The class is in the namespace diffbot_gazebo_plugins (see gazebo_ros_imu_sensor.h).
  * - Without the optional profiler calls (ENABLE_PROFILER), which this package doesn't enable.
  * - The lines are at most 99 characters, and the file includes the header of every name it
@@ -70,6 +74,7 @@ GazeboRosImuSensor::GazeboRosImuSensor(): SensorPlugin()
   gyroscope_data = ignition::math::Vector3d(0, 0, 0);
   orientation = ignition::math::Quaterniond(1,0,0,0);
   sensor=NULL;
+  node=NULL;
 }
 
 void GazeboRosImuSensor::Load(gazebo::sensors::SensorPtr sensor_, sdf::ElementPtr sdf_)
@@ -306,7 +311,8 @@ GazeboRosImuSensor::~GazeboRosImuSensor()
     connection = gazebo::event::ConnectionPtr();
   }
 
-  node->shutdown();
+  if (node) //Load() returns before it creates the node handle when it fails
+    node->shutdown();
 }
 
 }  // namespace diffbot_gazebo_plugins
