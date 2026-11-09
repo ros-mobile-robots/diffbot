@@ -18,6 +18,7 @@ catkin runs it with nose (catkin_add_nosetests in CMakeLists.txt).
 import os
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import NamedTuple
 from typing import Optional
 import unittest
@@ -34,6 +35,8 @@ CONTROLLER_ODOMETRY = '/diffbot/mobile_base_controller/odom'
 FILTERED = '/diffbot/odometry/filtered'
 MOVE_BASE = '/move_base'
 MOVE_BASE_FLEX = '/move_base_flex'
+# The two ways to run without the EKF: ekf:=false, and no ekf argument, the default
+SWITCHED_OFF: List[Dict[str, str]] = [{'ekf': 'false'}, {}]
 
 PACKAGES = rospkg.RosPack()
 
@@ -66,15 +69,20 @@ def remapping(node: Node, name: str) -> Optional[str]:
 class TestEkfSwitch(unittest.TestCase):
 
     def check_switch_off(self, package: str, launch_file: str, **args: str) -> None:
-        """Check that ekf:=false starts neither node and leaves the controller's transform on."""
-        nodes, parameters = load(package, launch_file, ekf='false', **args)
-        for name in (EKF, VALIDATOR):
-            self.assertNotIn(name, nodes,
-                             '{} starts {} without ekf:=true'.format(launch_file, name))
-        # Set, not left out: roslaunch writes each parameter at each start, so a false value from
-        # an earlier run with the EKF on the same ROS master doesn't remain
-        self.assertIs(True, parameters.get(ODOM_TF),
-                      'the controller should publish its odom transform')
+        """Check that neither node starts and the controller's transform stays on without the EKF.
+
+        Without the EKF means ekf:=false, and no ekf argument at all, the default.
+        """
+        for switch in SWITCHED_OFF:
+            nodes, parameters = load(package, launch_file, **switch, **args)
+            for name in (EKF, VALIDATOR):
+                self.assertNotIn(name, nodes, '{} starts {} with the arguments {}'.format(
+                    launch_file, name, switch))
+            # Set, not left out: roslaunch writes each parameter at each start, so a false value
+            # from an earlier run with the EKF on the same ROS master doesn't remain
+            self.assertIs(True, parameters.get(ODOM_TF),
+                          'the controller should publish its odom transform with the arguments '
+                          '{}'.format(switch))
 
     def check_switch_on(self, package: str, launch_file: str, **args: str) -> None:
         """Check that ekf:=true configures both nodes and disables the controller's odom TF."""
