@@ -14,6 +14,7 @@ the same check in its simulation.
 """
 
 import collections
+import time
 from typing import Counter
 from typing import Dict
 import unittest
@@ -26,9 +27,9 @@ TF_TOPIC = '/tf'
 TF_QUEUE_SIZE = 100  # messages
 PARENT_FRAME = 'odom'
 CHILD_FRAME = 'base_footprint'
-OBSERVE = 3.0  # s
+OBSERVE = 3.0  # s of simulation time
 STARTUP_TIMEOUT = 120.0  # s of wall time, for Gazebo and the controller spawner
-POLL_INTERVAL = 0.1  # s of simulation time between checks for the first transform
+POLL_INTERVAL = 0.1  # s of wall time between checks for the first transform
 
 
 class OdomTfPublishers:
@@ -46,11 +47,15 @@ class OdomTfPublishers:
                 self.counts[message._connection_header['callerid']] += 1
 
     def observe(self, test: unittest.TestCase) -> Dict[str, int]:
-        """Wait for the first transform, watch for OBSERVE seconds, then return the counts."""
+        """Wait for the first transform, watch for OBSERVE seconds, then return the counts.
+
+        The two startup waits count wall time, so they end even when the simulation's clock
+        doesn't run.
+        """
         rospy.wait_for_message(TF_TOPIC, TFMessage, timeout=STARTUP_TIMEOUT)
-        deadline = rospy.Time.now() + rospy.Duration(STARTUP_TIMEOUT)
-        while not self.counts and rospy.Time.now() < deadline and not rospy.is_shutdown():
-            rospy.sleep(POLL_INTERVAL)
+        deadline = time.monotonic() + STARTUP_TIMEOUT
+        while not self.counts and time.monotonic() < deadline and not rospy.is_shutdown():
+            time.sleep(POLL_INTERVAL)
         test.assertTrue(self.counts, 'nobody published odom → base_footprint')
         rospy.sleep(OBSERVE)
         return dict(self.counts)
