@@ -4,7 +4,11 @@
 # the drive controller doesn't publish that transform (enable_odom_tf false).
 # The parameters: http://docs.ros.org/en/noetic/api/robot_localization/html/state_estimation_nodes.html
 
-frequency: 50          # Hz, as the controller's odometry and the IMU
+# Hz, the IMU's rate. In the simulation, the drive controller's odometry arrives at 50 Hz too, its
+# publish_rate in diffbot_control.yaml. On the robot, it arrives at most 10 times per second: the
+# controller publishes at most one message each time it runs, and diffbot_base's control loop
+# runs it at 10 Hz (diffbot_base/src/diffbot_base.cpp)
+frequency: 50
 # When no measurement arrives for this long (s), the filter keeps predicting from its last state
 sensor_timeout: 0.1
 # The robot drives on a flat floor: the filter keeps z, roll and pitch and their rates at 0

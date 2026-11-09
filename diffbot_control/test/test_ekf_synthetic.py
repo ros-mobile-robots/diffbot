@@ -3,8 +3,10 @@
 
 The test feeds the EKF of ekf.launch, imu_validator.py and robot_localization, synthetic wheel
 odometry and IMU samples, and checks its estimate of the yaw rate. It publishes /clock itself
-(use_sim_time) and advances it in 20 ms steps, the period of the controller's odometry and of the
-IMU. Each step publishes that step's inputs, stamped with the current time, waits on the wall
+(use_sim_time) and advances it in 20 ms steps, the period of the IMU and of the wheel odometry in
+the simulation. On the robot, the wheel odometry arrives at most 10 times per second
+(diffbot_base's control loop runs the drive controller at 10 Hz), which this test doesn't cover.
+Each step publishes that step's inputs, stamped with the current time, waits on the wall
 clock until the IMU sample validator's output reaches the test (the EKF gets it at the same time)
 and 20 ms more, and then advances the clock, which lets the EKF's 50 Hz update process them; the
 step ends with an EKF output for that step, waited for with a time limit. These windows don't
