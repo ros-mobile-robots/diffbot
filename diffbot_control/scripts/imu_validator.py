@@ -23,8 +23,10 @@ rate. This node forwards a sample only if
 It doesn't check the orientation, the linear acceleration's covariance, or whether a covariance
 matrix is positive definite. It doesn't compare a sample with the EKF's estimate either: that is
 a statistical test, robot_localization's rejection thresholds such as
-imu0_angular_velocity_rejection_threshold, which config/ekf.yaml doesn't set. It never restamps
-a sample: an old sample is dropped, not made current.
+imu0_twist_rejection_threshold, which config/ekf.yaml doesn't set. robot_localization 2.7.7 reads
+that name for the IMU's angular velocity, although its parameter documentation lists
+imu0_angular_velocity_rejection_threshold. It never restamps a sample: an old sample is dropped,
+not made current.
 
 When the ROS clock goes back (Gazebo's world was reset, or the computer's clock was corrected),
 the order check starts over from the new time: otherwise every sample would count as out of order
