@@ -72,7 +72,7 @@
   <exec_depend>rosparam_shortcuts</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>transmission_interface</exec_depend>
-  <!-- The EKF (launch/ekf.launch) and the IMU gate in front of it (scripts/imu_gate.py) -->
+  <!-- The EKF (launch/ekf.launch) and the IMU sample validator in front of it (scripts/imu_validator.py) -->
   <exec_depend>robot_localization</exec_depend>
   <exec_depend>rospy</exec_depend>
   <exec_depend>diagnostic_msgs</exec_depend>

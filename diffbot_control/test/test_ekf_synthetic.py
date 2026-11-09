@@ -1,29 +1,29 @@
 #!/usr/bin/env python3
-"""Feeds the EKF of ekf.launch (imu_gate.py and robot_localization) synthetic wheel odometry and IMU
-samples on a stepped clock, and checks its estimate of the yaw rate (ekf_synthetic.test).
+"""Feeds the EKF of ekf.launch (imu_validator.py and robot_localization) synthetic wheel odometry
+and IMU samples on a stepped clock, and checks its estimate of the yaw rate (ekf_synthetic.test).
 
 The test publishes /clock itself (use_sim_time) and advances it in 20 ms steps, the period of the
 controller's odometry and of the IMU. Each step publishes that step's inputs, stamped with the
-current time, waits on the wall clock until the IMU gate's output reaches the test (the EKF gets
-it at the same time) and 20 ms more, and then advances the clock, which lets the EKF's 50 Hz
-update process them; the step ends with an EKF output for that step, waited for with a time
-limit. These windows don't prove that the EKF's callbacks ran before the clock moved, but they
-make it very likely, and the checks don't depend on it: a late input is fused one step later.
-Both inputs show in the estimate: the forward speed comes only from the wheels, the yaw rate
-mostly from the IMU.
+current time, waits on the wall clock until the IMU sample validator's output reaches the test
+(the EKF gets it at the same time) and 20 ms more, and then advances the clock, which lets the
+EKF's 50 Hz update process them; the step ends with an EKF output for that step, waited for with
+a time limit. These windows don't prove that the EKF's callbacks ran before the clock moved, but
+they make it very likely, and the checks don't depend on it: a late input is fused one step
+later. Both inputs show in the estimate: the forward speed comes only from the wheels, the yaw
+rate mostly from the IMU.
 
 The scenarios run one after the other on one filter, from its start:
 1. Fusion: the wheels report 0.4 rad/s, as with a wheel separation that is too large, the IMU
    0.5 rad/s with a much smaller variance. The estimate follows the IMU.
-2. IMU samples 0.5 s old, reporting 2.0 rad/s, while the wheels go on: the gate drops them, and
-   the estimate goes to the wheels' 0.4 rad/s, as when the IMU stops.
+2. IMU samples 0.5 s old, reporting 2.0 rad/s, while the wheels go on: the validator drops them,
+   and the estimate goes to the wheels' 0.4 rad/s, as when the IMU stops.
 3. to 5. Valid samples again, each followed by one reporting 2.0 rad/s that has the same stamp
-   (3), a stamp 0.5 s in the future (4), or a stamp older than the valid one (5). The gate drops
-   those, and the estimate stays at the valid samples' 0.5 rad/s; one of them passing would pull
-   it far up.
-6. The clock goes back, as when Gazebo's world is reset: the gate and the EKF start over from the
-   new time (reset_on_time_jump), and the estimate follows the IMU again.
-At the end, the gate's diagnostics have to count each passed and dropped sample.
+   (3), a stamp 0.5 s in the future (4), or a stamp older than the valid one (5). The validator
+   drops those, and the estimate stays at the valid samples' 0.5 rad/s; one of them passing would
+   pull it far up.
+6. The clock goes back, as when Gazebo's world is reset: the validator and the EKF start over
+   from the new time (reset_on_time_jump), and the estimate follows the IMU again.
+At the end, the validator's diagnostics have to count each forwarded and dropped sample.
 """
 
 import collections
@@ -47,14 +47,14 @@ DELIVERY = 0.02  # s of wall time for the inputs to arrive before the clock move
 SPEED = 0.1  # m/s, forward, from the wheels
 WHEEL_RATE = 0.4  # rad/s
 IMU_RATE = 0.5  # rad/s
-BAD_RATE = 2.0  # rad/s, in the samples the gate has to drop
+BAD_RATE = 2.0  # rad/s, in the samples the validator has to drop
 # The inputs' variances, as the robot's: diffbot_control.yaml's twist_covariance_diagonal and
 # diffbot_base_config.h's IMU variances
 WHEEL_VARIANCES = [0.001, 0.001, 0.001, 0.001, 0.001, 0.03]
 IMU_ANGULAR_VELOCITY_VARIANCE = 4.0e-4
 IMU_LINEAR_ACCELERATION_VARIANCE = 1.0e-2
 
-# The gate's reasons, as its diagnostics name them (scripts/imu_gate.py)
+# The validator's reasons, as its diagnostics name them (scripts/imu_validator.py)
 TOO_OLD = "too old"
 NOT_NEWER = "not newer than the last one"
 FROM_THE_FUTURE = "from the future"
@@ -106,7 +106,7 @@ class TestEkfSynthetic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.now = START
-        cls.passed = set()  # stamps of the samples the gate passed on
+        cls.passed = set()  # stamps of the samples the validator forwarded
         cls.outputs = []
         cls.diagnostics = []
         cls.expected_passes = 0
@@ -121,12 +121,12 @@ class TestEkfSynthetic(unittest.TestCase):
         cls.clock.publish(Clock(cls.now))
         buffer = tf2_ros.Buffer()
         cls.listener = tf2_ros.TransformListener(buffer)
-        # Before the first input: the EKF and the gate listen, and the production URDF's imu_link
-        # transform is there. A paused clock doesn't advance ROS-time waits, so these wait on the
-        # wall clock
+        # Before the first input: the EKF and the validator listen, and the production URDF's
+        # imu_link transform is there. A paused clock doesn't advance ROS-time waits, so these
+        # wait on the wall clock
         wait_for(lambda: (cls.wheels.get_num_connections() > 0 and cls.imu.get_num_connections() > 0
                           and cls.validated.get_num_connections() > 0 and cls.filtered.get_num_connections() > 0),
-                 "the EKF and the gate didn't connect")
+                 "the EKF and the validator didn't connect")
         wait_for(lambda: buffer.can_transform("base_footprint", "imu_link", rospy.Time(0)),
                  "no transform from imu_link to base_footprint (robot_state_publisher)")
         time.sleep(1.0)  # the EKF's own TF listener gets the same latched transform
@@ -135,9 +135,9 @@ class TestEkfSynthetic(unittest.TestCase):
     def step(cls, wheel_rate, imu=(), output=True):
         """Publishes one step's inputs, stamped with the current time, then advances the clock.
 
-        imu: (stamp offset in s, yaw rate, reason) per sample; reason None for a sample the gate
-        has to pass on, else the reason it has to drop it for. output: True if the EKF has to
-        publish for this step, False if it may not. Returns the EKF's output, or None.
+        imu: (stamp offset in s, yaw rate, reason) per sample; reason None for a sample the
+        validator has to forward, else the reason it has to drop it for. output: True if the EKF
+        has to publish for this step, False if it may not. Returns the EKF's output, or None.
         """
         stamp = cls.now
         received = len(cls.outputs)
@@ -152,7 +152,8 @@ class TestEkfSynthetic(unittest.TestCase):
             else:
                 cls.expected_drops[reason] += 1
         wait_for(lambda: all(k in cls.passed for k in passing),
-                 "the gate didn't pass on the IMU samples of the step at {:.2f} s".format(stamp.to_sec()))
+                 "the validator didn't forward the IMU samples of the step at {:.2f} s".format(
+                     stamp.to_sec()))
         time.sleep(DELIVERY)
         cls.now = stamp + STEP
         cls.clock.publish(Clock(cls.now))
@@ -236,21 +237,21 @@ class TestEkfSynthetic(unittest.TestCase):
     def test_7_diagnostics_count_the_samples(self):
         cls = type(self)
         received = len(cls.diagnostics)
-        # No more IMU samples: the gate publishes its diagnostics once per second of ROS time
+        # No more IMU samples: the validator publishes diagnostics once per second of ROS time
         start = cls.now
         while cls.now < start + rospy.Duration(1.5):
             cls.step(WHEEL_RATE)
-        wait_for(lambda: len(cls.diagnostics) > received, "no diagnostics from the gate")
+        wait_for(lambda: len(cls.diagnostics) > received, "no diagnostics from the validator")
         values = None
         for array in reversed(cls.diagnostics[received:]):
             for status in array.status:
-                if "IMU gate" in status.name:
+                if "IMU sample validator" in status.name:
                     values = {pair.key: pair.value for pair in status.values}
                     break
             if values is not None:
                 break
-        self.assertIsNotNone(values, "no status of the IMU gate on /diagnostics")
-        print("gate diagnostics: {}".format(values))
+        self.assertIsNotNone(values, "no status of the IMU sample validator on /diagnostics")
+        print("validator diagnostics: {}".format(values))
         self.assertEqual(str(cls.expected_passes), values.get("Samples passed on"))
         for reason, count in cls.expected_drops.items():
             self.assertEqual(str(count), values.get("Dropped, " + reason), reason)

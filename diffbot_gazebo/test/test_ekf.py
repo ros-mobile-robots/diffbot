@@ -10,7 +10,7 @@ robot's wheels. The IMU measures the true yaw rate, so the EKF's heading has to 
 one (from Gazebo, /gazebo/model_states), while the odometry's falls behind.
 
 The same simulation also checks that only the EKF publishes odom → base_footprint (test_odom_tf.py)
-and that the IMU gate passes the simulated IMU on at its rate.
+and that the IMU sample validator forwards the simulated IMU at its rate.
 """
 
 import math
@@ -107,9 +107,10 @@ class TestEkf(unittest.TestCase):
         rospy.sleep(1.0)
         turns = {source: turned(start[source], self.yaws[source]) for source in ("true", "odometry", "EKF")}
         report = ", ".join("{} {:.3f} rad".format(source, value) for source, value in turns.items())
-        print("controller's wheel separation {:.4f} m; turned: {}; IMU after the gate {:.1f} Hz".format(
+        print("controller's wheel separation {:.4f} m; turned: {}; validated IMU {:.1f} Hz".format(
             separation, report, imu_rate))
-        self.assertGreater(imu_rate, 0.9 * IMU_RATE, "the gate passed the IMU on at {:.1f} Hz".format(imu_rate))
+        self.assertGreater(imu_rate, 0.9 * IMU_RATE,
+                           "the validator forwarded the IMU at {:.1f} Hz".format(imu_rate))
         # The injected error shows in the odometry: it reports about 1 / 1.25 of the true turn
         odometry_error = abs(turns["odometry"] - turns["true"])
         self.assertGreater(odometry_error, 0.15, "the odometry should fall behind the true turn: " + report)

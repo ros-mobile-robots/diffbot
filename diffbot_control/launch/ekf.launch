@@ -5,9 +5,9 @@
          diffbot_control.launch) also turn off the controller's own odom transform, so that only
          one node publishes it -->
     <group ns="diffbot">
-        <!-- Passes on only current, valid IMU samples, from imu/data_raw to imu/data_validated
-             (the reasons are in the script) -->
-        <node name="imu_gate" pkg="diffbot_control" type="imu_gate.py" output="screen">
+        <!-- The IMU sample validator: forwards only the IMU samples that the EKF can use,
+             unchanged, from imu/data_raw to imu/data_validated (the checks are in the script) -->
+        <node name="imu_validator" pkg="diffbot_control" type="imu_validator.py" output="screen">
             <param name="frame_id" value="imu_link"/>
             <param name="max_age" value="0.1"/>
             <param name="max_future" value="0.02"/>

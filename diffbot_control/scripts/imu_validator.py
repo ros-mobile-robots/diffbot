@@ -1,19 +1,30 @@
 #!/usr/bin/env python3
-"""Passes on only the IMU samples that the EKF can use, from imu/data_raw to imu/data_validated.
+"""Forward only the IMU samples that the EKF can use, from imu/data_raw to imu/data_validated.
+
+The IMU sample validator checks the timing and the input contract that the EKF of
+config/ekf.yaml needs, and forwards each accepted sample unchanged, with its stamp. It doesn't
+validate every field of sensor_msgs/Imu.
 
 On the robot, the Teensy's firmware publishes imu/data_raw; in the simulation,
-diffbot_gazebo/scripts/imu_raw_adapter.py does. robot_localization's EKF checks only that the
-stamps of one topic don't go back: it fuses a sample that arrives late, or one with the same stamp
-as the one before, by correcting its current estimate with it. A sample that sat in a buffer would
-then count as the robot's current yaw rate. This node republishes, unchanged and with its stamp, a
-sample that
-- arrives while the ROS clock runs (in the simulation, /clock),
-- is in the expected frame (the URDF's imu_link, which the EKF needs to turn the rate into the
-  robot's frame),
-- has finite values, and finite, positive variances for the angular velocity, which the EKF fuses,
-- is at most max_age old and at most max_future ahead of the ROS clock,
-- and is later than the last sample it passed on.
-It never restamps a sample: an old sample is dropped, not made current.
+diffbot_gazebo/scripts/imu_raw_adapter.py does. The EKF's per-input timestamp-order check does
+not enforce freshness or reject equal timestamps: robot_localization 2.7.7 on Noetic, with
+smooth_lagged_data off as here, accepts a sample whose stamp isn't older than the last one on its
+topic, and fuses a sample that arrives late, or one with the same stamp as the one before, into
+its current estimate. A sample that sat in a buffer would then count as the robot's current yaw
+rate. This node forwards a sample only if
+- the ROS time is nonzero (in the simulation, a /clock message has arrived),
+- its frame is the expected one (the URDF's imu_link, which the EKF needs to turn the rate into
+  the robot's frame),
+- the three components of its angular velocity and of its linear acceleration are finite,
+- the nine values of its angular velocity covariance are finite, and the diagonal ones (indices
+  0, 4 and 8), the variances that the EKF weighs the angular velocity with, are positive,
+- its stamp is at most max_age before and at most max_future after the ROS time,
+- and its stamp is later than the stamp of the last sample it forwarded.
+It doesn't check the orientation, the linear acceleration's covariance, or whether a covariance
+matrix is positive definite. It doesn't compare a sample with the EKF's estimate either: that is
+a statistical test, robot_localization's rejection thresholds such as
+imu0_angular_velocity_rejection_threshold, which config/ekf.yaml doesn't set. It never restamps
+a sample: an old sample is dropped, not made current.
 
 When the ROS clock goes back (Gazebo's world was reset, or the computer's clock was corrected), the
 order check starts over from the new time: otherwise every sample would count as out of order until
@@ -24,11 +35,12 @@ them), apart from the EKF's own diagnostics.
 
 Parameters (private):
 - frame_id: the frame the samples must have, default imu_link
-- max_age: s, default 0.1, five samples at 50 Hz. A starting value, not measured yet: the delay of
-  the robot's USB serial link and of rosserial's node isn't known
-- max_future: s, default 0.02, one sample. The Teensy's clock follows the computer's through
-  rosserial's time sync, which can be off by a few milliseconds; in the simulation, a node's clock
-  lags Gazebo's sensors by up to one /clock message
+- max_age: s, default 0.1, five samples at 50 Hz. An initial policy value, not a standard IMU
+  limit, until the latency of the robot's USB serial link and of rosserial's node is measured
+- max_future: s, default 0.02, one sample. Also an initial policy value awaiting latency
+  measurements: the Teensy's clock follows the computer's through rosserial's time sync, which
+  can be off by a few milliseconds; in the simulation, a node's clock lags Gazebo's sensors by up
+  to one /clock message
 """
 
 import collections
@@ -55,7 +67,7 @@ def usable_variances(covariance):
     return all(math.isfinite(value) for value in covariance) and all(covariance[i] > 0.0 for i in (0, 4, 8))
 
 
-class ImuGate:
+class ImuValidator:
     """The checks, without ROS communication, so that the unit tests can call them directly."""
 
     def __init__(self, frame_id="imu_link", max_age=0.1, max_future=0.02):
@@ -113,24 +125,25 @@ class ImuGate:
         return (now - self.last_passed).to_sec()
 
 
-class ImuGateNode:
+class ImuValidatorNode:
 
     def __init__(self):
-        self.gate = ImuGate(rospy.get_param("~frame_id", "imu_link"),
-                            rospy.get_param("~max_age", 0.1),
-                            rospy.get_param("~max_future", 0.02))
+        self.validator = ImuValidator(rospy.get_param("~frame_id", "imu_link"),
+                                      rospy.get_param("~max_age", 0.1),
+                                      rospy.get_param("~max_future", 0.02))
         self.passed = 0
         self.dropped = collections.Counter()
         self.reported_drops = 0
         # The subscriber and the diagnostics timer run in different threads. Both read the clock
-        # inside this lock, so the gate sees the times in the order they were read; otherwise two
-        # nearly simultaneous calls could look like a clock that went back
+        # inside this lock, so the validator sees the times in the order they were read;
+        # otherwise two nearly simultaneous calls could look like a clock that went back
         self.lock = threading.Lock()
         self.publisher = rospy.Publisher("imu/data_validated", Imu, queue_size=10)
         rospy.Subscriber("imu/data_raw", Imu, self.callback, queue_size=10)
         self.updater = diagnostic_updater.Updater()
         self.updater.setHardwareID("imu")
-        self.updater.add("IMU gate (imu/data_raw to imu/data_validated)", self.diagnose)
+        self.updater.add("IMU sample validator (imu/data_raw to imu/data_validated)",
+                         self.diagnose)
         # Once per second of ROS time. reset: the timer goes on when the clock goes back
         # (Updater.update() would wait until the clock has caught up)
         rospy.Timer(rospy.Duration(1.0), lambda event: self.updater.force_update(), reset=True)
@@ -138,7 +151,7 @@ class ImuGateNode:
     def callback(self, message):
         with self.lock:
             now = rospy.Time.now()
-            reason = self.gate.check(message, now)
+            reason = self.validator.check(message, now)
         if reason is None:
             self.passed += 1
             self.publisher.publish(message)
@@ -153,7 +166,7 @@ class ImuGateNode:
             status.add("Dropped, " + reason, self.dropped[reason])
         dropped = sum(self.dropped.values())
         with self.lock:
-            since_pass = self.gate.seconds_since_pass(rospy.Time.now())
+            since_pass = self.validator.seconds_since_pass(rospy.Time.now())
         if since_pass is None:
             status.summary(DiagnosticStatus.ERROR, "no IMU sample passed on yet, or since the clock went back")
         elif since_pass > 1.0:
@@ -168,6 +181,6 @@ class ImuGateNode:
 
 
 if __name__ == "__main__":
-    rospy.init_node("imu_gate")
-    ImuGateNode()
+    rospy.init_node("imu_validator")
+    ImuValidatorNode()
     rospy.spin()
