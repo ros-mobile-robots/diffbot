@@ -398,6 +398,7 @@ Your contributions are most welcome. These can be in the form of raising issues,
 ## :pencil: License
 
 `diffbot` is licenses under the [BSD 3-Clause](./LICENSE).
+The wheel meshes are the exception: GrabCAD's terms apply to them, see [the notice next to `wheel.stl`](diffbot_description/meshes/components/wheel.LICENSE.md).
 See also [open-source-license-acknowledgements-and-third-party-copyrights.md](open-source-license-acknowledgements-and-third-party-copyrights.md).
 The [documentation](https://ros-mobile-robots.com/) is licensed differently,
 visit its [license text](https://github.com/ros-mobile-robots/ros-mobile-robots.github.io#license) to learn more.

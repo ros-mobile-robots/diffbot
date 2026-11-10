@@ -78,4 +78,4 @@ You don't need to say whether you used AI. Please don't add attribution lines fo
 
 ## License
 
-By contributing, you agree that your contributions are licensed under this repository's [BSD 3-Clause License](LICENSE).
+By contributing, you agree that your contributions are licensed under this repository's [BSD 3-Clause License](LICENSE). The exception is the wheel meshes `diffbot_description/meshes/components/wheel.stl`, `diffbot_description/meshes/diffbot/wheel_rim.stl` and `wheel_tire.stl`: GrabCAD's terms apply to them and to changes of them ([the notice next to `wheel.stl`](diffbot_description/meshes/components/wheel.LICENSE.md)).
