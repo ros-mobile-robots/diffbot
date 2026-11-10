@@ -62,6 +62,10 @@
   <test_depend>gazebo_msgs</test_depend>
   <test_depend>nav_msgs</test_depend>
   <test_depend>tf</test_depend>
+  <!-- test_geometry_consistency.py reads the real robot's launch file and the parameters as YAML -->
+  <test_depend>diffbot_base</test_depend>
+  <test_depend>python3-nose</test_depend>
+  <test_depend>python3-yaml</test_depend>
   <!-- The Remo test also needs remo_description. It isn't declared here: it isn't a released ROS
        package, so rosdep can't install it, and rosdep install would fail wherever it isn't
        cloned, for example in the dev container's Dockerfile, which installs the dependencies
