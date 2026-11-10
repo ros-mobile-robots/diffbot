@@ -12,3 +12,15 @@ laser:
     max: 3.1415
   color: Gazebo/Grey
   enable_gpu: false
+
+imu:
+  # IMU mass in kg: 3 g, the BNO055 board that DiffBot and Remo share, weighed with its header
+  # pins. DiffBot's base mass in base.yaml was weighed without the board, so this link adds the
+  # board's mass.
+  mass: 0.003
+  size:             # A BNO055 breakout board, in m
+    x: 0.027
+    y: 0.020
+    z: 0.004
+  mesh: ''          # No mesh: a red box of this size
+  scale: '0.001 0.001 0.001'
