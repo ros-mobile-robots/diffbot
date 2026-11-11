@@ -80,6 +80,9 @@
   <test_depend>rostest</test_depend>
   <test_depend>rosunit</test_depend>
   <test_depend>python3-nose</test_depend>
+  <!-- test/ekf_synthetic.test runs xacro on diffbot_description's URDF. From the URDF, the
+       test's robot_state_publisher gives TF the transform between imu_link and base_footprint,
+       which the EKF needs -->
   <test_depend>diffbot_description</test_depend>
   <test_depend>xacro</test_depend>
   <test_depend>nav_msgs</test_depend>
