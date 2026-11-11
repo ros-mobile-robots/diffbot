@@ -46,6 +46,7 @@ Parameters (private):
 """
 
 import collections
+import enum
 import math
 import threading
 from typing import Callable
@@ -75,15 +76,6 @@ DEFAULT_MAX_FUTURE = 0.02  # s
 # variances
 VARIANCE_INDICES = (0, 4, 8)
 
-# Reasons for dropping a sample, as the diagnostics name them
-NO_CLOCK = 'no ROS clock'
-WRONG_FRAME = 'wrong frame'
-NOT_FINITE = 'not finite'
-INVALID_ANGULAR_VELOCITY_COVARIANCE = 'invalid angular velocity covariance'
-FROM_THE_FUTURE = 'from the future'
-TOO_OLD = 'too old'
-NOT_NEWER = 'not newer than the last one'
-
 DIAGNOSTICS_NAME = 'IMU sample validator (imu/data_raw to imu/data_validated)'
 HARDWARE_ID = 'imu'
 FORWARDED_KEY = 'Samples forwarded'
@@ -93,9 +85,23 @@ DIAGNOSTICS_PERIOD = 1.0  # s of ROS time
 SILENCE_LIMIT = 1.0
 WARNING_PERIOD = 5.0  # s, at most one warning about a dropped sample in this time
 
+
+@enum.unique
+class DropReason(enum.Enum):
+    """Why the validator drops a sample. The values are the texts in the log and diagnostics."""
+
+    NO_CLOCK = 'no ROS clock'
+    WRONG_FRAME = 'wrong frame'
+    NOT_FINITE = 'not finite'
+    INVALID_ANGULAR_VELOCITY_COVARIANCE = 'invalid angular velocity covariance'
+    FROM_THE_FUTURE = 'from the future'
+    TOO_OLD = 'too old'
+    NOT_NEWER = 'not newer than the last one'
+
+
 # A check of one sample at a ROS time: None if the sample is valid for this check, else the
 # reason for dropping it
-SampleCheck = Callable[[Imu, rospy.Time], Optional[str]]
+SampleCheck = Callable[[Imu, rospy.Time], Optional[DropReason]]
 
 
 class Health(NamedTuple):
@@ -109,7 +115,7 @@ class DiagnosticSnapshot(NamedTuple):
     """The validator's numbers for one diagnostics report, all from one moment."""
 
     forwarded_count: int
-    drops_by_reason: Dict[str, int]
+    drops_by_reason: Dict[DropReason, int]
     new_drop_count: int  # samples dropped since the report before
     # As ImuValidator.seconds_since_last_valid_sample() returns it
     seconds_since_last_valid_sample: Optional[float]
@@ -140,7 +146,7 @@ class SampleCounts:
 
     def __init__(self) -> None:
         self.forwarded_count = 0
-        self.drops_by_reason: Counter[str] = collections.Counter()
+        self.drops_by_reason: Counter[DropReason] = collections.Counter()
         # The number of dropped samples that the last snapshot counted
         self.drop_count_at_last_snapshot = 0
 
@@ -148,7 +154,7 @@ class SampleCounts:
         """Count one forwarded sample."""
         self.forwarded_count += 1
 
-    def count_dropped(self, reason: str) -> None:
+    def count_dropped(self, reason: DropReason) -> None:
         """Count one sample dropped for reason."""
         self.drops_by_reason[reason] += 1
 
@@ -216,7 +222,7 @@ class ImuValidator:
             self.last_valid_at = None
         self.last_observed_time = now
 
-    def validate_and_record(self, message: Imu, now: rospy.Time) -> Optional[str]:
+    def validate_and_record(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
         """Return the reason for dropping message at ROS time now, or record it and return None.
 
         None means that the sample is valid. The method then records it as the last valid one:
@@ -226,7 +232,7 @@ class ImuValidator:
         """
         # Before observe_time(): a ROS time of 0 means no clock yet, not a clock that went back
         if now.is_zero():
-            return NO_CLOCK
+            return DropReason.NO_CLOCK
         self.observe_time(now)
         for sample_check in self.sample_checks:
             reason = sample_check(message, now)
@@ -236,39 +242,40 @@ class ImuValidator:
         self.last_valid_at = now
         return None
 
-    def check_frame(self, message: Imu, now: rospy.Time) -> Optional[str]:
+    def check_frame(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
         """Return WRONG_FRAME unless the sample is in the expected frame."""
-        return None if message.header.frame_id == self.frame_id else WRONG_FRAME
+        return None if message.header.frame_id == self.frame_id else DropReason.WRONG_FRAME
 
-    def check_finite_values(self, message: Imu, now: rospy.Time) -> Optional[str]:
+    def check_finite_values(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
         """Return NOT_FINITE unless the angular velocity and linear acceleration are finite."""
         components = (message.angular_velocity.x, message.angular_velocity.y,
                       message.angular_velocity.z, message.linear_acceleration.x,
                       message.linear_acceleration.y, message.linear_acceleration.z)
-        return None if all(math.isfinite(value) for value in components) else NOT_FINITE
+        return None if all(math.isfinite(value) for value in components) else DropReason.NOT_FINITE
 
-    def check_angular_velocity_covariance(self, message: Imu, now: rospy.Time) -> Optional[str]:
+    def check_angular_velocity_covariance(self, message: Imu,
+                                          now: rospy.Time) -> Optional[DropReason]:
         """Return INVALID_ANGULAR_VELOCITY_COVARIANCE unless the covariance is valid.
 
         Valid means finite values and positive variances.
         """
         if has_finite_covariance_and_positive_variances(message.angular_velocity_covariance):
             return None
-        return INVALID_ANGULAR_VELOCITY_COVARIANCE
+        return DropReason.INVALID_ANGULAR_VELOCITY_COVARIANCE
 
-    def check_not_from_the_future(self, message: Imu, now: rospy.Time) -> Optional[str]:
+    def check_not_from_the_future(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
         """Return FROM_THE_FUTURE if the stamp is more than max_future after now."""
-        return FROM_THE_FUTURE if message.header.stamp > now + self.max_future else None
+        return DropReason.FROM_THE_FUTURE if message.header.stamp > now + self.max_future else None
 
-    def check_not_too_old(self, message: Imu, now: rospy.Time) -> Optional[str]:
+    def check_not_too_old(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
         """Return TOO_OLD if the stamp is more than max_age before now."""
-        return TOO_OLD if now - message.header.stamp > self.max_age else None
+        return DropReason.TOO_OLD if now - message.header.stamp > self.max_age else None
 
-    def check_newer_than_the_last(self, message: Imu, now: rospy.Time) -> Optional[str]:
+    def check_newer_than_the_last(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
         """Return NOT_NEWER unless the stamp is later than the last valid sample's."""
         if (self.last_valid_stamp is not None
                 and message.header.stamp <= self.last_valid_stamp):
-            return NOT_NEWER
+            return DropReason.NOT_NEWER
         return None
 
     def seconds_since_last_valid_sample(self, now: rospy.Time) -> Optional[float]:
@@ -325,7 +332,7 @@ class ImuValidatorNode:
                 self.counts.count_dropped(reason)
         if reason is not None:
             warning = 'IMU sample dropped: {} (stamp {:.3f} s, ROS time {:.3f} s)'.format(
-                reason, message.header.stamp.to_sec(), now.to_sec())
+                reason.value, message.header.stamp.to_sec(), now.to_sec())
             rospy.logwarn_throttle(WARNING_PERIOD, warning)
 
     def publish_diagnostics(self, event: rospy.timer.TimerEvent) -> None:
@@ -337,8 +344,8 @@ class ImuValidatorNode:
         """Fill status with the sample counts and a summary of the validator's health."""
         snapshot = self.take_snapshot()
         status.add(FORWARDED_KEY, snapshot.forwarded_count)
-        for reason in sorted(snapshot.drops_by_reason):
-            status.add(DROPPED_KEY_PREFIX + reason, snapshot.drops_by_reason[reason])
+        for reason in sorted(snapshot.drops_by_reason, key=lambda reason: reason.value):
+            status.add(DROPPED_KEY_PREFIX + reason.value, snapshot.drops_by_reason[reason])
         level, message = health(snapshot.seconds_since_last_valid_sample, snapshot.new_drop_count)
         status.summary(level, message)
         return status

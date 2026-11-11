@@ -78,12 +78,12 @@ class TestImuValidator(unittest.TestCase):
 
     def test_validator_drops_a_sample_at_ros_time_zero(self) -> None:
         # With simulated time, before the first /clock message
-        self.assertEqual(imu_validator.NO_CLOCK,
+        self.assertEqual(imu_validator.DropReason.NO_CLOCK,
                          self.validator.validate_and_record(sample(), rospy.Time(0)))
 
     def test_validator_drops_a_sample_with_a_wrong_or_empty_frame(self) -> None:
         for frame_id in ('base_link', ''):
-            self.assertEqual(imu_validator.WRONG_FRAME,
+            self.assertEqual(imu_validator.DropReason.WRONG_FRAME,
                              self.validator.validate_and_record(sample(frame_id=frame_id), NOW),
                              'frame "{}"'.format(frame_id))
 
@@ -91,12 +91,12 @@ class TestImuValidator(unittest.TestCase):
         for value in (math.nan, math.inf, -math.inf):
             message = sample()
             message.angular_velocity.z = value
-            self.assertEqual(imu_validator.NOT_FINITE,
+            self.assertEqual(imu_validator.DropReason.NOT_FINITE,
                              self.validator.validate_and_record(message, NOW),
                              'angular velocity z = {}'.format(value))
             message = sample()
             message.linear_acceleration.x = value
-            self.assertEqual(imu_validator.NOT_FINITE,
+            self.assertEqual(imu_validator.DropReason.NOT_FINITE,
                              self.validator.validate_and_record(message, NOW),
                              'linear acceleration x = {}'.format(value))
 
@@ -110,27 +110,27 @@ class TestImuValidator(unittest.TestCase):
         cases = (('marked unavailable', unavailable), ('a variance of zero', zero_variance),
                  ('NaN off the diagonal', nan_off_the_diagonal))
         for case, message in cases:
-            self.assertEqual(imu_validator.INVALID_ANGULAR_VELOCITY_COVARIANCE,
+            self.assertEqual(imu_validator.DropReason.INVALID_ANGULAR_VELOCITY_COVARIANCE,
                              self.validator.validate_and_record(message, NOW), case)
 
     def test_validator_forwards_a_sample_max_age_old_and_drops_an_older_one(self) -> None:
         self.assertIsNone(self.validator.validate_and_record(sample(NOW - seconds(MAX_AGE)), NOW))
         self.assertEqual(
-            imu_validator.TOO_OLD,
+            imu_validator.DropReason.TOO_OLD,
             self.validator.validate_and_record(sample(NOW - seconds(JUST_TOO_OLD)), NOW))
 
     def test_validator_forwards_a_sample_max_future_ahead_and_drops_a_later_one(self) -> None:
         self.assertEqual(
-            imu_validator.FROM_THE_FUTURE,
+            imu_validator.DropReason.FROM_THE_FUTURE,
             self.validator.validate_and_record(sample(NOW + seconds(JUST_TOO_FAR_AHEAD)), NOW))
         self.assertIsNone(
             self.validator.validate_and_record(sample(NOW + seconds(MAX_FUTURE)), NOW))
 
     def test_validator_drops_a_sample_not_later_than_the_last_valid_one(self) -> None:
         self.assertIsNone(self.validator.validate_and_record(sample(NOW), NOW))
-        self.assertEqual(imu_validator.NOT_NEWER,
+        self.assertEqual(imu_validator.DropReason.NOT_NEWER,
                          self.validator.validate_and_record(sample(NOW), NOW))
-        self.assertEqual(imu_validator.NOT_NEWER,
+        self.assertEqual(imu_validator.DropReason.NOT_NEWER,
                          self.validator.validate_and_record(sample(NOW - seconds(0.01)), NOW))
         self.assertIsNone(self.validator.validate_and_record(sample(NOW + rospy.Duration(0, 1)),
                                                              NOW + seconds(0.001)))
@@ -138,7 +138,7 @@ class TestImuValidator(unittest.TestCase):
     def test_validator_forwards_a_new_sample_after_dropping_a_future_one(self) -> None:
         # The order check compares with the last valid sample, not with a dropped one
         self.assertIsNone(self.validator.validate_and_record(sample(NOW), NOW))
-        self.assertEqual(imu_validator.FROM_THE_FUTURE,
+        self.assertEqual(imu_validator.DropReason.FROM_THE_FUTURE,
                          self.validator.validate_and_record(sample(NOW + seconds(5)), NOW))
         self.assertIsNone(self.validator.validate_and_record(sample(NOW + seconds(MAX_FUTURE)),
                                                              NOW + seconds(MAX_FUTURE)))
@@ -150,16 +150,16 @@ class TestImuValidator(unittest.TestCase):
         restart = rospy.Time(0, 20000000)
         self.assertIsNone(self.validator.validate_and_record(sample(restart), restart))
         self.assertEqual(
-            imu_validator.NOT_NEWER,
+            imu_validator.DropReason.NOT_NEWER,
             self.validator.validate_and_record(sample(restart), restart + seconds(0.001)))
 
     def test_validator_still_drops_old_and_future_samples_after_the_clock_goes_back(self) -> None:
         self.assertIsNone(self.validator.validate_and_record(sample(NOW), NOW))
         restart = rospy.Time(50, 0)
         self.assertEqual(
-            imu_validator.FROM_THE_FUTURE,
+            imu_validator.DropReason.FROM_THE_FUTURE,
             self.validator.validate_and_record(sample(NOW + seconds(MAX_FUTURE)), restart))
-        self.assertEqual(imu_validator.TOO_OLD,
+        self.assertEqual(imu_validator.DropReason.TOO_OLD,
                          self.validator.validate_and_record(sample(restart - seconds(1)), restart))
 
 
@@ -186,7 +186,7 @@ class TestSecondsSinceLastValidSample(unittest.TestCase):
     def test_silence_keeps_growing_while_samples_are_dropped(self) -> None:
         self.assertIsNone(self.validator.validate_and_record(sample(), NOW))
         later = NOW + seconds(3)
-        self.assertEqual(imu_validator.TOO_OLD,
+        self.assertEqual(imu_validator.DropReason.TOO_OLD,
                          self.validator.validate_and_record(sample(NOW + seconds(1)), later))
         self.assert_silence(3.0, later)
 
@@ -206,7 +206,7 @@ class TestSecondsSinceLastValidSample(unittest.TestCase):
         self.assertIsNone(self.validator.validate_and_record(sample(), NOW))
         self.assert_silence(3.0, NOW + seconds(3))
         self.assertEqual(
-            imu_validator.TOO_OLD,
+            imu_validator.DropReason.TOO_OLD,
             self.validator.validate_and_record(sample(NOW - seconds(1)), NOW + seconds(0.2)))
         self.assertIsNone(self.validator.seconds_since_last_valid_sample(NOW + seconds(0.3)))
 
@@ -214,10 +214,10 @@ class TestSecondsSinceLastValidSample(unittest.TestCase):
         self.assertIsNone(self.validator.validate_and_record(sample(), NOW))
         restart = rospy.Time(50, 0)
         self.assertEqual(
-            imu_validator.FROM_THE_FUTURE,
+            imu_validator.DropReason.FROM_THE_FUTURE,
             self.validator.validate_and_record(sample(NOW + seconds(MAX_FUTURE)), restart))
         self.assertEqual(
-            imu_validator.WRONG_FRAME,
+            imu_validator.DropReason.WRONG_FRAME,
             self.validator.validate_and_record(sample(restart, frame_id='base_link'), restart))
         self.assertIsNone(self.validator.seconds_since_last_valid_sample(restart + seconds(1)))
         self.assertIsNone(self.validator.validate_and_record(sample(restart + seconds(2)),
@@ -261,26 +261,26 @@ class TestSampleCounts(unittest.TestCase):
     def test_snapshot_has_the_forwarded_count_and_the_drops_by_reason(self) -> None:
         self.counts.count_forwarded()
         self.counts.count_forwarded()
-        self.counts.count_dropped(imu_validator.TOO_OLD)
-        self.counts.count_dropped(imu_validator.TOO_OLD)
-        self.counts.count_dropped(imu_validator.WRONG_FRAME)
+        self.counts.count_dropped(imu_validator.DropReason.TOO_OLD)
+        self.counts.count_dropped(imu_validator.DropReason.TOO_OLD)
+        self.counts.count_dropped(imu_validator.DropReason.WRONG_FRAME)
         snapshot = self.counts.take_snapshot(RECENT)
         self.assertEqual(2, snapshot.forwarded_count)
-        self.assertEqual({imu_validator.TOO_OLD: 2, imu_validator.WRONG_FRAME: 1},
-                         snapshot.drops_by_reason)
+        self.assertEqual({imu_validator.DropReason.TOO_OLD: 2,
+                          imu_validator.DropReason.WRONG_FRAME: 1}, snapshot.drops_by_reason)
         self.assertEqual(RECENT, snapshot.seconds_since_last_valid_sample)
 
     def test_snapshot_counts_a_dropped_sample_as_new_only_once(self) -> None:
-        self.counts.count_dropped(imu_validator.TOO_OLD)
+        self.counts.count_dropped(imu_validator.DropReason.TOO_OLD)
         self.assertEqual(1, self.counts.take_snapshot(RECENT).new_drop_count)
         self.assertEqual(0, self.counts.take_snapshot(RECENT).new_drop_count)
-        self.counts.count_dropped(imu_validator.TOO_OLD)
-        self.counts.count_dropped(imu_validator.NOT_NEWER)
+        self.counts.count_dropped(imu_validator.DropReason.TOO_OLD)
+        self.counts.count_dropped(imu_validator.DropReason.NOT_NEWER)
         self.assertEqual(2, self.counts.take_snapshot(RECENT).new_drop_count)
 
     def test_snapshot_counts_a_dropped_sample_as_new_once_also_in_an_error_report(self) -> None:
         # No sample was valid yet, so health() reports an error for the first snapshot
-        self.counts.count_dropped(imu_validator.WRONG_FRAME)
+        self.counts.count_dropped(imu_validator.DropReason.WRONG_FRAME)
         first = self.counts.take_snapshot(None)
         first_health = imu_validator.health(first.seconds_since_last_valid_sample,
                                             first.new_drop_count)
@@ -289,12 +289,12 @@ class TestSampleCounts(unittest.TestCase):
         self.assertEqual(0, self.counts.take_snapshot(RECENT).new_drop_count)
 
     def test_snapshot_keeps_its_numbers_when_more_samples_arrive(self) -> None:
-        self.counts.count_dropped(imu_validator.TOO_OLD)
+        self.counts.count_dropped(imu_validator.DropReason.TOO_OLD)
         snapshot = self.counts.take_snapshot(RECENT)
         self.counts.count_forwarded()
-        self.counts.count_dropped(imu_validator.TOO_OLD)
+        self.counts.count_dropped(imu_validator.DropReason.TOO_OLD)
         self.assertEqual(0, snapshot.forwarded_count)
-        self.assertEqual({imu_validator.TOO_OLD: 1}, snapshot.drops_by_reason)
+        self.assertEqual({imu_validator.DropReason.TOO_OLD: 1}, snapshot.drops_by_reason)
 
 
 if __name__ == '__main__':
