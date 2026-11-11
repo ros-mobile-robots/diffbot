@@ -1,7 +1,9 @@
 <launch>
     <!-- For the simulation tests: the robot in Gazebo without a GUI, only the Gazebo server, which
          needs no display (as in CI), on the empty world, with its controllers from diffbot_control.
-         Noetic's empty_world.launch ignores its headless argument, so it isn't set here -->
+         Noetic's empty_world.launch ignores its headless argument, so it isn't set here.
+         Included by sim_drive_diffbot.test, sim_drive_remo.test, sim_ekf_diffbot.test and
+         sim_ekf_remo.test -->
     <arg name="model" doc="model type [diffbot, remo]"/>
     <!-- catkin runs the test files in parallel, each with its own ROS master; each Gazebo server
          also needs its own port, and none uses Gazebo's default 11345, which a simulation that's

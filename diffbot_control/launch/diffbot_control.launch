@@ -1,4 +1,7 @@
 <launch>
+    <!-- The simulated robot's controllers. Included by diffbot_gazebo/launch/diffbot.launch,
+         diffbot_control/launch/diffbot.launch and diffbot_gazebo/test/sim_drive.launch. Includes
+         ekf.launch if ekf is true -->
     <!-- 
         Launch file follows: 
         http://gazebosim.org/tutorials?tut=ros_control#Createaroslaunchfile
@@ -20,9 +23,14 @@
     <rosparam command="load"
         file="$(find diffbot_control)/config/$(arg model)/pid.yaml"/>
 
-    <!-- With the EKF, it publishes the transform odom → base_footprint, not the controller. Set in
-         both positions: a value left on the parameter server by an earlier run with the EKF would
-         otherwise keep the controller's transform off -->
+    <!-- What the two lines below do with the ekf argument. The comment at the same two lines
+         in diffbot_base/launch/diffbot.launch explains the expression:
+         1. The param line sets the drive controller's enable_odom_tf to false with the EKF and
+            to true without it. So one node publishes the transform odom → base_footprint: the
+            EKF with ekf true, the drive controller otherwise.
+         2. The include line starts the EKF (ekf.launch) only if ekf is true.
+         The EKF needs the transform between imu_link and base_footprint, which TF gets from
+         the robot_state_publisher that this file starts further down -->
     <param name="/diffbot/mobile_base_controller/enable_odom_tf" type="bool" value="$(eval not arg('ekf'))"/>
     <include if="$(arg ekf)" file="$(find diffbot_control)/launch/ekf.launch"/>
 

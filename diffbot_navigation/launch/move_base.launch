@@ -1,4 +1,6 @@
 <launch>
+  <!-- Included by this package's diffbot.launch, diffbot_hw.launch and diffbot_navigation.launch,
+       which pass ekf, and by diffbot_slam/launch/diffbot_cartographer.launch -->
   <!-- Arguments -->
   <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
   <arg name="cmd_vel_topic" default="/diffbot/mobile_base_controller/cmd_vel" />

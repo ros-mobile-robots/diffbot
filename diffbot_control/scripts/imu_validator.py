@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Forward only the IMU samples that the EKF can use, from imu/data_raw to imu/data_validated.
+"""Forward an IMU sample to the EKF only if its frame, values, variances and stamp are valid.
 
 The IMU sample validator checks the timing and the input contract that the EKF of
 config/ekf.yaml needs, and forwards each valid sample unchanged, with its stamp. It doesn't

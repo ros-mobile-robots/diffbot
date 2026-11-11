@@ -1,4 +1,5 @@
 <launch>
+  <!-- Included by diffbot_mbf/launch/amcl_demo.launch, which passes ekf -->
   <!-- Arguments -->
   <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
   <arg name="cmd_vel_topic" default="/diffbot/mobile_base_controller/cmd_vel" />

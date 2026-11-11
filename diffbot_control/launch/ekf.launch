@@ -1,12 +1,22 @@
 <launch>
     <!-- The EKF: fuses the wheel odometry with the IMU's yaw rate (config/ekf.yaml) and publishes
          /diffbot/odometry/filtered and the transform odom → base_footprint, for the robot and the
-         simulation alike. The launch files that include this one (diffbot_base/launch/diffbot.launch,
-         diffbot_control.launch) also turn off the controller's own odom transform, so that only
-         one node publishes it -->
+         simulation alike.
+         Included, if ekf is true, by diffbot_base/launch/diffbot.launch on the robot and by
+         diffbot_control.launch in the simulation. Both also turn off the drive controller's own
+         transform odom → base_footprint, so that only one node publishes it -->
     <group ns="diffbot">
-        <!-- The IMU sample validator: forwards only the IMU samples that the EKF can use,
-             unchanged, from imu/data_raw to imu/data_validated (the checks are in the script) -->
+        <!-- The IMU sample validator (scripts/imu_validator.py) forwards a sample from imu/data_raw
+             to imu/data_validated, unchanged, only if all of these hold. The validator drops
+             every other sample and counts the dropped samples on /diagnostics. The script's
+             docstring has the full list.
+             1. The sample's frame is frame_id, the IMU's frame in the URDF.
+             2. Its angular velocity and its linear acceleration are finite numbers.
+             3. The variances of its angular velocity are positive.
+             4. Its stamp is at most max_age (s) before the ROS time and at most max_future (s)
+                after the ROS time. 0.1 s are five samples at the IMU's 50 Hz, 0.02 s is one sample.
+             5. Its stamp is later than the stamp of the last sample that the validator
+                forwarded -->
         <node name="imu_validator" pkg="diffbot_control" type="imu_validator.py" output="screen">
             <param name="frame_id" value="imu_link"/>
             <param name="max_age" value="0.1"/>
