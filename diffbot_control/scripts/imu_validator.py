@@ -50,6 +50,8 @@ import math
 import threading
 from typing import Callable
 from typing import Counter
+from typing import Dict
+from typing import NamedTuple
 from typing import Optional
 from typing import Sequence
 from typing import Tuple
@@ -93,6 +95,70 @@ WARNING_PERIOD = 5.0  # s, at most one warning about a dropped sample in this ti
 
 # A check of one sample at a ROS time: None if the sample passes, else the reason for dropping it
 SampleCheck = Callable[[Imu, rospy.Time], Optional[str]]
+
+
+class Health(NamedTuple):
+    """The level and the message of the validator's diagnostics status."""
+
+    level: int  # a level of diagnostic_msgs/DiagnosticStatus
+    message: str
+
+
+class DiagnosticSnapshot(NamedTuple):
+    """The validator's numbers for one diagnostics report, all from one moment."""
+
+    forwarded_count: int
+    drops_by_reason: Dict[str, int]
+    new_drop_count: int  # samples dropped since the report before
+    seconds_since_pass: Optional[float]  # as ImuValidator.seconds_since_pass() returns it
+
+
+def health(seconds_since_pass: Optional[float], new_drop_count: int) -> Health:
+    """Return the diagnostics level and message for the validator's state.
+
+    seconds_since_pass is the ROS time since the last forwarded sample, None if there is none
+    (ImuValidator.seconds_since_pass()). new_drop_count is the number of samples dropped since
+    the report before. Silence is an error and comes before the warning about new drops.
+    """
+    if seconds_since_pass is None:
+        return Health(DiagnosticStatus.ERROR,
+                      'no IMU sample passed on yet, or since the clock went back')
+    if seconds_since_pass > SILENCE_LIMIT:
+        return Health(DiagnosticStatus.ERROR,
+                      'no IMU sample passed on for {:.1f} s'.format(seconds_since_pass))
+    if new_drop_count > 0:
+        return Health(DiagnosticStatus.WARN,
+                      'dropped {} samples since the last report'.format(new_drop_count))
+    return Health(DiagnosticStatus.OK, 'passing samples on')
+
+
+class SampleCounts:
+    """The numbers of forwarded and dropped samples, without ROS communication."""
+
+    def __init__(self) -> None:
+        self.forwarded_count = 0
+        self.drops_by_reason: Counter[str] = collections.Counter()
+        # The number of dropped samples that the last snapshot counted
+        self.drop_count_at_last_snapshot = 0
+
+    def count_forwarded(self) -> None:
+        """Count one forwarded sample."""
+        self.forwarded_count += 1
+
+    def count_dropped(self, reason: str) -> None:
+        """Count one sample dropped for reason."""
+        self.drops_by_reason[reason] += 1
+
+    def take_snapshot(self, seconds_since_pass: Optional[float]) -> DiagnosticSnapshot:
+        """Return the numbers for one report and start counting new drops for the next one.
+
+        A dropped sample is new in exactly one snapshot, whatever that report's level is.
+        """
+        drop_count = sum(self.drops_by_reason.values())
+        new_drop_count = drop_count - self.drop_count_at_last_snapshot
+        self.drop_count_at_last_snapshot = drop_count
+        return DiagnosticSnapshot(self.forwarded_count, dict(self.drops_by_reason),
+                                  new_drop_count, seconds_since_pass)
 
 
 def usable_variances(covariance: Sequence[float]) -> bool:
@@ -205,12 +271,13 @@ class ImuValidatorNode:
         self.validator = ImuValidator(rospy.get_param('~frame_id', DEFAULT_FRAME_ID),
                                       rospy.get_param('~max_age', DEFAULT_MAX_AGE),
                                       rospy.get_param('~max_future', DEFAULT_MAX_FUTURE))
-        self.forwarded_count = 0
-        self.drops_by_reason: Counter[str] = collections.Counter()
-        self.drops_at_last_report = 0
-        # The subscriber and the diagnostics timer run in different threads. Both read the clock
-        # inside this lock, so the validator sees the times in the order they were read;
-        # otherwise two nearly simultaneous calls could look like a clock that went back
+        self.counts = SampleCounts()
+        # The subscriber and the diagnostics timer run in different threads, and a second
+        # publisher of the input would add another. Inside this lock they read the clock, check
+        # or query the validator, count, and publish. So the validator sees the times in the
+        # order they were read (two nearly simultaneous calls could otherwise look like a clock
+        # that went back), the samples leave in the order of their checks, and a diagnostics
+        # report has numbers from one moment
         self.lock = threading.Lock()
         self.publisher = rospy.Publisher(OUTPUT_TOPIC, Imu, queue_size=QUEUE_SIZE)
         rospy.Subscriber(INPUT_TOPIC, Imu, self.on_sample, queue_size=QUEUE_SIZE)
@@ -226,11 +293,14 @@ class ImuValidatorNode:
         with self.lock:
             now = rospy.Time.now()
             reason = self.validator.check(message, now)
-        if reason is None:
-            self.forwarded_count += 1
-            self.publisher.publish(message)
-        else:
-            self.drops_by_reason[reason] += 1
+            if reason is None:
+                self.counts.count_forwarded()
+                # The publisher has a queue (queue_size), so this call doesn't wait for the
+                # subscribers
+                self.publisher.publish(message)
+            else:
+                self.counts.count_dropped(reason)
+        if reason is not None:
             warning = 'IMU sample dropped: {} (stamp {:.3f} s, ROS time {:.3f} s)'.format(
                 reason, message.header.stamp.to_sec(), now.to_sec())
             rospy.logwarn_throttle(WARNING_PERIOD, warning)
@@ -242,34 +312,19 @@ class ImuValidatorNode:
     def diagnose(self, status: diagnostic_updater.DiagnosticStatusWrapper
                  ) -> diagnostic_updater.DiagnosticStatusWrapper:
         """Fill status with the sample counts and a summary of the validator's health."""
-        self.add_counts(status)
-        self.summarize(status)
+        snapshot = self.take_snapshot()
+        status.add(FORWARDED_KEY, snapshot.forwarded_count)
+        for reason in sorted(snapshot.drops_by_reason):
+            status.add(DROPPED_KEY_PREFIX + reason, snapshot.drops_by_reason[reason])
+        level, message = health(snapshot.seconds_since_pass, snapshot.new_drop_count)
+        status.summary(level, message)
         return status
 
-    def add_counts(self, status: diagnostic_updater.DiagnosticStatusWrapper) -> None:
-        """Add the number of forwarded samples, and of dropped ones by reason, to status."""
-        status.add(FORWARDED_KEY, self.forwarded_count)
-        for reason in sorted(self.drops_by_reason):
-            status.add(DROPPED_KEY_PREFIX + reason, self.drops_by_reason[reason])
-
-    def summarize(self, status: diagnostic_updater.DiagnosticStatusWrapper) -> None:
-        """Set the level and message of status from the forwarded and the new dropped samples."""
-        drop_count = sum(self.drops_by_reason.values())
+    def take_snapshot(self) -> DiagnosticSnapshot:
+        """Return the numbers for one diagnostics report, read inside the lock."""
         with self.lock:
-            seconds_since_forward = self.validator.seconds_since_pass(rospy.Time.now())
-        if seconds_since_forward is None:
-            status.summary(DiagnosticStatus.ERROR,
-                           'no IMU sample passed on yet, or since the clock went back')
-        elif seconds_since_forward > SILENCE_LIMIT:
-            status.summary(DiagnosticStatus.ERROR,
-                           'no IMU sample passed on for {:.1f} s'.format(seconds_since_forward))
-        elif drop_count > self.drops_at_last_report:
-            status.summary(DiagnosticStatus.WARN,
-                           'dropped {} samples since the last report'.format(
-                               drop_count - self.drops_at_last_report))
-        else:
-            status.summary(DiagnosticStatus.OK, 'passing samples on')
-        self.drops_at_last_report = drop_count
+            seconds_since_pass = self.validator.seconds_since_pass(rospy.Time.now())
+            return self.counts.take_snapshot(seconds_since_pass)
 
 
 def main() -> None:

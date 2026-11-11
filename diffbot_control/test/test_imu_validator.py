@@ -11,6 +11,7 @@ import os
 import sys
 import unittest
 
+from diagnostic_msgs.msg import DiagnosticStatus
 import rospy
 from sensor_msgs.msg import Imu
 
@@ -25,6 +26,10 @@ MAX_FUTURE = 0.02  # s, the node's default
 # Just beyond the limits: 1 µs more than MAX_AGE and MAX_FUTURE
 JUST_TOO_OLD = 0.100001  # s
 JUST_TOO_FAR_AHEAD = 0.020001  # s
+# For health(): 1 ms beyond the silence limit, a time well within it, and a number of new drops
+JUST_BEYOND = 0.001  # s
+RECENT = 0.1  # s since the last forwarded sample
+NEW_DROP_COUNT = 3
 
 # A sample as the firmware publishes it: no orientation (REP 145: orientation_covariance[0] = -1),
 # a left turn, gravity on the upward axis, and the firmware's variances (diffbot_base_config.h)
@@ -139,7 +144,7 @@ class TestImuValidator(unittest.TestCase):
                          self.validator.check(sample(restart - seconds(1)), restart))
 
 
-class TestHealth(unittest.TestCase):
+class TestSecondsSincePass(unittest.TestCase):
     """Test seconds_since_pass(), which the validator's diagnostics report."""
 
     def setUp(self) -> None:
@@ -197,7 +202,81 @@ class TestHealth(unittest.TestCase):
         self.assert_seconds_since_pass(0.5, restart + seconds(2.5))
 
 
+class TestHealth(unittest.TestCase):
+    """Test health(), the level and the message of the validator's diagnostics status."""
+
+    def test_health_is_an_error_before_the_first_forwarded_sample(self) -> None:
+        self.assertEqual(DiagnosticStatus.ERROR, imu_validator.health(None, 0).level)
+
+    def test_health_is_ok_at_the_silence_limit_and_an_error_beyond_it(self) -> None:
+        at_the_limit = imu_validator.health(imu_validator.SILENCE_LIMIT, 0)
+        beyond_the_limit = imu_validator.health(imu_validator.SILENCE_LIMIT + JUST_BEYOND, 0)
+        self.assertEqual(DiagnosticStatus.OK, at_the_limit.level, at_the_limit.message)
+        self.assertEqual(DiagnosticStatus.ERROR, beyond_the_limit.level, beyond_the_limit.message)
+
+    def test_health_is_a_warning_with_new_drops(self) -> None:
+        with_new_drops = imu_validator.health(RECENT, NEW_DROP_COUNT)
+        self.assertEqual(DiagnosticStatus.WARN, with_new_drops.level)
+        self.assertIn(str(NEW_DROP_COUNT), with_new_drops.message)
+
+    def test_health_is_ok_without_new_drops(self) -> None:
+        self.assertEqual(DiagnosticStatus.OK, imu_validator.health(RECENT, 0).level)
+
+    def test_health_is_an_error_for_silence_also_with_new_drops(self) -> None:
+        never = imu_validator.health(None, NEW_DROP_COUNT)
+        silent = imu_validator.health(imu_validator.SILENCE_LIMIT + JUST_BEYOND, NEW_DROP_COUNT)
+        self.assertEqual(DiagnosticStatus.ERROR, never.level, never.message)
+        self.assertEqual(DiagnosticStatus.ERROR, silent.level, silent.message)
+
+
+class TestSampleCounts(unittest.TestCase):
+    """Test SampleCounts, the numbers of a diagnostics report."""
+
+    def setUp(self) -> None:
+        self.counts = imu_validator.SampleCounts()
+
+    def test_snapshot_has_the_forwarded_count_and_the_drops_by_reason(self) -> None:
+        self.counts.count_forwarded()
+        self.counts.count_forwarded()
+        self.counts.count_dropped(imu_validator.TOO_OLD)
+        self.counts.count_dropped(imu_validator.TOO_OLD)
+        self.counts.count_dropped(imu_validator.WRONG_FRAME)
+        snapshot = self.counts.take_snapshot(RECENT)
+        self.assertEqual(2, snapshot.forwarded_count)
+        self.assertEqual({imu_validator.TOO_OLD: 2, imu_validator.WRONG_FRAME: 1},
+                         snapshot.drops_by_reason)
+        self.assertEqual(RECENT, snapshot.seconds_since_pass)
+
+    def test_snapshot_counts_a_dropped_sample_as_new_only_once(self) -> None:
+        self.counts.count_dropped(imu_validator.TOO_OLD)
+        self.assertEqual(1, self.counts.take_snapshot(RECENT).new_drop_count)
+        self.assertEqual(0, self.counts.take_snapshot(RECENT).new_drop_count)
+        self.counts.count_dropped(imu_validator.TOO_OLD)
+        self.counts.count_dropped(imu_validator.NOT_NEWER)
+        self.assertEqual(2, self.counts.take_snapshot(RECENT).new_drop_count)
+
+    def test_snapshot_counts_a_dropped_sample_as_new_once_also_in_an_error_report(self) -> None:
+        # No sample was forwarded yet, so health() reports an error for the first snapshot
+        self.counts.count_dropped(imu_validator.WRONG_FRAME)
+        first = self.counts.take_snapshot(None)
+        first_health = imu_validator.health(first.seconds_since_pass, first.new_drop_count)
+        self.assertEqual(DiagnosticStatus.ERROR, first_health.level)
+        self.assertEqual(1, first.new_drop_count)
+        self.assertEqual(0, self.counts.take_snapshot(RECENT).new_drop_count)
+
+    def test_snapshot_keeps_its_numbers_when_more_samples_arrive(self) -> None:
+        self.counts.count_dropped(imu_validator.TOO_OLD)
+        snapshot = self.counts.take_snapshot(RECENT)
+        self.counts.count_forwarded()
+        self.counts.count_dropped(imu_validator.TOO_OLD)
+        self.assertEqual(0, snapshot.forwarded_count)
+        self.assertEqual({imu_validator.TOO_OLD: 1}, snapshot.drops_by_reason)
+
+
 if __name__ == '__main__':
     import rosunit
     rosunit.unitrun('diffbot_control', 'test_imu_validator', TestImuValidator)
+    rosunit.unitrun('diffbot_control', 'test_imu_validator_seconds_since_pass',
+                    TestSecondsSincePass)
     rosunit.unitrun('diffbot_control', 'test_imu_validator_health', TestHealth)
+    rosunit.unitrun('diffbot_control', 'test_imu_validator_sample_counts', TestSampleCounts)
