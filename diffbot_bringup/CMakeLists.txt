@@ -152,7 +152,7 @@ include_directories(
 
 # The launch files and what they load, so that roslaunch finds them in an install space too, for
 # example in industrial_ci, which tests from there (diffbot_gazebo's test_ekf_switch.py reads
-# launch/bringup.launch and launch/bringup_with_laser.launch). Part of #113.
+# launch/bringup.launch and launch/bringup_with_laser.launch).
 install(DIRECTORY camera_info launch rviz
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
