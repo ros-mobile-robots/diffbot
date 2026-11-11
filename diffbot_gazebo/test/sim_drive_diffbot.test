@@ -1,9 +1,14 @@
 <launch>
-    <!-- Starts the diffbot model in Gazebo and runs five tests on it: publishtest checks that the
-         controllers publish, test_drive.py drives the robot and checks its odometry and true pose,
-         test_imu.py checks the simulated IMU, test_imu_reset.py that the IMU publishes again
-         after a reset of the simulation, test_odom_tf.py that only the drive controller
-         publishes odom → base_footprint. rostest starts the simulation again for each test -->
+    <!-- Starts the diffbot model in Gazebo and runs five tests on it. rostest starts the simulation
+         again for each test.
+         1. publishtest: the controllers publish the joint states and the odometry.
+         2. test_drive.py: the robot drives forward and turns, and its odometry and its true pose
+            match the commands.
+         3. test_imu.py: the simulated IMU publishes the firmware's message at rest and a positive
+            yaw rate in a left turn.
+         4. test_imu_reset.py: the IMU publishes again right after a reset of the simulation.
+         5. test_odom_tf.py: only the drive controller publishes the transform
+            odom → base_footprint -->
     <include file="$(find diffbot_gazebo)/test/sim_drive.launch">
         <arg name="model" value="diffbot"/>
         <arg name="gazebo_port" value="11351"/>
@@ -33,8 +38,13 @@
     <!-- The simulated IMU after /gazebo/reset_simulation (test_imu_reset.py): samples with stamps
          of the new simulation time arrive right after the clock went back to zero -->
     <test test-name="imu_reset_diffbot" pkg="diffbot_gazebo" type="test_imu_reset.py" time-limit="180"/>
-    <!-- Without the EKF, the drive controller publishes odom → base_footprint, from inside
-         Gazebo (gazebo_ros_control), and nobody else -->
+    <!-- test_odom_tf.py checks that exactly one node publishes the transform
+         odom → base_footprint: the node that the publisher parameter names. Two publishers of
+         one transform would make the robot's pose jump between their two values.
+         This simulation runs without the EKF, so the drive controller publishes the transform.
+         In the simulation, the drive controller is not a node of its own. gazebo_ros_control
+         loads the drive controller into Gazebo's process, whose node name is /gazebo. So
+         publisher is /gazebo -->
     <test test-name="odom_tf_diffbot" pkg="diffbot_gazebo" type="test_odom_tf.py" time-limit="180">
         <param name="publisher" value="/gazebo"/>
     </test>
