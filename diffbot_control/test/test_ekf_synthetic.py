@@ -85,8 +85,9 @@ STALE_OFFSET = -0.5
 FUTURE_OFFSET = 0.5
 OLDER_OFFSET = -0.01
 
-# The inputs' variances, as the robot's: diffbot_control.yaml's twist_covariance_diagonal and
-# diffbot_base_config.h's IMU variances
+# The inputs' variances, of the size of the robot's: diffbot_control.yaml's
+# twist_covariance_diagonal and diffbot_base_config.h's IMU variances. The test doesn't read
+# those files
 WHEEL_VARIANCES = [0.001, 0.001, 0.001, 0.001, 0.001, 0.03]
 IMU_ANGULAR_VELOCITY_VARIANCE = 4.0e-4  # (rad/s)²
 IMU_LINEAR_ACCELERATION_VARIANCE = 1.0e-2  # (m/s²)²
@@ -103,9 +104,10 @@ YAW_RATE_TOLERANCE = 0.01  # rad/s
 WHEEL_RATE_TOLERANCE = 0.02
 
 # The validator's status on /diagnostics contains this name; its values have these keys
-# (scripts/imu_validator.py)
+# (scripts/imu_validator.py). The texts are written out here and not imported from the script:
+# the test pins what a user reads on /diagnostics
 VALIDATOR_STATUS_NAME = 'IMU sample validator'
-FORWARDED_KEY = 'Samples passed on'
+FORWARDED_KEY = 'Samples forwarded'
 DROPPED_KEY_PREFIX = 'Dropped, '
 # The validator's reasons, as its diagnostics name them
 TOO_OLD = 'too old'
