@@ -10,24 +10,30 @@ for the slip and calibration errors of a real robot's wheels. The IMU measures t
 so the EKF's heading has to stay with the true one (from Gazebo, /gazebo/model_states), while the
 odometry's falls behind.
 
-The same simulation also checks that only the EKF publishes odom → base_footprint (test_odom_tf.py)
-and that the IMU sample validator forwards the simulated IMU at its rate.
+The same simulation also checks that only the EKF publishes odom → base_footprint
+(odom_tf_observer.py) and that the IMU sample validator forwards the simulated IMU at its rate.
+The rostest file names the robot in the private parameter ~model.
 """
 
 import math
+import os
 import time
 from typing import Dict
+from typing import NamedTuple
 import unittest
 
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Pose
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
+from odom_tf_observer import OBSERVE  # this folder's odom_tf_observer.py
+from odom_tf_observer import OdomTfObserver
+import rospkg
 import rospy
 import rostest
 from sensor_msgs.msg import Imu
-from test_odom_tf import OdomTfPublishers  # this folder's test_odom_tf.py
 from tf.transformations import euler_from_quaternion
+import yaml
 
 COMMAND = '/diffbot/mobile_base_controller/cmd_vel'
 ODOMETRY = '/diffbot/mobile_base_controller/odom'
@@ -46,21 +52,38 @@ IMU_QUEUE_SIZE = 100  # messages, 2 s at IMU_RATE: the test counts them all
 TRUE = 'true'
 ODOMETRY_SOURCE = 'odometry'
 EKF_SOURCE = 'EKF'
+SOURCES = (TRUE, ODOMETRY_SOURCE, EKF_SOURCE)
 
-TURN_VELOCITY = 0.5  # rad/s, commanded
+TURN_VELOCITY = 0.5  # rad/s, commanded, to the left
 DURATION = 3.0  # s
 COMMAND_RATE = 20  # Hz
 IMU_RATE = 50.0  # Hz
-SEPARATION_ERROR = 1.25  # the controller's wheel separation over the robot's
+# The controller's wheel separation over the robot's, as the rostest file sets it
+SEPARATION_SCALE = 1.25
 STARTUP_TIMEOUT = 120.0  # s of wall time
 POLL_INTERVAL = 0.1  # s of wall time between checks for the controller and the robot
 SETTLE = 1.0  # s of simulation time for the robot to stop before the test reads the headings
-# Tolerances
-IMU_RATE_TOLERANCE = 0.9  # the share of IMU_RATE that the validated IMU must reach at least
-# rad, the minimum absolute difference between the odometry's turn and the true one. The injected
-# error makes the odometry report about 1 / SEPARATION_ERROR of the true turn
+# Limits
+SEPARATION_TOLERANCE = 1e-6  # m, between the controller's separation and the scaled one
+MIN_IMU_RATE_SHARE = 0.9  # the share of IMU_RATE that the validated IMU must reach at least
+# rad, the least by which the odometry's turn must fall behind the true one. With the scaled
+# separation, the odometry reports about 1 / SEPARATION_SCALE of the true turn
 MIN_ODOMETRY_ERROR = 0.15
 EKF_TOLERANCE = 0.05  # rad, how far the EKF's turn may differ from the true one
+
+
+class TurnMeasurement(NamedTuple):
+    """What one commanded turn did, by each source of the heading."""
+
+    true_turn: float  # rad, from Gazebo
+    odometry_turn: float  # rad, from the drive controller's odometry
+    ekf_turn: float  # rad, from the EKF's estimate
+    validated_imu_rate: float  # Hz, of the samples that the validator forwarded during the turn
+
+    def report(self) -> str:
+        """Return the three turns as text, for the test's output and its failure messages."""
+        return 'true {:.3f} rad, odometry {:.3f} rad, EKF {:.3f} rad'.format(
+            self.true_turn, self.odometry_turn, self.ekf_turn)
 
 
 def yaw(pose: Pose) -> float:
@@ -74,12 +97,21 @@ def turned(start: float, end: float) -> float:
     return math.atan2(math.sin(end - start), math.cos(end - start))
 
 
+def nominal_wheel_separation(model: str) -> float:
+    """Return the wheel separation (m) in the model's geometry.yaml of diffbot_control."""
+    path = os.path.join(rospkg.RosPack().get_path('diffbot_control'), 'config', model,
+                        'geometry.yaml')
+    with open(path) as geometry_file:
+        geometry = yaml.safe_load(geometry_file)
+    return float(geometry['diffbot']['mobile_base_controller']['wheel_separation'])
+
+
 class TestEkf(unittest.TestCase):
-    """unittest runs the tests in the order of their names, in one simulation."""
+    """The tests run in one simulation and don't depend on each other or on their order."""
 
     yaws: Dict[str, float]  # the latest heading of each source (rad)
     imu_sample_count: int  # validated IMU samples received so far
-    publishers: OdomTfPublishers
+    observer: OdomTfObserver
     command: rospy.Publisher
 
     @classmethod
@@ -87,21 +119,27 @@ class TestEkf(unittest.TestCase):
         rospy.init_node('test_ekf')
         cls.yaws = {}
         cls.imu_sample_count = 0
-        cls.publishers = OdomTfPublishers()
+        cls.observer = OdomTfObserver()
         cls.command = rospy.Publisher(COMMAND, Twist, queue_size=COMMAND_QUEUE_SIZE)
         rospy.Subscriber(ODOMETRY, Odometry, cls.on_odometry)
         rospy.Subscriber(FILTERED, Odometry, cls.on_filtered)
         rospy.Subscriber(MODEL_STATES, ModelStates, cls.on_model_states,
                          queue_size=MODEL_STATES_QUEUE_SIZE)
         rospy.Subscriber(VALIDATED, Imu, cls.on_imu, queue_size=IMU_QUEUE_SIZE)
-        for topic in (ODOMETRY, FILTERED):
-            rospy.wait_for_message(topic, Odometry, timeout=STARTUP_TIMEOUT)
         deadline = time.monotonic() + STARTUP_TIMEOUT
-        while cls.command.get_num_connections() == 0 or TRUE not in cls.yaws:
+        while not cls.ready():
             if time.monotonic() > deadline:
                 raise AssertionError(
-                    "the controller doesn't subscribe to the commands, or Gazebo has no robot")
+                    'not ready after {} s: headings from {} of {}, {} subscribers to the '
+                    'commands'.format(STARTUP_TIMEOUT, sorted(cls.yaws), SOURCES,
+                                      cls.command.get_num_connections()))
             time.sleep(POLL_INTERVAL)
+
+    @classmethod
+    def ready(cls) -> bool:
+        """Return whether a heading of each source arrived and the controller takes commands."""
+        return (all(source in cls.yaws for source in SOURCES)
+                and cls.command.get_num_connections() > 0)
 
     @classmethod
     def on_odometry(cls, message: Odometry) -> None:
@@ -124,15 +162,8 @@ class TestEkf(unittest.TestCase):
         """Count a sample that the validator forwarded."""
         cls.imu_sample_count += 1
 
-    def test_1_only_the_ekf_publishes_odom_tf(self) -> None:
-        counts = self.publishers.observe(self)
-        print('odom → base_footprint published by: {}'.format(counts))
-        self.assertEqual([EKF_NODE], list(counts),
-                         'publishers of odom → base_footprint: {}'.format(counts))
-        self.assertFalse(rospy.get_param(ODOM_TF_PARAMETER))
-
-    def test_2_ekf_follows_the_true_turn_with_a_wrong_wheel_separation(self) -> None:
-        separation = rospy.get_param(WHEEL_SEPARATION_PARAMETER)
+    def measure_turn(self) -> TurnMeasurement:
+        """Turn the robot on the spot for DURATION, stop it, and return what each source saw."""
         start = dict(self.yaws)
         sample_count = self.imu_sample_count
         started = rospy.Time.now()
@@ -140,26 +171,67 @@ class TestEkf(unittest.TestCase):
         turn.angular.z = TURN_VELOCITY
         rate = rospy.Rate(COMMAND_RATE)
         end = started + rospy.Duration(DURATION)
-        while rospy.Time.now() < end and not rospy.is_shutdown():
-            self.command.publish(turn)
-            rate.sleep()
-        imu_rate = (self.imu_sample_count - sample_count) / (rospy.Time.now() - started).to_sec()
-        self.command.publish(Twist())
+        try:
+            while rospy.Time.now() < end and not rospy.is_shutdown():
+                self.command.publish(turn)
+                rate.sleep()
+            imu_rate = ((self.imu_sample_count - sample_count)
+                        / (rospy.Time.now() - started).to_sec())
+        finally:
+            self.command.publish(Twist())
         rospy.sleep(SETTLE)
-        turns = {source: turned(start[source], self.yaws[source])
-                 for source in (TRUE, ODOMETRY_SOURCE, EKF_SOURCE)}
-        report = ', '.join('{} {:.3f} rad'.format(source, turn) for source, turn in turns.items())
+        stopped = dict(self.yaws)
+        return TurnMeasurement(turned(start[TRUE], stopped[TRUE]),
+                               turned(start[ODOMETRY_SOURCE], stopped[ODOMETRY_SOURCE]),
+                               turned(start[EKF_SOURCE], stopped[EKF_SOURCE]), imu_rate)
+
+    def assert_wheel_separation_is_scaled(self, separation: float) -> None:
+        """Assert that the controller's separation is SEPARATION_SCALE times the robot's."""
+        model = rospy.get_param('~model')
+        nominal = nominal_wheel_separation(model)
+        self.assertAlmostEqual(
+            separation, SEPARATION_SCALE * nominal, delta=SEPARATION_TOLERANCE,
+            msg="the controller's wheel separation should be {} times {}'s {} m".format(
+                SEPARATION_SCALE, model, nominal))
+
+    def assert_validated_imu_rate(self, measurement: TurnMeasurement) -> None:
+        """Assert that the validator forwarded the IMU's samples at nearly IMU_RATE."""
+        self.assertGreater(
+            measurement.validated_imu_rate, MIN_IMU_RATE_SHARE * IMU_RATE,
+            'the validator forwarded the IMU at {:.1f} Hz'.format(measurement.validated_imu_rate))
+
+    def assert_odometry_falls_behind(self, measurement: TurnMeasurement) -> None:
+        """Assert that the odometry reports a clearly smaller left turn than the true one."""
+        self.assertGreater(measurement.true_turn - measurement.odometry_turn, MIN_ODOMETRY_ERROR,
+                           'the odometry should fall behind the true turn: '
+                           + measurement.report())
+
+    def assert_ekf_follows_the_true_turn(self, measurement: TurnMeasurement) -> None:
+        """Assert that the EKF's turn is the true one within EKF_TOLERANCE."""
+        self.assertAlmostEqual(measurement.ekf_turn, measurement.true_turn, delta=EKF_TOLERANCE,
+                               msg='the EKF should follow the true turn: ' + measurement.report())
+
+    def test_ekf_is_the_only_odom_tf_publisher(self) -> None:
+        self.assertTrue(self.observer.wait_for_first_transform(STARTUP_TIMEOUT),
+                        'nobody published odom → base_footprint')
+        rospy.sleep(OBSERVE)
+        counts = self.observer.counts()
+        print('odom → base_footprint published by: {}'.format(counts))
+        self.assertEqual([EKF_NODE], list(counts),
+                         'publishers of odom → base_footprint: {}'.format(counts))
+        self.assertFalse(rospy.get_param(ODOM_TF_PARAMETER))
+
+    def test_ekf_follows_the_true_turn_with_a_wrong_wheel_separation(self) -> None:
+        separation = rospy.get_param(WHEEL_SEPARATION_PARAMETER)
+        self.assert_wheel_separation_is_scaled(separation)
+        measurement = self.measure_turn()
         print("controller's wheel separation {:.4f} m; turned: {}; validated IMU {:.1f} Hz".format(
-            separation, report, imu_rate))
-        self.assertGreater(imu_rate, IMU_RATE_TOLERANCE * IMU_RATE,
-                           'the validator forwarded the IMU at {:.1f} Hz'.format(imu_rate))
-        # The injected error shows in the odometry: it reports about 1 / 1.25 of the true turn
-        odometry_error = abs(turns[ODOMETRY_SOURCE] - turns[TRUE])
-        self.assertGreater(odometry_error, MIN_ODOMETRY_ERROR,
-                           'the odometry should fall behind the true turn: ' + report)
-        # and not in the EKF's estimate, which follows the IMU
-        self.assertAlmostEqual(turns[EKF_SOURCE], turns[TRUE], delta=EKF_TOLERANCE,
-                               msg='the EKF should follow the true turn: ' + report)
+            separation, measurement.report(), measurement.validated_imu_rate))
+        self.assert_validated_imu_rate(measurement)
+        # The scaled separation shows in the odometry, which reports about 1 / 1.25 of the true
+        # turn, and not in the EKF's estimate, which follows the IMU
+        self.assert_odometry_falls_behind(measurement)
+        self.assert_ekf_follows_the_true_turn(measurement)
 
 
 if __name__ == '__main__':

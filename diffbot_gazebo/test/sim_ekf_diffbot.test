@@ -11,5 +11,9 @@
     <!-- After geometry.yaml, which sim_drive.launch loads: this value wins -->
     <param name="/diffbot/mobile_base_controller/wheel_separation" value="0.1725"/>
 
-    <test test-name="ekf_diffbot" pkg="diffbot_gazebo" type="test_ekf.py" time-limit="180"/>
+    <test test-name="ekf_diffbot" pkg="diffbot_gazebo" type="test_ekf.py" time-limit="180">
+        <!-- The robot whose geometry.yaml the test compares the controller's wheel separation
+             with -->
+        <param name="model" value="diffbot"/>
+    </test>
 </launch>
