@@ -321,11 +321,11 @@ class TestEkfSynthetic(unittest.TestCase):
         """Run one step and return the EKF's last output for it, which has to come.
 
         One step:
-        1. Publish the step's wheel odometry and IMU samples, stamped with the step's ROS time
-           (publish_inputs()).
+        1. Publish the step's wheel odometry, stamped with the step's ROS time, and its IMU
+           samples, each stamped with that time plus the sample's offset (publish_inputs()).
         2. Wait on the wall clock until the IMU sample validator's output for the step's valid
-           samples reaches the test (wait_for_forwarded()). The EKF gets that output at the same
-           time.
+           samples reaches the test (wait_for_forwarded()). The EKF subscribes to the same
+           topic.
         3. Wait DELIVERY more, for the inputs to arrive at the EKF.
         4. Advance the clock by STEP (advance_clock()). The EKF's 50 Hz update then processes the
            inputs.
