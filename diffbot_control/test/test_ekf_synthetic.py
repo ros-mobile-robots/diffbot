@@ -6,12 +6,9 @@ odometry and IMU samples, and checks its estimate of the yaw rate. It publishes 
 itself (use_sim_time) and advances it in 20 ms steps, the period of the IMU and of the wheel
 odometry in the simulation. On the robot, the wheel odometry arrives at most 10 times per second
 (diffbot_base's control loop runs the drive controller at 10 Hz), which this test doesn't cover.
-Each step publishes that step's inputs, stamped with the current time, waits on the wall
-clock until the IMU sample validator's output reaches the test (the EKF gets it at the same time)
-and 20 ms more, and then advances the clock, which lets the EKF's 50 Hz update process them. The
-step ends with an EKF output for that step, waited for with a time limit. These windows don't
-prove that the EKF's callbacks ran before the clock moved, but they make it very likely, and the
-checks don't depend on it: a late input is fused one step later. Both inputs show in the
+The docstring of step() lists what one step does. A step's waits don't prove that the EKF's
+callbacks ran before the clock moved, but they make it very likely, and the checks don't depend
+on it: a late input is fused one step later. Both inputs show in the
 estimate: the forward speed comes only from the wheels, the yaw rate mostly from the IMU.
 
 The test is one scenario on one filter, from the filter's start. Its phases run in this order,
@@ -253,7 +250,17 @@ class TestEkfSynthetic(unittest.TestCase):
         return [message for message in self.outputs[received:] if message.header.stamp >= stamp]
 
     def step(self, wheel_rate: float, imu: Sequence[ImuInput] = ()) -> Odometry:
-        """Run one step and return the EKF's last output for it, which has to come."""
+        """Run one step and return the EKF's last output for it, which has to come.
+
+        One step:
+        1. Publish the step's wheel odometry and IMU samples, stamped with the step's ROS time.
+        2. Wait on the wall clock until the IMU sample validator's output for the step's valid
+           samples reaches the test. The EKF gets that output at the same time.
+        3. Wait DELIVERY more, for the inputs to arrive at the EKF.
+        4. Advance the clock by STEP. The EKF's 50 Hz update then processes the inputs.
+        5. Wait, with the time limit WAIT, for an EKF output stamped at the step's time or later.
+        advance() does 1 to 4.
+        """
         stamp, received = self.advance(wheel_rate, imu)
         wait_for(lambda: bool(self.outputs_since(stamp, received)),
                  'no EKF output for the step at {:.2f} s'.format(stamp.to_sec()))
