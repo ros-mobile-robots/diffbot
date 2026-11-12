@@ -28,16 +28,18 @@ and each needs the state that the phases before it left:
 """
 
 import collections
+import threading
 import time
 from typing import Callable
 from typing import Counter
 from typing import Dict
+from typing import Generic
 from typing import List
 from typing import NamedTuple
 from typing import Optional
 from typing import Sequence
-from typing import Set
 from typing import Tuple
+from typing import TypeVar
 import unittest
 
 from diagnostic_msgs.msg import DiagnosticArray
@@ -114,7 +116,7 @@ TOO_OLD = 'too old'
 NOT_NEWER = 'not newer than the last one'
 FROM_THE_FUTURE = 'from the future'
 
-StampKey = Tuple[int, int]  # a stamp's seconds and nanoseconds, which a set can hold
+StampKey = Tuple[int, int]  # a stamp's seconds and nanoseconds, which compare by value
 
 
 class ImuInput(NamedTuple):
@@ -127,6 +129,42 @@ class ImuInput(NamedTuple):
 
 # A valid sample stamped at the step's time, which the validator has to forward
 VALID_SAMPLE = ImuInput(0.0, IMU_RATE, None)
+
+
+Item = TypeVar('Item')
+
+
+class ArrivalLog(Generic[Item]):
+    """What arrived on a topic, in the order of arrival.
+
+    rospy calls a subscriber's callback in a thread of its own, which appends to the log, while
+    the test's thread reads it. A lock guards every access, so that the test's thread never
+    reads the log while the callback changes it.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._items: List[Item] = []
+
+    def append(self, item: Item) -> None:
+        """Add an item at the end."""
+        with self._lock:
+            self._items.append(item)
+
+    def count(self) -> int:
+        """Return the number of items so far."""
+        with self._lock:
+            return len(self._items)
+
+    def since(self, count: int) -> List[Item]:
+        """Return a copy of the items after the first count."""
+        with self._lock:
+            return self._items[count:]
+
+    def contains_all(self, items: Sequence[Item]) -> bool:
+        """Return whether each of the items has arrived."""
+        with self._lock:
+            return all(item in self._items for item in items)
 
 
 class StepStart(NamedTuple):
@@ -193,9 +231,9 @@ class TestEkfSynthetic(unittest.TestCase):
     def setUp(self) -> None:
         self.now = START
         # The stamps of the samples that the validator forwarded
-        self.forwarded_stamp_keys: Set[StampKey] = set()
-        self.ekf_outputs: List[Odometry] = []
-        self.diagnostics: List[DiagnosticArray] = []
+        self.forwarded_stamp_keys: ArrivalLog[StampKey] = ArrivalLog()
+        self.ekf_outputs: ArrivalLog[Odometry] = ArrivalLog()
+        self.diagnostics: ArrivalLog[DiagnosticArray] = ArrivalLog()
         self.expected_forward_count = 0
         self.expected_drops: Counter[str] = collections.Counter()
         self.clock_publisher = rospy.Publisher(
@@ -222,7 +260,7 @@ class TestEkfSynthetic(unittest.TestCase):
 
     def on_validated(self, message: Imu) -> None:
         """Note the stamp of a sample that the validator forwarded."""
-        self.forwarded_stamp_keys.add(stamp_key(message.header.stamp))
+        self.forwarded_stamp_keys.append(stamp_key(message.header.stamp))
 
     def all_connected(self) -> bool:
         """Return whether the EKF and the validator subscribe and publish to the test."""
@@ -256,7 +294,7 @@ class TestEkfSynthetic(unittest.TestCase):
 
     def wait_for_forwarded(self, stamp_keys: Sequence[StampKey], stamp: rospy.Time) -> None:
         """Wait on the wall clock until the validator forwarded the samples with these stamps."""
-        wait_for(lambda: all(key in self.forwarded_stamp_keys for key in stamp_keys),
+        wait_for(lambda: self.forwarded_stamp_keys.contains_all(stamp_keys),
                  "the validator didn't forward the IMU samples of the step at {:.2f} s".format(
                      stamp.to_sec()))
 
@@ -267,7 +305,7 @@ class TestEkfSynthetic(unittest.TestCase):
 
     def advance(self, wheel_rate: float, imu_inputs: Sequence[ImuInput]) -> StepStart:
         """Do 1 to 4 of a step, as step() lists them, and return where the step started."""
-        start = StepStart(self.now, len(self.ekf_outputs))
+        start = StepStart(self.now, self.ekf_outputs.count())
         valid_stamp_keys = self.publish_inputs(start.stamp, wheel_rate, imu_inputs)
         self.wait_for_forwarded(valid_stamp_keys, start.stamp)
         time.sleep(DELIVERY)
@@ -276,7 +314,7 @@ class TestEkfSynthetic(unittest.TestCase):
 
     def outputs_since(self, start: StepStart) -> List[Odometry]:
         """Return the EKF's outputs after the step's start, stamped at its time or later."""
-        return [message for message in self.ekf_outputs[start.output_count_before:]
+        return [message for message in self.ekf_outputs.since(start.output_count_before)
                 if message.header.stamp >= start.stamp]
 
     def step(self, wheel_rate: float, imu_inputs: Sequence[ImuInput] = ()) -> Odometry:
@@ -420,7 +458,7 @@ class TestEkfSynthetic(unittest.TestCase):
 
         None if no array after them has a status of the validator.
         """
-        for array in reversed(self.diagnostics[array_count_before:]):
+        for array in reversed(self.diagnostics.since(array_count_before)):
             for status in array.status:
                 if VALIDATOR_STATUS_NAME in status.name:
                     return {pair.key: pair.value for pair in status.values}
@@ -431,7 +469,7 @@ class TestEkfSynthetic(unittest.TestCase):
 
         The validator publishes its diagnostics once per second of ROS time.
         """
-        array_count_before = len(self.diagnostics)
+        array_count_before = self.diagnostics.count()
         start = self.now
         while self.now < start + DIAGNOSTICS_WAIT:
             self.step(WHEEL_RATE)
