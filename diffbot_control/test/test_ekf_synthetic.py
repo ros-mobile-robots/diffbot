@@ -129,6 +129,13 @@ class ImuInput(NamedTuple):
 VALID_SAMPLE = ImuInput(0.0, IMU_RATE, None)
 
 
+class StepStart(NamedTuple):
+    """Where a step started: what tells the step's EKF outputs from the earlier ones."""
+
+    stamp: rospy.Time  # the step's ROS time
+    output_count_before: int  # the number of EKF outputs that the test had before the step
+
+
 def stamp_key(stamp: rospy.Time) -> StampKey:
     """Return the stamp's seconds and nanoseconds."""
     return (stamp.secs, stamp.nsecs)
@@ -224,59 +231,80 @@ class TestEkfSynthetic(unittest.TestCase):
                 and self.validated_imu_subscriber.get_num_connections() > 0
                 and self.filtered_odometry_subscriber.get_num_connections() > 0)
 
-    def advance(self, wheel_rate: float, imu_inputs: Sequence[ImuInput]) -> Tuple[rospy.Time, int]:
-        """Publish one step's inputs, stamped with the current time, then advance the clock.
+    def publish_inputs(self, stamp: rospy.Time, wheel_rate: float,
+                       imu_inputs: Sequence[ImuInput]) -> List[StampKey]:
+        """Publish one step's wheel odometry and IMU samples, stamped relative to stamp.
 
-        Return the step's time and the number of EKF outputs before the step.
+        Return the stamp keys of the samples that the validator has to forward.
         """
-        stamp = self.now
-        output_count_before = len(self.ekf_outputs)
         self.wheel_odometry_publisher.publish(wheel_odometry(stamp, wheel_rate))
-        forwarded_keys = []
-        for sample in imu_inputs:
-            sample_stamp = stamp + rospy.Duration.from_sec(sample.offset)
-            self.raw_imu_publisher.publish(imu_sample(sample_stamp, sample.yaw_rate))
-            if sample.drop_reason is None:
-                forwarded_keys.append(stamp_key(sample_stamp))
-                self.expected_forward_count += 1
-            else:
-                self.expected_drops[sample.drop_reason] += 1
-        wait_for(lambda: all(key in self.forwarded_stamp_keys for key in forwarded_keys),
+        valid_stamp_keys = []
+        for imu_input in imu_inputs:
+            sample_stamp = stamp + rospy.Duration.from_sec(imu_input.offset)
+            self.raw_imu_publisher.publish(imu_sample(sample_stamp, imu_input.yaw_rate))
+            self.expect(imu_input)
+            if imu_input.drop_reason is None:
+                valid_stamp_keys.append(stamp_key(sample_stamp))
+        return valid_stamp_keys
+
+    def expect(self, imu_input: ImuInput) -> None:
+        """Count the sample as one that the validator has to forward or to drop."""
+        if imu_input.drop_reason is None:
+            self.expected_forward_count += 1
+        else:
+            self.expected_drops[imu_input.drop_reason] += 1
+
+    def wait_for_forwarded(self, stamp_keys: Sequence[StampKey], stamp: rospy.Time) -> None:
+        """Wait on the wall clock until the validator forwarded the samples with these stamps."""
+        wait_for(lambda: all(key in self.forwarded_stamp_keys for key in stamp_keys),
                  "the validator didn't forward the IMU samples of the step at {:.2f} s".format(
                      stamp.to_sec()))
-        time.sleep(DELIVERY)
-        self.now = stamp + STEP
-        self.clock_publisher.publish(Clock(self.now))
-        return stamp, output_count_before
 
-    def outputs_since(self, stamp: rospy.Time, output_count_before: int) -> List[Odometry]:
-        """Return the EKF's outputs after the first output_count_before, from stamp on."""
-        return [message for message in self.ekf_outputs[output_count_before:]
-                if message.header.stamp >= stamp]
+    def advance_clock(self) -> None:
+        """Move the ROS time on by STEP and publish it."""
+        self.now += STEP
+        self.clock_publisher.publish(Clock(self.now))
+
+    def advance(self, wheel_rate: float, imu_inputs: Sequence[ImuInput]) -> StepStart:
+        """Do 1 to 4 of a step, as step() lists them, and return where the step started."""
+        start = StepStart(self.now, len(self.ekf_outputs))
+        valid_stamp_keys = self.publish_inputs(start.stamp, wheel_rate, imu_inputs)
+        self.wait_for_forwarded(valid_stamp_keys, start.stamp)
+        time.sleep(DELIVERY)
+        self.advance_clock()
+        return start
+
+    def outputs_since(self, start: StepStart) -> List[Odometry]:
+        """Return the EKF's outputs after the step's start, stamped at its time or later."""
+        return [message for message in self.ekf_outputs[start.output_count_before:]
+                if message.header.stamp >= start.stamp]
 
     def step(self, wheel_rate: float, imu_inputs: Sequence[ImuInput] = ()) -> Odometry:
         """Run one step and return the EKF's last output for it, which has to come.
 
         One step:
-        1. Publish the step's wheel odometry and IMU samples, stamped with the step's ROS time.
+        1. Publish the step's wheel odometry and IMU samples, stamped with the step's ROS time
+           (publish_inputs()).
         2. Wait on the wall clock until the IMU sample validator's output for the step's valid
-           samples reaches the test. The EKF gets that output at the same time.
+           samples reaches the test (wait_for_forwarded()). The EKF gets that output at the same
+           time.
         3. Wait DELIVERY more, for the inputs to arrive at the EKF.
-        4. Advance the clock by STEP. The EKF's 50 Hz update then processes the inputs.
+        4. Advance the clock by STEP (advance_clock()). The EKF's 50 Hz update then processes the
+           inputs.
         5. Wait, with the time limit WAIT, for an EKF output stamped at the step's time or later.
         advance() does 1 to 4.
         """
-        stamp, output_count_before = self.advance(wheel_rate, imu_inputs)
-        wait_for(lambda: bool(self.outputs_since(stamp, output_count_before)),
-                 'no EKF output for the step at {:.2f} s'.format(stamp.to_sec()))
-        return self.outputs_since(stamp, output_count_before)[-1]
+        start = self.advance(wheel_rate, imu_inputs)
+        wait_for(lambda: bool(self.outputs_since(start)),
+                 'no EKF output for the step at {:.2f} s'.format(start.stamp.to_sec()))
+        return self.outputs_since(start)[-1]
 
     def step_allowing_no_output(self, wheel_rate: float,
                                 imu_inputs: Sequence[ImuInput] = ()) -> Optional[Odometry]:
         """Run one step and return the EKF's last output for it, or None if none came."""
-        stamp, output_count_before = self.advance(wheel_rate, imu_inputs)
+        start = self.advance(wheel_rate, imu_inputs)
         time.sleep(NO_OUTPUT_WAIT)
-        outputs = self.outputs_since(stamp, output_count_before)
+        outputs = self.outputs_since(start)
         return outputs[-1] if outputs else None
 
     def run_steps(self, count: int, wheel_rate: float,
