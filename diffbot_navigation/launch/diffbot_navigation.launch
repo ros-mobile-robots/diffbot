@@ -1,6 +1,7 @@
 <launch>
   <!-- Arguments -->
   <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
+  <arg name="ekf" default="false" doc="the robot runs with the EKF (its bringup with ekf:=true): read the EKF's filtered odometry"/>
   <arg name="map_file" default="$(find diffbot_navigation)/maps/db_world.yaml"/>
   <arg name="open_rviz" default="true"/>
   <arg name="move_forward_only" default="false"/>
@@ -24,6 +25,7 @@
     <arg name="model" value="$(arg model)" />
     <arg name="local_planner" value="$(arg local_planner)" />
     <arg name="move_forward_only" value="$(arg move_forward_only)"/>
+    <arg name="ekf" value="$(arg ekf)" />
   </include>
 
   <!-- rviz -->

@@ -1,0 +1,22 @@
+<launch>
+    <!-- Starts the diffbot model in Gazebo with the EKF (ekf:=true) and runs test_ekf.py on it.
+         The drive controller gets a wheel separation 25 % larger than the robot's: 0.1725 m
+         instead of geometry.yaml's 0.138 m. Its wheel odometry then reports a smaller turn than
+         the robot makes. test_ekf.py checks:
+         1. Only the EKF (/diffbot/ekf_localization) publishes the transform
+            odom → base_footprint on the topic /tf.
+         2. The EKF's heading follows the robot's true turn, which the EKF takes from the IMU -->
+    <include file="$(find diffbot_gazebo)/test/sim_drive.launch">
+        <arg name="model" value="diffbot"/>
+        <arg name="gazebo_port" value="11353"/>
+        <arg name="ekf" value="true"/>
+    </include>
+    <!-- After geometry.yaml, which sim_drive.launch loads: this value wins -->
+    <param name="/diffbot/mobile_base_controller/wheel_separation" value="0.1725"/>
+
+    <test test-name="ekf_diffbot" pkg="diffbot_gazebo" type="test_ekf.py" time-limit="180">
+        <!-- The robot whose geometry.yaml the test compares the controller's wheel separation
+             with -->
+        <param name="model" value="diffbot"/>
+    </test>
+</launch>

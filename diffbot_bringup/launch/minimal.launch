@@ -1,4 +1,8 @@
 <launch>
+  <!-- Included by bringup.launch and bringup_with_laser.launch, which also start
+       robot_state_publisher. Includes diffbot_base/launch/diffbot.launch.
+       A figure of which launch file includes which:
+       https://ros-mobile-robots.com/packages/imu/robot_localization/#which-launch-file-starts-what -->
   <!-- Minimal launch file to bringup the robot hardware -->
   <!-- This launch file will launch the package that communicates with the encoders
        before running the ROS Controls hardware_interface control loop.
@@ -9,6 +13,7 @@
 
   <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
   <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
+  <arg name="ekf" default="false" doc="true starts the EKF, which fuses the IMU's yaw rate with the wheel odometry (diffbot_control/launch/ekf.launch). To use the EKF, start bringup.launch or bringup_with_laser.launch with ekf:=true. Each of them includes this file with its own ekf value and starts robot_state_publisher, which this file doesn't start. Without a robot_state_publisher, TF has no transform between imu_link and base_footprint, and the EKF drops every IMU sample"/>
   
   <!-- Base Controller for Motor Driver, Encoders and IMU -->
   <!-- Run rosserial to connect with the Teensy 3.2 board connected to the motor encoders -->
@@ -28,6 +33,7 @@
   <!-- Load the controller config onto the parameter server -->
   <include file="$(find diffbot_base)/launch/diffbot.launch">
       <arg name="model" value="$(arg model)" />
+      <arg name="ekf" value="$(arg ekf)" />
   </include>
 
 </launch>

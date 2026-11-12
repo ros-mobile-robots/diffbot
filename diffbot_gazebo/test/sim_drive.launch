@@ -1,12 +1,15 @@
 <launch>
     <!-- For the simulation tests: the robot in Gazebo without a GUI, only the Gazebo server, which
          needs no display (as in CI), on the empty world, with its controllers from diffbot_control.
-         Noetic's empty_world.launch ignores its headless argument, so it isn't set here -->
+         Noetic's empty_world.launch ignores its headless argument, so it isn't set here.
+         Included by sim_drive_diffbot.test, sim_drive_remo.test, sim_ekf_diffbot.test and
+         sim_ekf_remo.test -->
     <arg name="model" doc="model type [diffbot, remo]"/>
     <!-- catkin runs the test files in parallel, each with its own ROS master; each Gazebo server
          also needs its own port, and none uses Gazebo's default 11345, which a simulation that's
          open in the dev container may use -->
     <arg name="gazebo_port" doc="port of this test's Gazebo server"/>
+    <arg name="ekf" default="false" doc="fuse the IMU's yaw rate with the wheel odometry in an EKF (diffbot_control/launch/ekf.launch)"/>
     <env name="GAZEBO_MASTER_URI" value="http://localhost:$(arg gazebo_port)"/>
 
     <include file="$(find diffbot_gazebo)/launch/diffbot_view.launch">
@@ -18,5 +21,6 @@
     <include file="$(find diffbot_control)/launch/diffbot_control.launch">
         <arg name="model" value="$(arg model)"/>
         <arg name="rqt_robot_steering" value="false"/>
+        <arg name="ekf" value="$(arg ekf)"/>
     </include>
 </launch>

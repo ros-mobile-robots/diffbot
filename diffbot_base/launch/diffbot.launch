@@ -1,7 +1,12 @@
 <!-- https://github.com/ros-controls/ros_controllers/tree/kinetic-devel/diff_drive_controller/test -->
 <launch>
+    <!-- Included by diffbot_bringup/launch/minimal.launch, which bringup.launch and
+         bringup_with_laser.launch include. Includes diffbot_control/launch/ekf.launch if ekf is
+         true. A figure of which launch file includes which:
+         https://ros-mobile-robots.com/packages/imu/robot_localization/#which-launch-file-starts-what -->
     <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
     <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
+    <arg name="ekf" default="false" doc="true starts the EKF, which fuses the IMU's yaw rate with the wheel odometry (diffbot_control/launch/ekf.launch). To use the EKF, start diffbot_bringup's bringup.launch or bringup_with_laser.launch with ekf:=true. Each of them includes minimal.launch, which includes this file, and each file passes its ekf value to the file that it includes. The two bringup files also start robot_state_publisher, which this file doesn't start. Without a robot_state_publisher, TF has no transform between imu_link and base_footprint, and the EKF drops every IMU sample"/>
     <arg name="description_package" default="$(eval find(arg('model') + '_description'))" />
     <arg name="urdf_file" default="$(find xacro)/xacro '$(arg description_package)/urdf/$(arg model).urdf.xacro'" />
 
@@ -23,6 +28,22 @@
     <!-- Load base config to the parameter server -->
     <rosparam command="load" 
               file="$(find diffbot_base)/config/base.yaml"/>
+
+    <!-- What the two lines below do with the ekf argument:
+         1. The param line sets the drive controller's parameter enable_odom_tf. $(eval ...) is
+            roslaunch's way to compute a value with a Python expression
+            (http://wiki.ros.org/roslaunch/XML#substitution_args). arg('ekf') is the ekf
+            argument's value, and Python's not turns that value around. So with the EKF,
+            enable_odom_tf is false: the EKF publishes the transform odom → base_footprint on
+            the topic /tf, and the drive controller doesn't. Without the EKF, the drive
+            controller publishes that transform. The line writes the value in both cases, so
+            that a false from an earlier start with the EKF doesn't stay on the parameter server.
+         2. The include line starts the EKF (ekf.launch) only if ekf is true.
+         The EKF needs the transform between imu_link and base_footprint, which TF gets from
+         robot_state_publisher. This file doesn't start robot_state_publisher.
+         diffbot_bringup's bringup.launch and bringup_with_laser.launch do -->
+    <param name="/diffbot/mobile_base_controller/enable_odom_tf" type="bool" value="$(eval not arg('ekf'))"/>
+    <include if="$(arg ekf)" file="$(find diffbot_control)/launch/ekf.launch"/>
 
     <!-- Load the controllers -->
     <!-- This will use the controller manager that got started inside the difbot_base node -->
