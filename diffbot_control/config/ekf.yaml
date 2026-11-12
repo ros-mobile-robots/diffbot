@@ -27,7 +27,8 @@ publish_tf: true
 # older than the one before. The filter then starts again from the new time, instead of ignoring
 # the measurements until the clock has caught up. robot_localization does this only with simulated
 # time. On the robot, a clock that goes back makes the filter ignore the measurements until the
-# clock has caught up
+# clock has caught up. The docs show the check in robot_localization's code:
+# https://ros-mobile-robots.com/packages/imu/robot_localization/#the-other-settings
 reset_on_time_jump: true
 
 # The filter's state has 15 variables: the position x, y, z, the orientation roll, pitch, yaw,
@@ -59,7 +60,9 @@ odom0_config: [false, false, false,   # x, y, z
 # true would fuse the change between two poses instead of the pose. No effect here, because the
 # filter fuses no pose value of this input
 odom0_differential: false
-# How many messages the filter's subscriber keeps until the filter takes them
+# The size of the queue of the filter node's ROS subscriber for this topic. Messages that arrive
+# while the node is busy wait in the queue. With 10, at most ten wait, and ROS drops the oldest
+# one when another arrives. robot_localization's default is 1
 odom0_queue_size: 10
 
 # The IMU after imu_validator.py, a sensor_msgs/Imu message. The filter fuses one value:
@@ -76,7 +79,3 @@ imu0_config: [false, false, false,   # x, y, z
 # As odom0_differential and odom0_queue_size
 imu0_differential: false
 imu0_queue_size: 10
-
-# No input has a rejection threshold (<input>_twist_rejection_threshold), so robot_localization's
-# test of a measurement against the filter's prediction is off. The docs explain the test:
-# https://ros-mobile-robots.com/packages/imu/robot_localization/#what-the-validator-doesnt-check
