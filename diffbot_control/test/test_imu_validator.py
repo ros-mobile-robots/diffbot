@@ -24,8 +24,9 @@ FRAME = 'imu_link'
 MAX_AGE = 0.1  # s
 MAX_FUTURE = 0.02  # s
 # Just beyond the limits: 1 µs more than MAX_AGE and MAX_FUTURE
-JUST_TOO_OLD = 0.100001  # s
-JUST_TOO_FAR_AHEAD = 0.020001  # s
+ONE_MICROSECOND = 1e-6  # s
+JUST_TOO_OLD = MAX_AGE + ONE_MICROSECOND  # s
+JUST_TOO_FAR_AHEAD = MAX_FUTURE + ONE_MICROSECOND  # s
 # For health(): 1 ms beyond the silence limit, a time well within it, and a number of new drops
 JUST_BEYOND = 0.001  # s
 RECENT = 0.1  # s since the last valid sample
