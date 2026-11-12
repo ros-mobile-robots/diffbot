@@ -185,21 +185,24 @@ class TestEkfSynthetic(unittest.TestCase):
 
     def setUp(self) -> None:
         self.now = START
-        self.forwarded: Set[StampKey] = set()  # stamps of the samples the validator forwarded
-        self.outputs: List[Odometry] = []
+        # The stamps of the samples that the validator forwarded
+        self.forwarded_stamp_keys: Set[StampKey] = set()
+        self.ekf_outputs: List[Odometry] = []
         self.diagnostics: List[DiagnosticArray] = []
         self.expected_forward_count = 0
         self.expected_drops: Counter[str] = collections.Counter()
-        self.clock = rospy.Publisher(CLOCK_TOPIC, Clock, queue_size=CLOCK_QUEUE_SIZE, latch=True)
-        self.wheels = rospy.Publisher(WHEEL_ODOMETRY_TOPIC, Odometry, queue_size=QUEUE_SIZE)
-        self.imu = rospy.Publisher(RAW_IMU_TOPIC, Imu, queue_size=QUEUE_SIZE)
-        self.validated = rospy.Subscriber(VALIDATED_IMU_TOPIC, Imu, self.on_validated,
-                                          queue_size=QUEUE_SIZE)
-        self.filtered = rospy.Subscriber(FILTERED_TOPIC, Odometry, self.outputs.append,
-                                         queue_size=QUEUE_SIZE)
+        self.clock_publisher = rospy.Publisher(
+            CLOCK_TOPIC, Clock, queue_size=CLOCK_QUEUE_SIZE, latch=True)
+        self.wheel_odometry_publisher = rospy.Publisher(
+            WHEEL_ODOMETRY_TOPIC, Odometry, queue_size=QUEUE_SIZE)
+        self.raw_imu_publisher = rospy.Publisher(RAW_IMU_TOPIC, Imu, queue_size=QUEUE_SIZE)
+        self.validated_imu_subscriber = rospy.Subscriber(
+            VALIDATED_IMU_TOPIC, Imu, self.on_validated, queue_size=QUEUE_SIZE)
+        self.filtered_odometry_subscriber = rospy.Subscriber(
+            FILTERED_TOPIC, Odometry, self.ekf_outputs.append, queue_size=QUEUE_SIZE)
         self.diagnostics_subscriber = rospy.Subscriber(
             DIAGNOSTICS_TOPIC, DiagnosticArray, self.diagnostics.append, queue_size=QUEUE_SIZE)
-        self.clock.publish(Clock(self.now))
+        self.clock_publisher.publish(Clock(self.now))
         buffer = tf2_ros.Buffer()
         self.listener = tf2_ros.TransformListener(buffer)
         # Before the first input: the EKF and the validator listen, and the production URDF's
@@ -212,44 +215,46 @@ class TestEkfSynthetic(unittest.TestCase):
 
     def on_validated(self, message: Imu) -> None:
         """Note the stamp of a sample that the validator forwarded."""
-        self.forwarded.add(stamp_key(message.header.stamp))
+        self.forwarded_stamp_keys.add(stamp_key(message.header.stamp))
 
     def all_connected(self) -> bool:
         """Return whether the EKF and the validator subscribe and publish to the test."""
-        return (self.wheels.get_num_connections() > 0 and self.imu.get_num_connections() > 0
-                and self.validated.get_num_connections() > 0
-                and self.filtered.get_num_connections() > 0)
+        return (self.wheel_odometry_publisher.get_num_connections() > 0
+                and self.raw_imu_publisher.get_num_connections() > 0
+                and self.validated_imu_subscriber.get_num_connections() > 0
+                and self.filtered_odometry_subscriber.get_num_connections() > 0)
 
-    def advance(self, wheel_rate: float, imu: Sequence[ImuInput]) -> Tuple[rospy.Time, int]:
+    def advance(self, wheel_rate: float, imu_inputs: Sequence[ImuInput]) -> Tuple[rospy.Time, int]:
         """Publish one step's inputs, stamped with the current time, then advance the clock.
 
         Return the step's time and the number of EKF outputs before the step.
         """
         stamp = self.now
-        received = len(self.outputs)
-        self.wheels.publish(wheel_odometry(stamp, wheel_rate))
+        output_count_before = len(self.ekf_outputs)
+        self.wheel_odometry_publisher.publish(wheel_odometry(stamp, wheel_rate))
         forwarded_keys = []
-        for sample in imu:
+        for sample in imu_inputs:
             sample_stamp = stamp + rospy.Duration.from_sec(sample.offset)
-            self.imu.publish(imu_sample(sample_stamp, sample.yaw_rate))
+            self.raw_imu_publisher.publish(imu_sample(sample_stamp, sample.yaw_rate))
             if sample.drop_reason is None:
                 forwarded_keys.append(stamp_key(sample_stamp))
                 self.expected_forward_count += 1
             else:
                 self.expected_drops[sample.drop_reason] += 1
-        wait_for(lambda: all(key in self.forwarded for key in forwarded_keys),
+        wait_for(lambda: all(key in self.forwarded_stamp_keys for key in forwarded_keys),
                  "the validator didn't forward the IMU samples of the step at {:.2f} s".format(
                      stamp.to_sec()))
         time.sleep(DELIVERY)
         self.now = stamp + STEP
-        self.clock.publish(Clock(self.now))
-        return stamp, received
+        self.clock_publisher.publish(Clock(self.now))
+        return stamp, output_count_before
 
-    def outputs_since(self, stamp: rospy.Time, received: int) -> List[Odometry]:
-        """Return the EKF's outputs after the first received ones, stamped at stamp or later."""
-        return [message for message in self.outputs[received:] if message.header.stamp >= stamp]
+    def outputs_since(self, stamp: rospy.Time, output_count_before: int) -> List[Odometry]:
+        """Return the EKF's outputs after the first output_count_before, from stamp on."""
+        return [message for message in self.ekf_outputs[output_count_before:]
+                if message.header.stamp >= stamp]
 
-    def step(self, wheel_rate: float, imu: Sequence[ImuInput] = ()) -> Odometry:
+    def step(self, wheel_rate: float, imu_inputs: Sequence[ImuInput] = ()) -> Odometry:
         """Run one step and return the EKF's last output for it, which has to come.
 
         One step:
@@ -261,23 +266,23 @@ class TestEkfSynthetic(unittest.TestCase):
         5. Wait, with the time limit WAIT, for an EKF output stamped at the step's time or later.
         advance() does 1 to 4.
         """
-        stamp, received = self.advance(wheel_rate, imu)
-        wait_for(lambda: bool(self.outputs_since(stamp, received)),
+        stamp, output_count_before = self.advance(wheel_rate, imu_inputs)
+        wait_for(lambda: bool(self.outputs_since(stamp, output_count_before)),
                  'no EKF output for the step at {:.2f} s'.format(stamp.to_sec()))
-        return self.outputs_since(stamp, received)[-1]
+        return self.outputs_since(stamp, output_count_before)[-1]
 
     def step_allowing_no_output(self, wheel_rate: float,
-                                imu: Sequence[ImuInput] = ()) -> Optional[Odometry]:
+                                imu_inputs: Sequence[ImuInput] = ()) -> Optional[Odometry]:
         """Run one step and return the EKF's last output for it, or None if none came."""
-        stamp, received = self.advance(wheel_rate, imu)
+        stamp, output_count_before = self.advance(wheel_rate, imu_inputs)
         time.sleep(NO_OUTPUT_WAIT)
-        outputs = self.outputs_since(stamp, received)
+        outputs = self.outputs_since(stamp, output_count_before)
         return outputs[-1] if outputs else None
 
     def run_steps(self, count: int, wheel_rate: float,
-                  imu: Sequence[ImuInput] = ()) -> List[Odometry]:
+                  imu_inputs: Sequence[ImuInput] = ()) -> List[Odometry]:
         """Run count steps with the same inputs and return the EKF's output for each."""
-        return [self.step(wheel_rate, imu) for _ in range(count)]
+        return [self.step(wheel_rate, imu_inputs) for _ in range(count)]
 
     def assert_yaw_rate(self, output: Odometry, expected: float, delta: float, what: str) -> None:
         """Assert that the output's yaw rate is expected ± delta. what names the case."""
@@ -354,7 +359,7 @@ class TestEkfSynthetic(unittest.TestCase):
     def check_estimate_follows_the_imu_again_after_the_clock_goes_back(self) -> None:
         """Phase 6: the clock goes back to RESTART, then valid samples as in phase 1."""
         self.now = RESTART
-        self.clock.publish(Clock(self.now))
+        self.clock_publisher.publish(Clock(self.now))
         time.sleep(RESET_DELIVERY)
         # The first measurement after the reset initializes the filter, and robot_localization
         # doesn't publish that estimate, because its stamp is older than the last one it
@@ -382,12 +387,12 @@ class TestEkfSynthetic(unittest.TestCase):
         print('validator diagnostics: {}'.format(values))
         self.assert_diagnostic_counts(values)
 
-    def validator_values(self, received: int) -> Optional[Dict[str, str]]:
-        """Return the values of the validator's latest status after the first received arrays.
+    def validator_values(self, array_count_before: int) -> Optional[Dict[str, str]]:
+        """Return the validator's latest status values after the first array_count_before arrays.
 
         None if no array after them has a status of the validator.
         """
-        for array in reversed(self.diagnostics[received:]):
+        for array in reversed(self.diagnostics[array_count_before:]):
             for status in array.status:
                 if VALIDATOR_STATUS_NAME in status.name:
                     return {pair.key: pair.value for pair in status.values}
@@ -398,13 +403,13 @@ class TestEkfSynthetic(unittest.TestCase):
 
         The validator publishes its diagnostics once per second of ROS time.
         """
-        received = len(self.diagnostics)
+        array_count_before = len(self.diagnostics)
         start = self.now
         while self.now < start + DIAGNOSTICS_WAIT:
             self.step(WHEEL_RATE)
-        wait_for(lambda: self.validator_values(received) is not None,
+        wait_for(lambda: self.validator_values(array_count_before) is not None,
                  'phase 7: no status of the IMU sample validator on the topic /diagnostics')
-        values = self.validator_values(received)
+        values = self.validator_values(array_count_before)
         assert values is not None  # wait_for() returned
         return values
 
