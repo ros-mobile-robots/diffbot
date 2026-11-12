@@ -4,6 +4,7 @@
 # Unlike the dev container (.devcontainer/noetic), it holds only what the robot runs, already
 # built: the hardware interface, the controllers, rosserial for the Teensy, the robot model and
 # the lidar driver. No Gazebo, no navigation, no desktop tools.
+# CI publishes it as ghcr.io/ros-mobile-robots/diffbot-robot (.github/workflows/robot_container.yml).
 # Build it from the repository's root folder (compose.yaml does the same):
 #   docker build -f .docker/robot/Dockerfile -t diffbot-robot:noetic .
 
@@ -18,6 +19,12 @@ RUN mkdir /manifests \
 
 # Stage 2: the official ROS image with ROS Noetic's base packages, for arm64 and amd64
 FROM ros:noetic-ros-base
+
+# The image's repository, which links the published package to it on GitHub, and its license.
+# CI adds the commit (org.opencontainers.image.revision).
+LABEL org.opencontainers.image.source=https://github.com/ros-mobile-robots/diffbot \
+      org.opencontainers.image.description="ROS Noetic and the robot's packages for DiffBot and Remo, for the robot's Raspberry Pi" \
+      org.opencontainers.image.licenses=BSD-3-Clause
 
 # Let apt install packages without asking questions
 ENV DEBIAN_FRONTEND=noninteractive
