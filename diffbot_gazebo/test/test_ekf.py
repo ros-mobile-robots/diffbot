@@ -18,9 +18,11 @@ The rostest file names the robot in the private parameter ~model.
 
 import math
 import os
+import threading
 import time
-from typing import Dict
+from typing import List
 from typing import NamedTuple
+from typing import Optional
 import unittest
 
 from gazebo_msgs.msg import ModelStates
@@ -48,12 +50,6 @@ WHEEL_SEPARATION_PARAMETER = '/diffbot/mobile_base_controller/wheel_separation'
 COMMAND_QUEUE_SIZE = 1  # only the latest command matters
 MODEL_STATES_QUEUE_SIZE = 1  # only the latest true pose matters
 IMU_QUEUE_SIZE = 100  # messages, 2 s at IMU_RATE: the test counts them all
-
-# The sources of a heading, as yaws holds them
-TRUE = 'true'
-ODOMETRY_SOURCE = 'odometry'
-EKF_SOURCE = 'EKF'
-SOURCES = (TRUE, ODOMETRY_SOURCE, EKF_SOURCE)
 
 TURN_VELOCITY = 0.5  # rad/s, commanded, to the left
 DURATION = 3.0  # s
@@ -107,66 +103,116 @@ def nominal_wheel_separation(model: str) -> float:
     return float(geometry['diffbot']['mobile_base_controller']['wheel_separation'])
 
 
+class Headings(NamedTuple):
+    """The robot's heading at one moment, by each source (rad)."""
+
+    true: float  # from Gazebo
+    odometry: float  # from the drive controller's odometry
+    ekf: float  # from the EKF's estimate
+
+
+class HeadingObserver:
+    """Keep the latest heading of each source, and count the validated IMU samples.
+
+    The observer counts from its creation.
+    """
+
+    def __init__(self) -> None:
+        # rospy calls each callback in a thread of its own, and the test reads in another. The
+        # lock gives the test one consistent copy of the three headings. They are the latest
+        # of each source, not headings of the same instant
+        self.lock = threading.Lock()
+        self.true_heading: Optional[float] = None
+        self.odometry_heading: Optional[float] = None
+        self.ekf_heading: Optional[float] = None
+        self.sample_count = 0
+        rospy.Subscriber(WHEEL_ODOMETRY_TOPIC, Odometry, self.on_wheel_odometry)
+        rospy.Subscriber(FILTERED_TOPIC, Odometry, self.on_filtered_odometry)
+        rospy.Subscriber(MODEL_STATES_TOPIC, ModelStates, self.on_model_states,
+                         queue_size=MODEL_STATES_QUEUE_SIZE)
+        rospy.Subscriber(VALIDATED_IMU_TOPIC, Imu, self.on_validated_imu,
+                         queue_size=IMU_QUEUE_SIZE)
+
+    def on_wheel_odometry(self, message: Odometry) -> None:
+        """Note the heading of the controller's odometry."""
+        with self.lock:
+            self.odometry_heading = yaw(message.pose.pose)
+
+    def on_filtered_odometry(self, message: Odometry) -> None:
+        """Note the heading of the EKF's estimate."""
+        with self.lock:
+            self.ekf_heading = yaw(message.pose.pose)
+
+    def on_model_states(self, message: ModelStates) -> None:
+        """Note the robot's true heading in Gazebo."""
+        if MODEL_NAME in message.name:
+            with self.lock:
+                self.true_heading = yaw(message.pose[message.name.index(MODEL_NAME)])
+
+    def on_validated_imu(self, message: Imu) -> None:
+        """Count a sample that the validator forwarded."""
+        with self.lock:
+            self.sample_count += 1
+
+    def latest(self) -> Optional[Headings]:
+        """Return the latest heading of each source, or None until each has sent one."""
+        with self.lock:
+            if (self.true_heading is None or self.odometry_heading is None
+                    or self.ekf_heading is None):
+                return None
+            return Headings(self.true_heading, self.odometry_heading, self.ekf_heading)
+
+    def silent_sources(self) -> List[str]:
+        """Return the sources that haven't sent a heading yet, for a failure message."""
+        with self.lock:
+            headings = (('Gazebo', self.true_heading), ('odometry', self.odometry_heading),
+                        ('EKF', self.ekf_heading))
+            return [source for source, heading in headings if heading is None]
+
+    def validated_sample_count(self) -> int:
+        """Return the number of validated IMU samples so far."""
+        with self.lock:
+            return self.sample_count
+
+
 class TestEkf(unittest.TestCase):
     """The tests run in one simulation and don't depend on each other or on their order."""
 
-    yaws: Dict[str, float]  # the latest heading of each source (rad)
-    imu_sample_count: int  # validated IMU samples received so far
-    observer: OdomTfObserver
+    heading_observer: HeadingObserver
+    odom_tf_observer: OdomTfObserver
     command: rospy.Publisher
 
     @classmethod
     def setUpClass(cls) -> None:
         rospy.init_node('test_ekf')
-        cls.yaws = {}
-        cls.imu_sample_count = 0
-        cls.observer = OdomTfObserver()
+        cls.heading_observer = HeadingObserver()
+        cls.odom_tf_observer = OdomTfObserver()
         cls.command = rospy.Publisher(CMD_VEL_TOPIC, Twist, queue_size=COMMAND_QUEUE_SIZE)
-        rospy.Subscriber(WHEEL_ODOMETRY_TOPIC, Odometry, cls.on_odometry)
-        rospy.Subscriber(FILTERED_TOPIC, Odometry, cls.on_filtered)
-        rospy.Subscriber(MODEL_STATES_TOPIC, ModelStates, cls.on_model_states,
-                         queue_size=MODEL_STATES_QUEUE_SIZE)
-        rospy.Subscriber(VALIDATED_IMU_TOPIC, Imu, cls.on_imu, queue_size=IMU_QUEUE_SIZE)
         deadline = time.monotonic() + STARTUP_TIMEOUT
         while not cls.ready():
             if time.monotonic() > deadline:
                 raise AssertionError(
-                    'not ready after {} s: headings from {} of {}, {} subscribers to the '
-                    'commands'.format(STARTUP_TIMEOUT, sorted(cls.yaws), SOURCES,
+                    'not ready after {} s: no heading yet from {}, {} subscribers to the '
+                    'commands'.format(STARTUP_TIMEOUT, cls.heading_observer.silent_sources(),
                                       cls.command.get_num_connections()))
             time.sleep(POLL_INTERVAL)
 
     @classmethod
     def ready(cls) -> bool:
         """Return whether a heading of each source arrived and the controller takes commands."""
-        return (all(source in cls.yaws for source in SOURCES)
+        return (cls.heading_observer.latest() is not None
                 and cls.command.get_num_connections() > 0)
 
-    @classmethod
-    def on_odometry(cls, message: Odometry) -> None:
-        """Note the heading of the controller's odometry."""
-        cls.yaws[ODOMETRY_SOURCE] = yaw(message.pose.pose)
-
-    @classmethod
-    def on_filtered(cls, message: Odometry) -> None:
-        """Note the heading of the EKF's estimate."""
-        cls.yaws[EKF_SOURCE] = yaw(message.pose.pose)
-
-    @classmethod
-    def on_model_states(cls, message: ModelStates) -> None:
-        """Note the robot's true heading in Gazebo."""
-        if MODEL_NAME in message.name:
-            cls.yaws[TRUE] = yaw(message.pose[message.name.index(MODEL_NAME)])
-
-    @classmethod
-    def on_imu(cls, message: Imu) -> None:
-        """Count a sample that the validator forwarded."""
-        cls.imu_sample_count += 1
+    def latest_headings(self) -> Headings:
+        """Return the latest heading of each source. setUpClass() waited for the first ones."""
+        headings = self.heading_observer.latest()
+        assert headings is not None
+        return headings
 
     def measure_turn(self) -> TurnMeasurement:
         """Turn the robot on the spot for DURATION, stop it, and return what each source saw."""
-        start = dict(self.yaws)
-        sample_count = self.imu_sample_count
+        start = self.latest_headings()
+        sample_count = self.heading_observer.validated_sample_count()
         started = rospy.Time.now()
         turn = Twist()
         turn.angular.z = TURN_VELOCITY
@@ -176,15 +222,15 @@ class TestEkf(unittest.TestCase):
             while rospy.Time.now() < end and not rospy.is_shutdown():
                 self.command.publish(turn)
                 rate.sleep()
-            imu_rate = ((self.imu_sample_count - sample_count)
+            imu_rate = ((self.heading_observer.validated_sample_count() - sample_count)
                         / (rospy.Time.now() - started).to_sec())
         finally:
             self.command.publish(Twist())
         rospy.sleep(SETTLE)
-        stopped = dict(self.yaws)
-        return TurnMeasurement(turned(start[TRUE], stopped[TRUE]),
-                               turned(start[ODOMETRY_SOURCE], stopped[ODOMETRY_SOURCE]),
-                               turned(start[EKF_SOURCE], stopped[EKF_SOURCE]), imu_rate)
+        stopped = self.latest_headings()
+        return TurnMeasurement(turned(start.true, stopped.true),
+                               turned(start.odometry, stopped.odometry),
+                               turned(start.ekf, stopped.ekf), imu_rate)
 
     def assert_wheel_separation_is_scaled(self, separation: float) -> None:
         """Assert that the controller's separation is SEPARATION_SCALE times the robot's."""
@@ -213,10 +259,10 @@ class TestEkf(unittest.TestCase):
                                msg='the EKF should follow the true turn: ' + measurement.report())
 
     def test_ekf_is_the_only_odom_tf_publisher(self) -> None:
-        self.assertTrue(self.observer.wait_for_first_transform(STARTUP_TIMEOUT),
+        self.assertTrue(self.odom_tf_observer.wait_for_first_transform(STARTUP_TIMEOUT),
                         'nobody published odom → base_footprint')
         rospy.sleep(OBSERVE)
-        counts = self.observer.counts()
+        counts = self.odom_tf_observer.counts()
         print('odom → base_footprint published by: {}'.format(counts))
         self.assertEqual([EKF_NODE], list(counts),
                          'publishers of odom → base_footprint: {}'.format(counts))
