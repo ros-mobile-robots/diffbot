@@ -36,11 +36,11 @@ from sensor_msgs.msg import Imu
 from tf.transformations import euler_from_quaternion
 import yaml
 
-COMMAND = '/diffbot/mobile_base_controller/cmd_vel'
-ODOMETRY = '/diffbot/mobile_base_controller/odom'
-FILTERED = '/diffbot/odometry/filtered'
-VALIDATED = '/diffbot/imu/data_validated'
-MODEL_STATES = '/gazebo/model_states'
+CMD_VEL_TOPIC = '/diffbot/mobile_base_controller/cmd_vel'
+WHEEL_ODOMETRY_TOPIC = '/diffbot/mobile_base_controller/odom'
+FILTERED_TOPIC = '/diffbot/odometry/filtered'
+VALIDATED_IMU_TOPIC = '/diffbot/imu/data_validated'
+MODEL_STATES_TOPIC = '/gazebo/model_states'
 MODEL_NAME = 'diffbot'  # the spawned model's name, for DiffBot and Remo (diffbot_view.launch)
 EKF_NODE = '/diffbot/ekf_localization'
 ODOM_TF_PARAMETER = '/diffbot/mobile_base_controller/enable_odom_tf'
@@ -121,12 +121,12 @@ class TestEkf(unittest.TestCase):
         cls.yaws = {}
         cls.imu_sample_count = 0
         cls.observer = OdomTfObserver()
-        cls.command = rospy.Publisher(COMMAND, Twist, queue_size=COMMAND_QUEUE_SIZE)
-        rospy.Subscriber(ODOMETRY, Odometry, cls.on_odometry)
-        rospy.Subscriber(FILTERED, Odometry, cls.on_filtered)
-        rospy.Subscriber(MODEL_STATES, ModelStates, cls.on_model_states,
+        cls.command = rospy.Publisher(CMD_VEL_TOPIC, Twist, queue_size=COMMAND_QUEUE_SIZE)
+        rospy.Subscriber(WHEEL_ODOMETRY_TOPIC, Odometry, cls.on_odometry)
+        rospy.Subscriber(FILTERED_TOPIC, Odometry, cls.on_filtered)
+        rospy.Subscriber(MODEL_STATES_TOPIC, ModelStates, cls.on_model_states,
                          queue_size=MODEL_STATES_QUEUE_SIZE)
-        rospy.Subscriber(VALIDATED, Imu, cls.on_imu, queue_size=IMU_QUEUE_SIZE)
+        rospy.Subscriber(VALIDATED_IMU_TOPIC, Imu, cls.on_imu, queue_size=IMU_QUEUE_SIZE)
         deadline = time.monotonic() + STARTUP_TIMEOUT
         while not cls.ready():
             if time.monotonic() > deadline:

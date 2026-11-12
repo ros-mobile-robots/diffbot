@@ -28,25 +28,25 @@ from roslaunch.config import load_config_default
 from roslaunch.core import Node
 import rospkg
 
-EKF = '/diffbot/ekf_localization'
-VALIDATOR = '/diffbot/imu_validator'
-STATE_PUBLISHER = '/diffbot/robot_state_publisher'
-ODOM_TF = '/diffbot/mobile_base_controller/enable_odom_tf'
-CONTROLLER_ODOMETRY = '/diffbot/mobile_base_controller/odom'
-FILTERED = '/diffbot/odometry/filtered'
-MOVE_BASE = '/move_base'
-MOVE_BASE_FLEX = '/move_base_flex'
+EKF_NODE = '/diffbot/ekf_localization'
+VALIDATOR_NODE = '/diffbot/imu_validator'
+STATE_PUBLISHER_NODE = '/diffbot/robot_state_publisher'
+ODOM_TF_PARAMETER = '/diffbot/mobile_base_controller/enable_odom_tf'
+WHEEL_ODOMETRY_TOPIC = '/diffbot/mobile_base_controller/odom'
+FILTERED_TOPIC = '/diffbot/odometry/filtered'
+MOVE_BASE_NODE = '/move_base'
+MOVE_BASE_FLEX_NODE = '/move_base_flex'
 # The two ways to run without the EKF: ekf:=false, and no ekf argument, the default
 SWITCHED_OFF: List[Dict[str, str]] = [{'ekf': 'false'}, {}]
 # ekf.yaml's frames and inputs in the EKF's private namespace, and the validator's frame: the
 # filter works in odom, for base_footprint, on the controller's odometry and the validator's
 # output
 EKF_PARAMETERS = {
-    EKF + '/base_link_frame': 'base_footprint',
-    EKF + '/world_frame': 'odom',
-    EKF + '/odom0': 'mobile_base_controller/odom',
-    EKF + '/imu0': 'imu/data_validated',
-    VALIDATOR + '/frame_id': 'imu_link',
+    EKF_NODE + '/base_link_frame': 'base_footprint',
+    EKF_NODE + '/world_frame': 'odom',
+    EKF_NODE + '/odom0': 'mobile_base_controller/odom',
+    EKF_NODE + '/imu0': 'imu/data_validated',
+    VALIDATOR_NODE + '/frame_id': 'imu_link',
 }
 
 PACKAGES = rospkg.RosPack()
@@ -93,12 +93,12 @@ class TestEkfSwitch(unittest.TestCase):
 
     def assert_ekf_nodes_start(self, configuration: LaunchConfiguration) -> None:
         """Assert that the launch file starts the EKF and the IMU sample validator."""
-        self.assert_node(configuration, EKF, 'robot_localization', 'ekf_localization_node')
-        self.assert_node(configuration, VALIDATOR, 'diffbot_control', 'imu_validator.py')
+        self.assert_node(configuration, EKF_NODE, 'robot_localization', 'ekf_localization_node')
+        self.assert_node(configuration, VALIDATOR_NODE, 'diffbot_control', 'imu_validator.py')
 
     def assert_no_ekf_nodes_start(self, configuration: LaunchConfiguration) -> None:
         """Assert that the launch file starts neither the EKF nor the IMU sample validator."""
-        for name in (EKF, VALIDATOR):
+        for name in (EKF_NODE, VALIDATOR_NODE):
             self.assertNotIn(name, sorted(configuration.nodes),
                              '{} starts {}'.format(configuration.description, name))
 
@@ -109,7 +109,7 @@ class TestEkfSwitch(unittest.TestCase):
         Set, not left out: roslaunch writes each parameter at each start, so a false value from
         an earlier run with the EKF on the same ROS master doesn't remain.
         """
-        self.assertIs(enabled, configuration.parameters.get(ODOM_TF),
+        self.assertIs(enabled, configuration.parameters.get(ODOM_TF_PARAMETER),
                       "{}: the controller's enable_odom_tf".format(configuration.description))
 
     def assert_ekf_reads_the_controller_and_the_validator(
@@ -124,7 +124,7 @@ class TestEkfSwitch(unittest.TestCase):
 
         The EKF looks up imu_link → base_footprint, which TF has from robot_state_publisher.
         """
-        self.assertIn(STATE_PUBLISHER, sorted(configuration.nodes),
+        self.assertIn(STATE_PUBLISHER_NODE, sorted(configuration.nodes),
                       '{} starts the EKF without robot_state_publisher'.format(
                           configuration.description))
 
@@ -159,8 +159,9 @@ class TestEkfSwitch(unittest.TestCase):
     def assert_planner_follows_the_switch(self, package: str, launch_file: str,
                                           node_name: str) -> None:
         """Assert that the planner reads the EKF's odometry with ekf:=true only."""
-        self.assert_planner_odometry(load(package, launch_file), node_name, CONTROLLER_ODOMETRY)
-        self.assert_planner_odometry(load(package, launch_file, ekf='true'), node_name, FILTERED)
+        self.assert_planner_odometry(load(package, launch_file), node_name, WHEEL_ODOMETRY_TOPIC)
+        self.assert_planner_odometry(load(package, launch_file, ekf='true'), node_name,
+                                     FILTERED_TOPIC)
 
     def test_bringup_starts_the_ekf_and_the_validator_only_with_ekf_true(self) -> None:
         self.assert_ekf_switch('diffbot_bringup', 'bringup.launch')
@@ -170,24 +171,26 @@ class TestEkfSwitch(unittest.TestCase):
         self.assert_ekf_switch('diffbot_gazebo', 'diffbot.launch')
 
     def test_planners_read_the_filtered_odometry_only_with_ekf_true(self) -> None:
-        self.assert_planner_follows_the_switch('diffbot_navigation', 'move_base.launch', MOVE_BASE)
+        self.assert_planner_follows_the_switch('diffbot_navigation', 'move_base.launch',
+                                               MOVE_BASE_NODE)
         self.assert_planner_follows_the_switch('diffbot_navigation', 'diffbot_navigation.launch',
-                                               MOVE_BASE)
+                                               MOVE_BASE_NODE)
         self.assert_planner_follows_the_switch('diffbot_navigation', 'diffbot_hw.launch',
-                                               MOVE_BASE)
-        self.assert_planner_follows_the_switch('diffbot_mbf', 'amcl_demo.launch', MOVE_BASE_FLEX)
+                                               MOVE_BASE_NODE)
+        self.assert_planner_follows_the_switch('diffbot_mbf', 'amcl_demo.launch',
+                                               MOVE_BASE_FLEX_NODE)
 
     def test_planner_reads_an_explicit_odom_topic_also_with_ekf_true(self) -> None:
         configuration = load('diffbot_navigation', 'move_base.launch', ekf='true',
                              odom_topic='/other/odom')
-        self.assert_planner_odometry(configuration, MOVE_BASE, '/other/odom')
+        self.assert_planner_odometry(configuration, MOVE_BASE_NODE, '/other/odom')
 
     def test_navigation_simulation_starts_the_ekf_for_its_planner_with_ekf_true(self) -> None:
         configuration = load('diffbot_navigation', 'diffbot.launch', ekf='true',
                              open_rviz='false')
         self.assert_ekf_nodes_start(configuration)
         self.assert_controller_odom_tf(configuration, enabled=False)
-        self.assert_planner_odometry(configuration, MOVE_BASE, FILTERED)
+        self.assert_planner_odometry(configuration, MOVE_BASE_NODE, FILTERED_TOPIC)
 
 
 if __name__ == '__main__':
