@@ -3,7 +3,8 @@
          The drive controller gets a wheel separation 25 % larger than the robot's: 0.18 m
          instead of geometry.yaml's 0.144 m. Its wheel odometry then reports a smaller turn than
          the robot makes. test_ekf.py checks:
-         1. Only the EKF (/diffbot/ekf_localization) publishes the transform odom → base_footprint.
+         1. Only the EKF (/diffbot/ekf_localization) publishes the transform
+            odom → base_footprint on the topic /tf.
          2. The EKF's heading follows the robot's true turn, which the EKF takes from the IMU -->
     <include file="$(find diffbot_gazebo)/test/sim_drive.launch">
         <arg name="model" value="remo"/>

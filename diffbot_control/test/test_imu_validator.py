@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test the IMU sample validator's checks (scripts/imu_validator.py) without a ROS master.
 
-catkin runs them with nose (catkin_add_nosetests in CMakeLists.txt); ekf_synthetic.test checks the
+catkin runs them with nose (catkin_add_nosetests in CMakeLists.txt). ekf_synthetic.test checks the
 validator together with the EKF. The ROS clock goes back, for example, when Gazebo's world is
 reset.
 """

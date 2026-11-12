@@ -8,7 +8,7 @@
             yaw rate in a left turn.
          4. test_imu_reset.py: the IMU publishes again right after a reset of the simulation.
          5. test_odom_tf.py: only the drive controller publishes the transform
-            odom → base_footprint -->
+            odom → base_footprint on the topic /tf -->
     <include file="$(find diffbot_gazebo)/test/sim_drive.launch">
         <arg name="model" value="diffbot"/>
         <arg name="gazebo_port" value="11351"/>
@@ -39,8 +39,9 @@
          of the new simulation time arrive right after the clock went back to zero -->
     <test test-name="imu_reset_diffbot" pkg="diffbot_gazebo" type="test_imu_reset.py" time-limit="180"/>
     <!-- test_odom_tf.py checks that exactly one node publishes the transform
-         odom → base_footprint: the node that the publisher parameter names. Two publishers of
-         one transform would make the robot's pose jump between their two values.
+         odom → base_footprint on the topic /tf: the node that the publisher parameter names.
+         Two publishers of one transform would make the robot's pose jump between their two
+         values.
          This simulation runs without the EKF, so the drive controller publishes the transform.
          In the simulation, the drive controller is not a node of its own. gazebo_ros_control
          loads the drive controller into Gazebo's process, whose node name is /gazebo. So

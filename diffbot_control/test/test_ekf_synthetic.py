@@ -2,13 +2,13 @@
 """Check the EKF of ekf.launch on synthetic inputs and a stepped clock (ekf_synthetic.test).
 
 The test feeds the EKF of ekf.launch, imu_validator.py and robot_localization, synthetic wheel
-odometry and IMU samples, and checks its estimate of the yaw rate. It publishes /clock itself
-(use_sim_time) and advances it in 20 ms steps, the period of the IMU and of the wheel odometry in
-the simulation. On the robot, the wheel odometry arrives at most 10 times per second
+odometry and IMU samples, and checks its estimate of the yaw rate. It publishes the topic /clock
+itself (use_sim_time) and advances it in 20 ms steps, the period of the IMU and of the wheel
+odometry in the simulation. On the robot, the wheel odometry arrives at most 10 times per second
 (diffbot_base's control loop runs the drive controller at 10 Hz), which this test doesn't cover.
 Each step publishes that step's inputs, stamped with the current time, waits on the wall
 clock until the IMU sample validator's output reaches the test (the EKF gets it at the same time)
-and 20 ms more, and then advances the clock, which lets the EKF's 50 Hz update process them; the
+and 20 ms more, and then advances the clock, which lets the EKF's 50 Hz update process them. The
 step ends with an EKF output for that step, waited for with a time limit. These windows don't
 prove that the EKF's callbacks ran before the clock moved, but they make it very likely, and the
 checks don't depend on it: a late input is fused one step later. Both inputs show in the
@@ -26,8 +26,8 @@ and each needs the state that the phases before it left:
    pull the estimate far up.
 6. The clock goes back, as when Gazebo's world is reset: the validator and the EKF start over
    from the new time (reset_on_time_jump), and the estimate follows the IMU again.
-7. The validator's diagnostics count each sample that the phases before sent, forwarded or
-   dropped.
+7. The validator's status on the topic /diagnostics counts each sample that the phases before
+   sent, forwarded or dropped.
 """
 
 import collections
@@ -106,9 +106,9 @@ YAW_RATE_TOLERANCE = 0.01  # rad/s
 # rad/s, for the estimate that approaches the wheels' rate after the IMU samples stop passing
 WHEEL_RATE_TOLERANCE = 0.02
 
-# The validator's status on /diagnostics contains this name; its values have these keys
-# (scripts/imu_validator.py). The texts are written out here and not imported from the script:
-# the test pins what a user reads on /diagnostics
+# The validator's status on the topic /diagnostics contains this name, and its values have these
+# keys (scripts/imu_validator.py). The texts are written out here and not imported from the
+# script: the test pins what a user reads on that topic
 VALIDATOR_STATUS_NAME = 'IMU sample validator'
 FORWARDED_KEY = 'Samples forwarded'
 DROPPED_KEY_PREFIX = 'Dropped, '
@@ -273,14 +273,14 @@ class TestEkfSynthetic(unittest.TestCase):
         return [self.step(wheel_rate, imu) for _ in range(count)]
 
     def assert_yaw_rate(self, output: Odometry, expected: float, delta: float, what: str) -> None:
-        """Assert that the output's yaw rate is expected ± delta; what describes the case."""
+        """Assert that the output's yaw rate is expected ± delta. what names the case."""
         rate = output.twist.twist.angular.z
         self.assertAlmostEqual(rate, expected, delta=delta,
                                msg='{}: estimated {:.4f} rad/s, expected {} ± {}'.format(
                                    what, rate, expected, delta))
 
     def assert_stays_at_most(self, outputs: List[Odometry], limit: float, what: str) -> None:
-        """Assert that no output's yaw rate exceeds limit; what describes the case."""
+        """Assert that no output's yaw rate exceeds limit. what names the case."""
         highest = max(message.twist.twist.angular.z for message in outputs)
         self.assertLessEqual(highest, limit,
                              '{}: the estimate went up to {:.4f} rad/s'.format(what, highest))
@@ -396,7 +396,7 @@ class TestEkfSynthetic(unittest.TestCase):
         while self.now < start + DIAGNOSTICS_WAIT:
             self.step(WHEEL_RATE)
         wait_for(lambda: self.validator_values(received) is not None,
-                 'phase 7: no status of the IMU sample validator on /diagnostics')
+                 'phase 7: no status of the IMU sample validator on the topic /diagnostics')
         values = self.validator_values(received)
         assert values is not None  # wait_for() returned
         return values

@@ -1,6 +1,8 @@
 <launch>
   <!-- Included by bringup.launch and bringup_with_laser.launch, which also start
-       robot_state_publisher. Includes diffbot_base/launch/diffbot.launch -->
+       robot_state_publisher. Includes diffbot_base/launch/diffbot.launch.
+       A figure of which launch file includes which:
+       https://ros-mobile-robots.com/packages/imu/robot_localization/#which-launch-file-starts-what -->
   <!-- Minimal launch file to bringup the robot hardware -->
   <!-- This launch file will launch the package that communicates with the encoders
        before running the ROS Controls hardware_interface control loop.

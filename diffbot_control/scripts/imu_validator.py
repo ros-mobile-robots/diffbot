@@ -1,48 +1,64 @@
 #!/usr/bin/env python3
 """Forward an IMU sample to the EKF only if its frame, values, variances and stamp are valid.
 
-The IMU sample validator checks the timing and the input contract that the EKF of
-config/ekf.yaml needs, and forwards each valid sample unchanged, with its stamp. It doesn't
-validate every field of sensor_msgs/Imu.
+The IMU sample validator is the ROS node /diffbot/imu_validator. It subscribes to the topic
+imu/data_raw and publishes each valid sample, unchanged and with its stamp, on the topic
+imu/data_validated, which the EKF of config/ekf.yaml reads. On the robot, the Teensy's firmware
+publishes imu/data_raw. In the simulation, diffbot_gazebo/scripts/imu_raw_adapter.py does.
 
-On the robot, the Teensy's firmware publishes imu/data_raw; in the simulation,
-diffbot_gazebo/scripts/imu_raw_adapter.py does. The EKF's per-input timestamp-order check does
-not enforce freshness or reject equal timestamps: robot_localization 2.7.7 on Noetic, with
-smooth_lagged_data off as here, takes a sample whose stamp isn't older than the last one on its
-topic, and fuses a sample that arrives late, or one with the same stamp as the one before, into
-its current estimate. A sample that sat in a buffer would then count as the robot's current yaw
-rate. This node forwards a sample only if
-- the ROS time is nonzero (in the simulation, a /clock message has arrived),
-- its frame is the expected one (the URDF's imu_link, which the EKF needs to turn the rate into
-  the robot's frame),
-- the three components of its angular velocity and of its linear acceleration are finite,
-- the nine values of its angular velocity covariance are finite, and the diagonal ones (indices
-  0, 4 and 8), the variances that the EKF weighs the angular velocity with, are positive,
-- its stamp is at most max_age before and at most max_future after the ROS time,
-- and its stamp is later than the stamp of the last sample it forwarded.
-It doesn't check the orientation, the linear acceleration's covariance, or whether a covariance
-matrix is positive definite. It doesn't compare a sample with the EKF's estimate either: that is
-a statistical test, robot_localization's rejection thresholds such as
-imu0_twist_rejection_threshold, which config/ekf.yaml doesn't set. robot_localization 2.7.7 reads
-that name for the IMU's angular velocity, although its parameter documentation lists
-imu0_angular_velocity_rejection_threshold. It never restamps a sample: an old sample is dropped,
-not made current.
+Why the EKF needs the validator: robot_localization 2.7.7's own stamp check for an input allows
+equal stamps and doesn't limit a sample's age. A delayed sample passes that check when its stamp
+isn't earlier than the last stamp on the same input. If the sample also passes the filter's other
+input checks, the filter corrects its current estimate with the sample. With smooth_lagged_data
+off, as here, the filter doesn't go back to the sample's time. A sample that waited in a buffer
+would then count as the robot's yaw rate now.
 
-When the ROS clock goes back (Gazebo's world was reset, or the computer's clock was corrected),
-the order check starts over from the new time: otherwise every sample would count as out of order
+Before the checks: while the ROS time is zero, the node drops every sample, because it can't
+judge a stamp without a clock. In the simulation, the ROS time is zero until the first message
+on the topic /clock arrives.
+
+The checks: a sample is valid, and the node forwards it, only if it passes all five of them.
+1. Its frame is the expected one, the URDF's imu_link. The EKF needs the frame to turn the yaw
+   rate into the robot's frame.
+2. The three components of its angular velocity and of its linear acceleration are finite.
+3. The nine values of its angular velocity covariance are finite, and the diagonal ones (indices
+   0, 4 and 8) are positive. They are the variances that the EKF weighs the angular velocity
+   with.
+4. Its stamp fits the ROS time, the node's clock when the sample arrives:
+   - The stamp is not more than max_age older than the ROS time. A sample takes time to travel
+     from the Teensy over USB and through rosserial's node, so its stamp is normally a little
+     older. A sample that waited long in a buffer on the way is older than max_age.
+   - The stamp is not more than max_future ahead of the ROS time. The Teensy stamps a sample
+     with its own clock, which rosserial's time sync keeps only approximately in step with the
+     SBC's. The remaining offset between the two clocks can put a stamp ahead. In the
+     simulation, a sample can arrive before the node has received the matching message on the
+     topic /clock.
+5. Its stamp is later than the stamp of the last valid sample.
+
+What the validator doesn't do:
+- It doesn't check the orientation, the linear acceleration's covariance, or whether a covariance
+  matrix is positive definite. So it doesn't validate every field of sensor_msgs/Imu.
+- It doesn't judge whether a value is plausible. It looks at a sample's form and its time only:
+  a yaw rate of 100 rad/s with a fresh stamp is valid. Comparing a measurement with what the
+  filter predicts is a test inside robot_localization, which a rejection threshold per input
+  switches on. config/ekf.yaml sets no threshold, so that test is off. The docs explain the
+  test and why it is off:
+  https://ros-mobile-robots.com/packages/imu/robot_localization/#what-the-validator-doesnt-check
+- It never gives a sample a new stamp: an old sample is dropped, not made current.
+
+When the ROS clock goes back (Gazebo's world was reset, or the SBC's clock was corrected), the
+order check starts over from the new time. Otherwise every sample would count as out of order
 until the clock reaches the old time again.
 
-Its counts of forwarded and dropped samples, by reason, are on /diagnostics (rqt_robot_monitor
-shows them), apart from the EKF's own diagnostics.
+The node publishes its counts of forwarded and dropped samples, by reason, on the topic
+/diagnostics, next to the EKF's own status there. rqt_robot_monitor shows them.
 
 Parameters (private):
 - frame_id: the frame the samples must have, default imu_link
 - max_age: s, default 0.1, five samples at 50 Hz. An initial policy value, not a standard IMU
   limit, until the latency of the robot's USB serial link and of rosserial's node is measured
-- max_future: s, default 0.02, one sample. Also an initial policy value awaiting latency
-  measurements: the Teensy's clock follows the computer's through rosserial's time sync, which
-  can be off by a few milliseconds; in the simulation, a node's clock lags Gazebo's sensors by up
-  to one /clock message
+- max_future: s, default 0.02, one sample. Also an initial policy value that waits for those
+  latency measurements
 """
 
 import collections
@@ -67,7 +83,7 @@ INPUT_TOPIC = 'imu/data_raw'
 OUTPUT_TOPIC = 'imu/data_validated'
 QUEUE_SIZE = 10  # messages, 0.2 s at the IMU's 50 Hz
 
-# The parameters' defaults; the module's docstring explains them
+# The parameters' defaults. The module's docstring explains them
 DEFAULT_FRAME_ID = 'imu_link'
 DEFAULT_MAX_AGE = 0.1  # s
 DEFAULT_MAX_FUTURE = 0.02  # s
@@ -88,7 +104,10 @@ WARNING_PERIOD = 5.0  # s, at most one warning about a dropped sample in this ti
 
 @enum.unique
 class DropReason(enum.Enum):
-    """Why the validator drops a sample. The values are the texts in the log and diagnostics."""
+    """Why the validator drops a sample.
+
+    The values are the texts in the log and on the topic /diagnostics.
+    """
 
     NO_CLOCK = 'no ROS clock'
     WRONG_FRAME = 'wrong frame'
@@ -199,7 +218,7 @@ class ImuValidator:
         self.last_valid_at: Optional[rospy.Time] = None
         # The latest ROS time that observe_time() recorded
         self.last_observed_time: Optional[rospy.Time] = None
-        # In this order; the first check that fails gives the reason
+        # In this order. The first check that fails gives the reason
         self.sample_checks: Tuple[SampleCheck, ...] = (
             self.check_frame,
             self.check_finite_values,

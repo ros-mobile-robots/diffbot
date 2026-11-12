@@ -1,4 +1,7 @@
 <launch>
+    <!-- The launch file to start on the robot. Includes minimal.launch and starts
+         robot_state_publisher. A figure of which launch file includes which:
+         https://ros-mobile-robots.com/packages/imu/robot_localization/#which-launch-file-starts-what -->
     <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
     <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
     <arg name="ekf" default="false" doc="fuse the IMU's yaw rate with the wheel odometry in an EKF (diffbot_control/launch/ekf.launch)"/>

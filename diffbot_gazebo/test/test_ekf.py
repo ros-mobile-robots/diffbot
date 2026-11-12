@@ -10,8 +10,9 @@ for the slip and calibration errors of a real robot's wheels. The IMU measures t
 so the EKF's heading has to stay with the true one (from Gazebo, /gazebo/model_states), while the
 odometry's falls behind.
 
-The same simulation also checks that only the EKF publishes odom → base_footprint
-(odom_tf_observer.py) and that the IMU sample validator forwards the simulated IMU at its rate.
+The same simulation also checks that only the EKF publishes the transform odom → base_footprint
+on the topic /tf (odom_tf_observer.py) and that the IMU sample validator forwards the simulated
+IMU at its rate.
 The rostest file names the robot in the private parameter ~model.
 """
 

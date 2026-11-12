@@ -1,4 +1,8 @@
 <launch>
+    <!-- The launch file to start on a robot with the lidar. Includes minimal.launch and
+         rplidar.launch and starts robot_state_publisher. A figure of which launch file includes
+         which:
+         https://ros-mobile-robots.com/packages/imu/robot_localization/#which-launch-file-starts-what -->
     <arg name="laser_frame_id" default="rplidar_laser_link" />
     <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
     <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>

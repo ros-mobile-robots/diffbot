@@ -6,7 +6,8 @@ looks at the nodes, parameters and remappings it would start.
 
 - On the robot (diffbot_bringup) and in the simulation (diffbot_gazebo), ekf:=true starts the IMU
   sample validator and the EKF in /diffbot, with ekf.yaml's parameters, and sets the drive
-  controller's enable_odom_tf to false, so that only the EKF publishes odom → base_footprint.
+  controller's enable_odom_tf to false, so that only the EKF publishes the transform
+  odom → base_footprint on the topic /tf.
   ekf:=false, the default, starts neither and leaves the controller's transform on.
 - The launch files to start with ekf:=true also start robot_state_publisher. The EKF needs its
   transform imu_link → base_footprint and drops every IMU sample without it.

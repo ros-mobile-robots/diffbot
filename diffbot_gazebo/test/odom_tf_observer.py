@@ -1,4 +1,4 @@
-"""Observe which nodes publish the transform odom → base_footprint on /tf.
+"""Observe which nodes publish the transform odom → base_footprint on the topic /tf.
 
 A helper for test_odom_tf.py and test_ekf.py, which check that exactly one node publishes this
 transform. Two publishers of the same transform would make the robot's pose jump between their

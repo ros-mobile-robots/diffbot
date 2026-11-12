@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Check that exactly one node publishes the transform odom → base_footprint.
+"""Check that exactly one node publishes the transform odom → base_footprint on the topic /tf.
 
 The expected node is the one that the rostest file names in the private parameter ~publisher.
-Without the EKF that is the drive controller, which runs inside Gazebo (/gazebo); with the EKF
+Without the EKF that is the drive controller, which runs inside Gazebo (/gazebo). With the EKF
 (ekf:=true), the EKF (/diffbot/ekf_localization), and the controller doesn't publish it. Two
 publishers of the same transform would make the robot's pose jump between their two estimates.
 
