@@ -29,6 +29,10 @@ constexpr uint8_t ADDRESS_NOT_ACKNOWLEDGED = 2;
 // The first byte that FakeWire delivers to a read. Each further byte is one higher
 constexpr uint8_t FIRST_DELIVERED_BYTE = 0x10;
 
+// The length of the reads that get all their bytes: three bytes have a first, a middle and a
+// last one
+constexpr size_t READ_LENGTH_BYTES = 3;
+
 // The calls of Arduino's TwoWire that WireBusT makes, with results a test can choose
 class FakeWire
 {
@@ -95,13 +99,13 @@ TEST_F(WireBusTest, WriteRegisterFailsWhenTheAddressIsNotAcknowledged)
 
 TEST_F(WireBusTest, ReadRegistersUsesARepeatedStart)
 {
-    std::array<uint8_t, 3> data{};
+    std::array<uint8_t, READ_LENGTH_BYTES> data{};
 
     EXPECT_TRUE(bus_.readRegisters(DEVICE_ADDRESS, READ_REGISTER, data.data(), data.size()));
 
     EXPECT_FALSE(wire_.stop_after_write) << "the register write ended with a stop";
     EXPECT_EQ(wire_.sent, (std::vector<uint8_t>{READ_REGISTER}));
-    const std::array<uint8_t, 3> delivered_bytes{
+    const std::array<uint8_t, READ_LENGTH_BYTES> delivered_bytes{
         FIRST_DELIVERED_BYTE, FIRST_DELIVERED_BYTE + 1, FIRST_DELIVERED_BYTE + 2};
     EXPECT_EQ(data, delivered_bytes);
 }
@@ -109,18 +113,18 @@ TEST_F(WireBusTest, ReadRegistersUsesARepeatedStart)
 TEST_F(WireBusTest, ReadRegistersFailsWhenTheRegisterWriteFails)
 {
     wire_.end_result = ADDRESS_NOT_ACKNOWLEDGED;
-    std::array<uint8_t, 3> data{};
+    std::array<uint8_t, READ_LENGTH_BYTES> data{};
 
     EXPECT_FALSE(bus_.readRegisters(DEVICE_ADDRESS, READ_REGISTER, data.data(), data.size()));
 }
 
 // The length of the short reads' requests: the 18 data bytes of a BNO055 sample
-constexpr int SAMPLE_LENGTH = 18;
+constexpr int SAMPLE_LENGTH_BYTES = 18;
 // A count that the Teensy 4's Wire can report after a failed bus acquisition, with or without
 // data
 constexpr int COUNT_AFTER_FAILED_BUS_ACQUISITION = 4;
 
-// One way in which a read comes back short of the requested SAMPLE_LENGTH bytes
+// One way in which a read comes back short of the requested SAMPLE_LENGTH_BYTES
 struct ShortRead
 {
     const char* name;     ///< The case's name in the test's output
@@ -147,7 +151,7 @@ TEST_P(WireBusShortReadTest, ReadRegistersFailsAndDrainsTheBytes)
     const ShortRead& short_read = GetParam();
     wire_.reported_count = short_read.reported_count;
     wire_.delivered_count = short_read.delivered_count;
-    std::array<uint8_t, SAMPLE_LENGTH> data{};
+    std::array<uint8_t, SAMPLE_LENGTH_BYTES> data{};
 
     EXPECT_FALSE(bus_.readRegisters(DEVICE_ADDRESS, READ_REGISTER, data.data(), data.size()));
 
@@ -157,11 +161,12 @@ TEST_P(WireBusShortReadTest, ReadRegistersFailsAndDrainsTheBytes)
 INSTANTIATE_TEST_SUITE_P(
     ShortReads, WireBusShortReadTest,
     ::testing::Values(
-        ShortRead{"ReportedShortAllBytesThere", COUNT_AFTER_FAILED_BUS_ACQUISITION, SAMPLE_LENGTH},
+        ShortRead{"ReportedShortAllBytesThere", COUNT_AFTER_FAILED_BUS_ACQUISITION,
+                  SAMPLE_LENGTH_BYTES},
         ShortRead{"BothShort", COUNT_AFTER_FAILED_BUS_ACQUISITION,
                   COUNT_AFTER_FAILED_BUS_ACQUISITION},
-        ShortRead{"ReportedInFullOneByteMissing", SAMPLE_LENGTH, SAMPLE_LENGTH - 1},
-        ShortRead{"ReportedOneShortAllBytesThere", SAMPLE_LENGTH - 1, SAMPLE_LENGTH}),
+        ShortRead{"ReportedInFullOneByteMissing", SAMPLE_LENGTH_BYTES, SAMPLE_LENGTH_BYTES - 1},
+        ShortRead{"ReportedOneShortAllBytesThere", SAMPLE_LENGTH_BYTES - 1, SAMPLE_LENGTH_BYTES}),
     [](const ::testing::TestParamInfo<ShortRead>& info) { return std::string(info.param.name); });
 
 // GoogleTest registers every test above by itself, so main() lists none of them. main() returns
