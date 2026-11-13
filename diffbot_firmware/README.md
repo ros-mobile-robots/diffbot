@@ -6,7 +6,7 @@ The firmware for the robots' Teensy microcontroller: it reads the wheel encoders
 |:--|:--|
 | [`src`](src) | `main.cpp`: the control loop |
 | [`lib`](lib) | The wheel control, command timeout, base controller, encoders, motor driver, IMU, PID, configuration, and the rosserial message headers in `ros_lib` |
-| [`test`](test) | Unit tests that run on the PC (`test_*`, with fakes for the hardware in `fakes`), and checks that run on the Teensy |
+| [`test`](test) | Unit tests that run on the PC: Unity suites in `test_*`, GoogleTest suites in `googletest/test_*`, and fakes for the hardware in `fakes`. Also checks that run on the Teensy |
 | [`sketches`](sketches) | Older Arduino sketches: the encoders alone over rosserial, the same with the BNO055 IMU, and a check of the encoders by hand |
 
 Build the firmware for your robot's Teensy in the firmware's container, [`.docker/firmware`](../.docker/firmware). It needs only Docker. Our script [`.docker/firmware/run.sh`](../.docker/firmware/run.sh) builds the image and runs a command in the container as your user, here PlatformIO's `pio`. From the repository's root folder, run the line for your robot:
@@ -16,7 +16,16 @@ Build the firmware for your robot's Teensy in the firmware's container, [`.docke
 .docker/firmware/run.sh pio run -e teensy31   # DiffBot: Teensy 3.2
 ```
 
-When you change the firmware, build both and run the unit tests, `.docker/firmware/run.sh pio test -e native`, as CI does, because the change has to work on both boards.
+When you change the firmware, build both and run the unit tests, `.docker/firmware/run.sh pio test -e native -e native_googletest`, as CI does, because the change has to work on both boards.
+
+The unit tests use two frameworks, and [`platformio.ini`](platformio.ini) has an environment for each:
+
+| Framework | Suites | Environment | Used for |
+|:--|:--|:--|:--|
+| [Unity](https://github.com/ThrowTheSwitch/Unity), which can also run on a Teensy | [`test/test_*`](test) | `native` | The tests of the rosserial code, and the suites of the core that are still written for Unity |
+| [GoogleTest](https://google.github.io/googletest/), which PlatformIO offers for the PC and not for a Teensy | [`test/googletest/test_*`](test/googletest) | `native_googletest` | New tests of the core. A Unity suite of the core moves here when its code changes |
+
+[`test/googletest/test_wire_bus`](test/googletest/test_wire_bus/test_wire_bus.cpp) shows the pattern for a GoogleTest suite: a fixture for what the tests share, and a parameterized test for a test that runs with several values. [Firmware unit tests](https://ros-mobile-robots.com/development/ci/#firmware-unit-tests) on ros-mobile-robots.com explains both frameworks and how to write a test.
 
 The firmware files land in `.pio/build/<board>/` in this folder, for example `firmware.hex`, which PJRC's [Teensy Loader](https://www.pjrc.com/teensy/loader.html) can flash. With PlatformIO installed on your PC ([CONTRIBUTING](../CONTRIBUTING.md)), `pio run -e teensy40` or `pio run -e teensy31` in this folder builds it too.
 

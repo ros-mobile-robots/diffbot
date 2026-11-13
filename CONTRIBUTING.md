@@ -38,7 +38,7 @@ The Teensy firmware builds with [PlatformIO](https://platformio.org/), which isn
 ```bash
 .docker/firmware/run.sh pio run -e teensy31
 .docker/firmware/run.sh pio run -e teensy40
-.docker/firmware/run.sh pio test -e native   # the unit tests that run on the PC
+.docker/firmware/run.sh pio test -e native -e native_googletest   # the unit tests that run on the PC
 ```
 
 The script builds the image first. Later image builds took about 2 seconds on our test PC, because Docker reuses the cached image layers whose inputs haven't changed. They only show their output when they fail. The script runs the container as your user (`id -u` and `id -g`), so the files it writes belong to you. To use other IDs, set `LOCAL_UID` and `LOCAL_GID`, for example `LOCAL_UID=1001 LOCAL_GID=1001 .docker/firmware/run.sh pio run -e teensy40`. The first firmware build downloads the Teensy toolchain, which needs the internet and took about a minute on our test PC. The firmware files land in `diffbot_firmware/.pio/build/<board>/`, for example `firmware.hex`, which PJRC's [Teensy Loader](https://www.pjrc.com/teensy/loader.html) can flash. Don't build in the container and on the PC at the same time: both write to that `.pio` folder. CI builds and tests the same way.
@@ -49,7 +49,7 @@ Or install PlatformIO on your PC, outside the dev container, with its [installer
 python3 -m venv ~/.venvs/platformio && ~/.venvs/platformio/bin/pip install platformio   # once
 cd diffbot_firmware
 ~/.venvs/platformio/bin/pio run -e teensy31 && ~/.venvs/platformio/bin/pio run -e teensy40
-~/.venvs/platformio/bin/pio test -e native   # the unit tests that run on the PC; they need gcc
+~/.venvs/platformio/bin/pio test -e native -e native_googletest   # the unit tests that run on the PC, which need gcc
 ```
 
 CI runs on every pull request: [industrial_ci](https://github.com/ros-industrial/industrial_ci) builds and tests the workspace for Noetic, the firmware is built for both boards and its unit tests run, and the dev container image is built.
