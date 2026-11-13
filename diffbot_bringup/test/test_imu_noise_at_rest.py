@@ -50,7 +50,7 @@ class TestAxisStatistics(unittest.TestCase):
         values = [0.0, GYROSCOPE_STEP, GYROSCOPE_STEP, 0.0, -GYROSCOPE_STEP]
         self.assertEqual(axis_statistics(values).distinct_value_count, 3)
 
-    def test_axis_statistics_gives_no_variance_without_noise(self) -> None:
+    def test_axis_statistics_gives_a_variance_of_zero_without_noise(self) -> None:
         self.assertEqual(axis_statistics([GYROSCOPE_STEP] * 5).variance, 0.0)
 
     def test_axis_statistics_fails_with_fewer_than_two_values(self) -> None:
@@ -86,7 +86,7 @@ class TestStampStatistics(unittest.TestCase):
         self.assertAlmostEqual(stamps.shortest_gap, 0.02)
         self.assertAlmostEqual(stamps.longest_gap, 0.035)
 
-    def test_stamp_statistics_counts_the_gaps_longer_than_30_ms(self) -> None:
+    def test_stamp_statistics_counts_the_gaps_longer_than_long_gap(self) -> None:
         self.assertEqual(stamp_statistics(self.STAMPS).long_gap_count, 1)
         self.assertEqual(stamp_statistics([10.0, 10.025, 10.05]).long_gap_count, 0)
 
