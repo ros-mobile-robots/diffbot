@@ -217,13 +217,13 @@ def format_vector_table(field: ImuField, axes: VectorStatistics) -> List[str]:
     return format_table([header, units] + axis_rows)
 
 
-def print_report(topic: str, imu: ImuStatistics) -> None:
-    """Print the stamps, a table for the angular velocity and the acceleration, then gravity."""
+def format_report(topic: str, imu: ImuStatistics) -> List[str]:
+    """Return the report's lines: the stamps, a table for each vector field, then gravity."""
     lines = format_stamps(topic, imu.stamps)
     lines += [''] + format_vector_table(ANGULAR_VELOCITY, imu.angular_velocity)
     lines += [''] + format_vector_table(LINEAR_ACCELERATION, imu.linear_acceleration)
     lines += ['', f'Gravity, the length of the mean acceleration: {imu.gravity:.3f} m/s^2']
-    print('\n'.join(lines))
+    return lines
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -243,7 +243,7 @@ def main() -> None:
     if len(samples) < 2:
         sys.exit(f'{arguments.bag} has {len(samples)} messages on {arguments.topic}, '
                  'the statistics need at least two')
-    print_report(arguments.topic, imu_statistics(samples))
+    print('\n'.join(format_report(arguments.topic, imu_statistics(samples))))
 
 
 if __name__ == '__main__':

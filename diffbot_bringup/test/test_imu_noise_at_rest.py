@@ -14,12 +14,17 @@ import unittest
 # The tool is a script, not a Python package, so its folder has to be on the module search path
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'scripts'))
 from imu_noise_at_rest import axis_statistics  # noqa: E402
+from imu_noise_at_rest import AxisStatistics  # noqa: E402
+from imu_noise_at_rest import format_report  # noqa: E402
 from imu_noise_at_rest import format_table  # noqa: E402
 from imu_noise_at_rest import imu_statistics  # noqa: E402
 from imu_noise_at_rest import ImuSample  # noqa: E402
+from imu_noise_at_rest import ImuStatistics  # noqa: E402
 from imu_noise_at_rest import stamp_statistics  # noqa: E402
+from imu_noise_at_rest import StampStatistics  # noqa: E402
 from imu_noise_at_rest import Vector  # noqa: E402
 from imu_noise_at_rest import vector_statistics  # noqa: E402
+from imu_noise_at_rest import VectorStatistics  # noqa: E402
 
 # The BNO055's output step of the angular velocity in rad/s: 900 LSB per rad/s
 GYROSCOPE_STEP = 1 / 900  # rad/s
@@ -115,6 +120,41 @@ class TestFormatTable(unittest.TestCase):
     def test_format_table_aligns_the_first_column_left_and_the_others_right(self) -> None:
         lines = format_table([['axis', 'mean'], ['x', '+0.5'], ['yy', '-12.25']])
         self.assertEqual(lines, ['axis    mean', 'x       +0.5', 'yy    -12.25'])
+
+
+class TestFormatReport(unittest.TestCase):
+    """format_report() gives the report that the tool prints, line by line."""
+
+    def test_format_report_gives_the_stamps_a_table_for_each_vector_field_and_gravity(
+            self) -> None:
+        # The same statistics on all three axes of a field, so the test shows the layout
+        rotation_axis = AxisStatistics(mean=0.002, variance=1e-06, distinct_value_count=3)
+        acceleration_axis = AxisStatistics(mean=-1.0, variance=0.25, distinct_value_count=12)
+        imu = ImuStatistics(
+            stamps=StampStatistics(message_count=501, duration=10.0, rate=50.0,
+                                   shortest_gap=0.019, longest_gap=0.031, long_gap_count=2),
+            angular_velocity=VectorStatistics(rotation_axis, rotation_axis, rotation_axis),
+            linear_acceleration=VectorStatistics(acceleration_axis, acceleration_axis,
+                                                 acceleration_axis),
+            gravity=9.81)
+        self.assertEqual(format_report('/imu', imu), [
+            '/imu: 501 messages in 10.0 s, 50.00 Hz',
+            'Gaps between the stamps: shortest 19.0 ms, longest 31.0 ms, 2 longer than 30 ms',
+            '',
+            'angular_velocity  mean (bias)     variance  std dev  distinct',
+            '                      [rad/s]  [(rad/s)^2]  [rad/s]    values',
+            'x                    +0.00200    1.000e-06  0.00100         3',
+            'y                    +0.00200    1.000e-06  0.00100         3',
+            'z                    +0.00200    1.000e-06  0.00100         3',
+            '',
+            'linear_acceleration  mean (gravity + bias)     variance  std dev  distinct',
+            '                                   [m/s^2]  [(m/s^2)^2]  [m/s^2]    values',
+            'x                                 -1.00000    2.500e-01  0.50000        12',
+            'y                                 -1.00000    2.500e-01  0.50000        12',
+            'z                                 -1.00000    2.500e-01  0.50000        12',
+            '',
+            'Gravity, the length of the mean acceleration: 9.810 m/s^2',
+        ])
 
 
 if __name__ == '__main__':
