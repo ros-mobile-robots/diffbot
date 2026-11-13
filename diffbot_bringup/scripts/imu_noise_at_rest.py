@@ -34,9 +34,10 @@ from typing import Sequence
 import rosbag
 
 DEFAULT_TOPIC = '/diffbot/imu/data_raw'
-# The firmware publishes every 20 ms (50 Hz), so a gap of more than one and a half periods means
-# that a message is missing or late
-LONG_GAP = 0.030  # s
+# The firmware publishes every 20 ms (50 Hz)
+IMU_PERIOD = 0.020  # s
+# A gap of more than one and a half periods means that a message is missing or late
+LONG_GAP = 1.5 * IMU_PERIOD  # s
 
 
 class Vector(NamedTuple):
