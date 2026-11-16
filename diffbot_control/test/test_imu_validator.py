@@ -49,10 +49,10 @@ OFF_DIAGONAL_INDEX = 1  # x-y
 
 def make_imu_sample(stamp: rospy.Time = NOW, frame_id: str = FRAME,
                     yaw_rate: float = YAW_RATE) -> Imu:
-    """Return an IMU sample like the firmware's, valid at NOW for a validator without history.
+    """Return an IMU sample like the firmware's, with defaults valid at NOW for a new validator.
 
-    A test passes stamp, frame_id or yaw_rate, or changes a field of the returned message, to make
-    one property of the sample invalid.
+    Tests override stamp, frame_id or yaw_rate, or change a field of the returned message, to
+    build valid and invalid samples.
     """
     message = Imu()
     message.header.stamp = stamp
