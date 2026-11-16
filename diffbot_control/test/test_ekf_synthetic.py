@@ -537,8 +537,7 @@ class TestEkfAtTheRobotRates(SteppedClockTestCase):
        in every fifth step. The filter publishes in every step, and the estimate follows the
        IMU, with the wheels' forward speed also between two wheel messages.
     2. The IMU stops, the wheel odometry goes on in every fifth step. The filter publishes one
-       output per wheel message, stamped with the message's time, and nothing between two wheel
-       messages. The estimate goes to the wheels' 0.4 rad/s.
+       output per wheel period, and the estimate goes to the wheels' 0.4 rad/s.
     """
 
     def test_ekf_follows_the_imu_at_the_robot_rates_and_the_wheels_after_the_imu_stops(
@@ -547,7 +546,7 @@ class TestEkfAtTheRobotRates(SteppedClockTestCase):
         self.check_ekf_publishes_at_the_wheel_rate_and_follows_the_wheels_when_the_imu_stops()
 
     def check_estimate_follows_the_imu_with_wheel_odometry_every_fifth_step(self) -> None:
-        """Phase 1: as phase 1 of invalid_imu_samples, with the wheel odometry every fifth step."""
+        """Check phase 1: phase 1 of invalid_imu_samples, with wheel odometry every fifth step."""
         # The last of the FUSION_STEPS steps is the fourth after a wheel message, so the checks
         # of the forward speed and the yaw rate look at an output between two wheel messages
         outputs = self.run_steps_at_the_robot_rates(FUSION_STEPS, [VALID_SAMPLE])
@@ -556,25 +555,32 @@ class TestEkfAtTheRobotRates(SteppedClockTestCase):
 
     def check_ekf_publishes_at_the_wheel_rate_and_follows_the_wheels_when_the_imu_stops(
             self) -> None:
-        """Phase 2: no IMU samples, the wheel odometry every fifth step.
+        """Check phase 2: the filter's outputs and estimate after the IMU stops.
 
-        Between two wheel messages, the filter has no measurement to fuse. It predicts without
-        one only when the ROS time is sensor_timeout (ekf.yaml, 0.1 s) past its last
-        measurement, and that is the wheel odometry's period. So the filter publishes nothing
-        between two wheel messages. Its output at a wheel message's time is that prediction,
-        published before the filter fused the message, or the fused message. The filter
-        publishes no second output with the same stamp.
+        Without the IMU, the filter has a measurement to fuse only when a wheel message arrives.
+        Without one, the filter predicts only when the ROS time is sensor_timeout (ekf.yaml,
+        0.1 s) past its last measurement, and that is the wheel odometry's period. The filter
+        publishes no second output with the same stamp. So it publishes one output per wheel
+        period. When the wheel message reaches the filter before the update that follows the
+        message's stamp, the output is stamped with the message's time: the prediction to that
+        time, published before the filter fused the message, or the fused message. A message
+        that arrives later leaves that update to predict and to publish with its own time,
+        STEP after the message's stamp. So the check allows any stamp within the period.
         """
         output_count_before = self.ekf_outputs.count()
         wheel_stamps = self.run_wheel_periods_without_imu(IMU_STOPPED_WHEEL_MESSAGES)
         outputs = self.ekf_outputs.since(output_count_before)
-        print('IMU stopped: {} outputs for {} wheel messages, estimate from {:.4f} to {:.4f} '
-              'rad/s, forward {:.4f} m/s'.format(
-                  len(outputs), len(wheel_stamps), outputs[0].twist.twist.angular.z,
-                  outputs[-1].twist.twist.angular.z, outputs[-1].twist.twist.linear.x))
-        self.assertEqual([stamp_key(message.header.stamp) for message in outputs],
-                         [stamp_key(stamp) for stamp in wheel_stamps],
-                         'phase 2: one EKF output per wheel message, stamped with its time')
+        stamped_at_a_wheel_message = [message for message in outputs
+                                      if message.header.stamp in wheel_stamps]
+        print('IMU stopped: {} outputs for {} wheel messages, {} of them stamped at a wheel '
+              'message, estimate from {:.4f} to {:.4f} rad/s, forward {:.4f} m/s'.format(
+                  len(outputs), len(wheel_stamps), len(stamped_at_a_wheel_message),
+                  outputs[0].twist.twist.angular.z, outputs[-1].twist.twist.angular.z,
+                  outputs[-1].twist.twist.linear.x))
+        self.assertEqual([wheel_period_index(message.header.stamp, wheel_stamps)
+                          for message in outputs],
+                         list(range(len(wheel_stamps))),
+                         'phase 2: one EKF output per wheel period, in the order of the periods')
         self.assert_forward_speed(outputs[-1], 'phase 2')
         self.assert_yaw_rate(outputs[-1], WHEEL_RATE, WHEEL_RATE_TOLERANCE,
                              'phase 2: without IMU samples, the estimate follows the wheels')
@@ -594,7 +600,7 @@ class TestEkfAtTheRobotRates(SteppedClockTestCase):
         """Publish count wheel messages, one every fifth step, and return their stamps.
 
         No step publishes IMU samples. A step with a wheel message waits until the EKF published
-        an output stamped at the message's time. Between two wheel messages, the
+        an output stamped at the message's time or later. Between two wheel messages, the
         STEPS_PER_WHEEL_MESSAGE - 1 steps publish nothing and allow no output. The last step
         publishes the last wheel message.
         """
@@ -605,17 +611,27 @@ class TestEkfAtTheRobotRates(SteppedClockTestCase):
                 for _ in range(STEPS_PER_WHEEL_MESSAGE - 1):
                     self.step_allowing_no_output(None)
             wheel_stamps.append(self.advance(WHEEL_RATE, ()).stamp)
-            self.wait_for_output_stamped(wheel_stamps[-1], output_count_before)
+            self.wait_for_output_from(wheel_stamps[-1], output_count_before)
         return wheel_stamps
 
-    def wait_for_output_stamped(self, stamp: rospy.Time, output_count_before: int) -> None:
-        """Wait on the wall clock for an EKF output stamped at stamp.
+    def wait_for_output_from(self, stamp: rospy.Time, output_count_before: int) -> None:
+        """Wait on the wall clock for an EKF output stamped at stamp or later.
 
-        Look at the outputs after the first output_count_before.
+        Look at the outputs after the first output_count_before. The output stamped at a wheel
+        message's time can arrive before the step that publishes the message, as the prediction
+        at the clock's step to that time.
         """
-        wait_for(lambda: any(message.header.stamp == stamp
+        wait_for(lambda: any(message.header.stamp >= stamp
                              for message in self.ekf_outputs.since(output_count_before)),
-                 'no EKF output stamped at the wheel message at {:.2f} s'.format(stamp.to_sec()))
+                 'no EKF output from the wheel message at {:.2f} s on'.format(stamp.to_sec()))
+
+
+def wheel_period_index(stamp: rospy.Time, wheel_stamps: Sequence[rospy.Time]) -> int:
+    """Return the index of the wheel period that stamp lies in, -1 before the first.
+
+    A wheel period starts at a wheel message's stamp and ends at the next one's.
+    """
+    return sum(1 for wheel_stamp in wheel_stamps if wheel_stamp <= stamp) - 1
 
 
 # The scenarios, by the name that a .test file gives the test node with --scenario
