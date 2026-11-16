@@ -1,0 +1,12 @@
+<launch>
+    <!-- For the stepped-clock tests of test_ekf_synthetic.py: the EKF of ekf.launch
+         (imu_validator.py and robot_localization), which the test feeds, on the simulated clock
+         that the test publishes. DiffBot's URDF gives the IMU's frame: its robot_state_publisher
+         publishes the fixed joints, imu_joint among them, as on the robot.
+         Included by ekf_synthetic.test and ekf_synthetic_robot_rates.test -->
+    <param name="use_sim_time" value="true"/>
+    <param name="diffbot/robot_description"
+           command="$(find xacro)/xacro '$(find diffbot_description)/urdf/diffbot.urdf.xacro'"/>
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" ns="diffbot"/>
+    <include file="$(find diffbot_control)/launch/ekf.launch"/>
+</launch>

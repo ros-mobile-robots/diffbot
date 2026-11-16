@@ -1,32 +1,25 @@
 #!/usr/bin/env python3
-"""Check the EKF of ekf.launch on synthetic inputs and a stepped clock (ekf_synthetic.test).
+"""Check the EKF of ekf.launch on synthetic inputs and a stepped clock (ekf_synthetic.launch).
 
 The test feeds the EKF of ekf.launch, imu_validator.py and robot_localization, synthetic wheel
 odometry and IMU samples, and checks its estimate of the yaw rate. It publishes the topic /clock
-itself (use_sim_time) and advances it in 20 ms steps, the period of the IMU and of the wheel
-odometry in the simulation. On the robot, the wheel odometry arrives at most 10 times per second
-(diffbot_base's control loop runs the drive controller at 10 Hz), which this test doesn't cover.
-The docstring of step() lists what one step does. A step's waits don't prove that the EKF's
-callbacks ran before the clock moved, but they make it very likely, and the checks don't depend
-on it: a late input is fused one step later. Both inputs show in the
-estimate: the forward speed comes only from the wheels, the yaw rate mostly from the IMU.
+itself (use_sim_time) and advances it in 20 ms steps, the period of the IMU. The docstring of
+step() lists what one step does. A step's waits don't prove that the EKF's callbacks ran before
+the clock moved, but they make it very likely, and the checks don't depend on it: a late input
+is fused one step later. Both inputs show in the estimate: the forward speed comes only from the
+wheels, the yaw rate mostly from the IMU.
 
-The test is one scenario on one filter, from the filter's start. Its phases run in this order,
-and each needs the state that the phases before it left:
-1. Fusion: the wheels report 0.4 rad/s, as with a wheel separation that is too large, the IMU
-   0.5 rad/s with a much smaller variance. The estimate follows the IMU.
-2. IMU samples 0.5 s old, reporting 2.0 rad/s, while the wheels go on: the validator drops them,
-   and the estimate goes to the wheels' 0.4 rad/s, as when the IMU stops.
-3. to 5. Valid samples again, each followed by one reporting 2.0 rad/s that has the same stamp
-   (3), a stamp 0.5 s in the future (4), or a stamp older than the valid one (5). The validator
-   drops those, and the estimate stays at the valid samples' 0.5 rad/s. A forwarded one would
-   pull the estimate far up.
-6. The clock goes back, as when Gazebo's world is reset: the validator and the EKF start over
-   from the new time (reset_on_time_jump), and the estimate follows the IMU again.
-7. The validator's status on the topic /diagnostics counts each sample that the phases before
-   sent, forwarded or dropped.
+The file has two scenarios. Each is one test on one filter, from the filter's start, and its
+class's docstring lists its phases. A .test file runs one scenario, which the test node's
+argument --scenario names (SCENARIOS), so that each scenario starts with a fresh EKF:
+1. invalid_imu_samples (ekf_synthetic.test): both inputs in every step, at 50 Hz as in the
+   simulation, IMU samples that the validator has to drop, and a clock that goes back.
+2. robot_rates (ekf_synthetic_robot_rates.test): the IMU in every step and the wheel odometry
+   in every fifth step, at 10 Hz as on the robot, where diffbot_base's control loop runs the
+   drive controller at 10 Hz. Then the IMU stops.
 """
 
+import argparse
 import collections
 import threading
 import time
@@ -39,6 +32,7 @@ from typing import NamedTuple
 from typing import Optional
 from typing import Sequence
 from typing import Tuple
+from typing import Type
 from typing import TypeVar
 import unittest
 
@@ -70,10 +64,17 @@ TF_DELIVERY = 1.0  # s of wall time for the EKF's own TF listener to get the lat
 RESET_DELIVERY = 0.5  # s of wall time for the clock's jump back to reach the nodes
 RESET_STEPS = 5  # steps within which the EKF publishes again after the clock went back
 
+# The robot's wheel odometry period: diffbot_base's control loop runs the drive controller at
+# 10 Hz, which publishes at most once per run. The IMU's period on the robot is STEP
+ROBOT_WHEEL_ODOMETRY_PERIOD = rospy.Duration(0, 100000000)  # 100 ms
+STEPS_PER_WHEEL_MESSAGE = round(ROBOT_WHEEL_ODOMETRY_PERIOD.to_sec() / STEP.to_sec())  # 5
+
 # Steps per phase, 20 ms each
 FUSION_STEPS = 150
 PHASE_STEPS = 50
 AFTER_RESET_STEPS = 100
+# Wheel messages, one every STEPS_PER_WHEEL_MESSAGE steps, after the IMU stopped
+IMU_STOPPED_WHEEL_MESSAGES = 20
 # s of ROS time without IMU samples before phase 7 reads the diagnostics: longer than the 1 s
 # period of the validator's diagnostics
 DIAGNOSTICS_WAIT = rospy.Duration(1.5)
@@ -220,12 +221,13 @@ def wait_for(condition: Callable[[], bool], failure: str) -> None:
         time.sleep(POLL_INTERVAL)
 
 
-class TestEkfSynthetic(unittest.TestCase):
-    """One scenario on one filter.
+class SteppedClockTestCase(unittest.TestCase):
+    """What both scenarios share: the topics, the steps of the clock and the comparisons.
 
-    Each check_...() method is one phase: it publishes the phase's inputs and asserts on the
-    EKF's estimate or on the validator's diagnostics. The test method calls them in order and
-    stops at the first phase that fails, because the later ones need its result.
+    A scenario is a subclass with one test method. Each of its check_...() methods is one
+    phase: it publishes the phase's inputs and asserts on the EKF's estimate or on the
+    validator's diagnostics. The test method calls them in order and stops at the first phase
+    that fails, because the later ones need its result.
     """
 
     def setUp(self) -> None:
@@ -269,13 +271,15 @@ class TestEkfSynthetic(unittest.TestCase):
                 and self.validated_imu_subscriber.get_num_connections() > 0
                 and self.filtered_odometry_subscriber.get_num_connections() > 0)
 
-    def publish_inputs(self, stamp: rospy.Time, wheel_rate: float,
+    def publish_inputs(self, stamp: rospy.Time, wheel_rate: Optional[float],
                        imu_inputs: Sequence[ImuInput]) -> List[StampKey]:
         """Publish one step's wheel odometry and IMU samples, stamped relative to stamp.
 
-        Return the stamp keys of the samples that the validator has to forward.
+        A wheel_rate of None publishes no wheel odometry in the step. Return the stamp keys of
+        the samples that the validator has to forward.
         """
-        self.wheel_odometry_publisher.publish(wheel_odometry(stamp, wheel_rate))
+        if wheel_rate is not None:
+            self.wheel_odometry_publisher.publish(wheel_odometry(stamp, wheel_rate))
         valid_stamp_keys = []
         for imu_input in imu_inputs:
             sample_stamp = stamp + rospy.Duration.from_sec(imu_input.offset)
@@ -303,7 +307,7 @@ class TestEkfSynthetic(unittest.TestCase):
         self.now += STEP
         self.clock_publisher.publish(Clock(self.now))
 
-    def advance(self, wheel_rate: float, imu_inputs: Sequence[ImuInput]) -> StepStart:
+    def advance(self, wheel_rate: Optional[float], imu_inputs: Sequence[ImuInput]) -> StepStart:
         """Do 1 to 4 of a step, as step() lists them, and return where the step started."""
         start = StepStart(self.now, self.ekf_outputs.count())
         valid_stamp_keys = self.publish_inputs(start.stamp, wheel_rate, imu_inputs)
@@ -317,12 +321,13 @@ class TestEkfSynthetic(unittest.TestCase):
         return [message for message in self.ekf_outputs.since(start.output_count_before)
                 if message.header.stamp >= start.stamp]
 
-    def step(self, wheel_rate: float, imu_inputs: Sequence[ImuInput] = ()) -> Odometry:
+    def step(self, wheel_rate: Optional[float], imu_inputs: Sequence[ImuInput] = ()) -> Odometry:
         """Run one step and return the EKF's last output for it, which has to come.
 
         One step:
-        1. Publish the step's wheel odometry, stamped with the step's ROS time, and its IMU
-           samples, each stamped with that time plus the sample's offset (publish_inputs()).
+        1. Publish the step's wheel odometry, if wheel_rate isn't None, stamped with the step's
+           ROS time, and its IMU samples, each stamped with that time plus the sample's offset
+           (publish_inputs()).
         2. Wait on the wall clock until the IMU sample validator's output for the step's valid
            samples reaches the test (wait_for_forwarded()). The EKF subscribes to the same
            topic.
@@ -337,7 +342,7 @@ class TestEkfSynthetic(unittest.TestCase):
                  'no EKF output for the step at {:.2f} s'.format(start.stamp.to_sec()))
         return self.outputs_since(start)[-1]
 
-    def step_allowing_no_output(self, wheel_rate: float,
+    def step_allowing_no_output(self, wheel_rate: Optional[float],
                                 imu_inputs: Sequence[ImuInput] = ()) -> Optional[Odometry]:
         """Run one step and return the EKF's last output for it, or None if none came."""
         start = self.advance(wheel_rate, imu_inputs)
@@ -363,6 +368,47 @@ class TestEkfSynthetic(unittest.TestCase):
         self.assertLessEqual(highest, limit,
                              '{}: the estimate went up to {:.4f} rad/s'.format(what, highest))
 
+    def assert_forward_speed(self, output: Odometry, what: str) -> None:
+        """Assert that the output's forward speed is the wheels' SPEED. what names the case."""
+        self.assertAlmostEqual(output.twist.twist.linear.x, SPEED, delta=SPEED_TOLERANCE,
+                               msg=what + ': the forward speed comes from the wheels')
+
+    def assert_fused_estimate(self, output: Odometry, what: str) -> None:
+        """Assert that output has the EKF's frames, the wheels' speed and the IMU's yaw rate.
+
+        what names the case.
+        """
+        self.assertEqual(output.header.frame_id, 'odom', what)
+        self.assertEqual(output.child_frame_id, 'base_footprint', what)
+        self.assert_forward_speed(output, what)
+        self.assert_yaw_rate(output, IMU_RATE, YAW_RATE_TOLERANCE,
+                             what + ": the IMU's variance is far smaller than the wheels'")
+
+    def print_fusion(self, what: str, output: Odometry) -> None:
+        """Print the inputs' yaw rates and the output's estimate. what names the case."""
+        print('{}: wheels {} rad/s, IMU {} rad/s, estimate {:.4f} rad/s, forward {:.4f} m/s'
+              .format(what, WHEEL_RATE, IMU_RATE, output.twist.twist.angular.z,
+                      output.twist.twist.linear.x))
+
+
+class TestEkfWithInvalidImuSamples(SteppedClockTestCase):
+    """The scenario invalid_imu_samples: both inputs in every step, at 50 Hz.
+
+    Its phases run in this order, and each needs the state that the phases before it left:
+    1. Fusion: the wheels report 0.4 rad/s, as with a wheel separation that is too large, the
+       IMU 0.5 rad/s with a much smaller variance. The estimate follows the IMU.
+    2. IMU samples 0.5 s old, reporting 2.0 rad/s, while the wheels go on: the validator drops
+       them, and the estimate goes to the wheels' 0.4 rad/s, as when the IMU stops.
+    3. to 5. Valid samples again, each followed by one reporting 2.0 rad/s that has the same
+       stamp (3), a stamp 0.5 s in the future (4), or a stamp older than the valid one (5). The
+       validator drops those, and the estimate stays at the valid samples' 0.5 rad/s. A
+       forwarded one would pull the estimate far up.
+    6. The clock goes back, as when Gazebo's world is reset: the validator and the EKF start
+       over from the new time (reset_on_time_jump), and the estimate follows the IMU again.
+    7. The validator's status on the topic /diagnostics counts each sample that the phases
+       before sent, forwarded or dropped.
+    """
+
     def test_ekf_handles_invalid_imu_samples_and_recovers_after_the_clock_goes_back(self) -> None:
         self.check_estimate_follows_the_imu_with_the_smaller_variance()
         self.check_estimate_follows_the_wheels_when_imu_samples_are_stale()
@@ -375,15 +421,8 @@ class TestEkfSynthetic(unittest.TestCase):
     def check_estimate_follows_the_imu_with_the_smaller_variance(self) -> None:
         """Phase 1: valid IMU samples and wheel odometry that disagree on the yaw rate."""
         outputs = self.run_steps(FUSION_STEPS, WHEEL_RATE, [VALID_SAMPLE])
-        last = outputs[-1]
-        print('fusion: wheels {} rad/s, IMU {} rad/s, estimate {:.4f} rad/s, forward {:.4f} m/s'
-              .format(WHEEL_RATE, IMU_RATE, last.twist.twist.angular.z, last.twist.twist.linear.x))
-        self.assertEqual(last.header.frame_id, 'odom')
-        self.assertEqual(last.child_frame_id, 'base_footprint')
-        self.assertAlmostEqual(last.twist.twist.linear.x, SPEED, delta=SPEED_TOLERANCE,
-                               msg='phase 1: the forward speed comes from the wheels')
-        self.assert_yaw_rate(last, IMU_RATE, YAW_RATE_TOLERANCE,
-                             "phase 1: the IMU's variance is far smaller than the wheels'")
+        self.print_fusion('fusion', outputs[-1])
+        self.assert_fused_estimate(outputs[-1], 'phase 1')
 
     def check_estimate_follows_the_wheels_when_imu_samples_are_stale(self) -> None:
         """Phase 2: only IMU samples that are 0.5 s old, which the validator drops."""
@@ -490,6 +529,114 @@ class TestEkfSynthetic(unittest.TestCase):
                          'phase 7: other drop reasons: {}'.format(values))
 
 
+class TestEkfAtTheRobotRates(SteppedClockTestCase):
+    """The scenario robot_rates: the IMU at 50 Hz and the wheel odometry at 10 Hz, as on the robot.
+
+    Its phases run in this order, and the second needs the state that the first left:
+    1. Fusion at the robot's rates: the IMU reports 0.5 rad/s in every step, the wheels 0.4 rad/s
+       in every fifth step. The filter publishes in every step, and the estimate follows the
+       IMU, with the wheels' forward speed also between two wheel messages.
+    2. The IMU stops, the wheel odometry goes on in every fifth step. The filter publishes one
+       output per wheel message, stamped with the message's time, and nothing between two wheel
+       messages. The estimate goes to the wheels' 0.4 rad/s.
+    """
+
+    def test_ekf_follows_the_imu_at_the_robot_rates_and_the_wheels_after_the_imu_stops(
+            self) -> None:
+        self.check_estimate_follows_the_imu_with_wheel_odometry_every_fifth_step()
+        self.check_ekf_publishes_at_the_wheel_rate_and_follows_the_wheels_when_the_imu_stops()
+
+    def check_estimate_follows_the_imu_with_wheel_odometry_every_fifth_step(self) -> None:
+        """Phase 1: as phase 1 of invalid_imu_samples, with the wheel odometry every fifth step."""
+        # The last of the FUSION_STEPS steps is the fourth after a wheel message, so the checks
+        # of the forward speed and the yaw rate look at an output between two wheel messages
+        outputs = self.run_steps_at_the_robot_rates(FUSION_STEPS, [VALID_SAMPLE])
+        self.print_fusion("fusion at the robot's rates", outputs[-1])
+        self.assert_fused_estimate(outputs[-1], 'phase 1')
+
+    def check_ekf_publishes_at_the_wheel_rate_and_follows_the_wheels_when_the_imu_stops(
+            self) -> None:
+        """Phase 2: no IMU samples, the wheel odometry every fifth step.
+
+        Between two wheel messages, the filter has no measurement to fuse. It predicts without
+        one only when the ROS time is sensor_timeout (ekf.yaml, 0.1 s) past its last
+        measurement, and that is the wheel odometry's period. So the filter publishes nothing
+        between two wheel messages. Its output at a wheel message's time is that prediction,
+        published before the filter fused the message, or the fused message. The filter
+        publishes no second output with the same stamp.
+        """
+        output_count_before = self.ekf_outputs.count()
+        wheel_stamps = self.run_wheel_periods_without_imu(IMU_STOPPED_WHEEL_MESSAGES)
+        outputs = self.ekf_outputs.since(output_count_before)
+        print('IMU stopped: {} outputs for {} wheel messages, estimate from {:.4f} to {:.4f} '
+              'rad/s, forward {:.4f} m/s'.format(
+                  len(outputs), len(wheel_stamps), outputs[0].twist.twist.angular.z,
+                  outputs[-1].twist.twist.angular.z, outputs[-1].twist.twist.linear.x))
+        self.assertEqual([stamp_key(message.header.stamp) for message in outputs],
+                         [stamp_key(stamp) for stamp in wheel_stamps],
+                         'phase 2: one EKF output per wheel message, stamped with its time')
+        self.assert_forward_speed(outputs[-1], 'phase 2')
+        self.assert_yaw_rate(outputs[-1], WHEEL_RATE, WHEEL_RATE_TOLERANCE,
+                             'phase 2: without IMU samples, the estimate follows the wheels')
+
+    def run_steps_at_the_robot_rates(self, count: int,
+                                     imu_inputs: Sequence[ImuInput]) -> List[Odometry]:
+        """Run count steps with the wheel odometry in every fifth and return each step's output.
+
+        Every step publishes imu_inputs. The first step publishes the wheel odometry, then
+        every STEPS_PER_WHEEL_MESSAGE-th step.
+        """
+        return [self.step(WHEEL_RATE if index % STEPS_PER_WHEEL_MESSAGE == 0 else None,
+                          imu_inputs)
+                for index in range(count)]
+
+    def run_wheel_periods_without_imu(self, count: int) -> List[rospy.Time]:
+        """Publish count wheel messages, one every fifth step, and return their stamps.
+
+        No step publishes IMU samples. A step with a wheel message waits until the EKF published
+        an output stamped at the message's time. Between two wheel messages, the
+        STEPS_PER_WHEEL_MESSAGE - 1 steps publish nothing and allow no output. The last step
+        publishes the last wheel message.
+        """
+        output_count_before = self.ekf_outputs.count()
+        wheel_stamps: List[rospy.Time] = []
+        for index in range(count):
+            if index > 0:
+                for _ in range(STEPS_PER_WHEEL_MESSAGE - 1):
+                    self.step_allowing_no_output(None)
+            wheel_stamps.append(self.advance(WHEEL_RATE, ()).stamp)
+            self.wait_for_output_stamped(wheel_stamps[-1], output_count_before)
+        return wheel_stamps
+
+    def wait_for_output_stamped(self, stamp: rospy.Time, output_count_before: int) -> None:
+        """Wait on the wall clock for an EKF output stamped at stamp.
+
+        Look at the outputs after the first output_count_before.
+        """
+        wait_for(lambda: any(message.header.stamp == stamp
+                             for message in self.ekf_outputs.since(output_count_before)),
+                 'no EKF output stamped at the wheel message at {:.2f} s'.format(stamp.to_sec()))
+
+
+# The scenarios, by the name that a .test file gives the test node with --scenario
+SCENARIOS: Dict[str, Type[SteppedClockTestCase]] = {
+    'invalid_imu_samples': TestEkfWithInvalidImuSamples,
+    'robot_rates': TestEkfAtTheRobotRates,
+}
+
+
+def scenario_from_arguments(arguments: Sequence[str]) -> Type[SteppedClockTestCase]:
+    """Return the scenario that the argument --scenario names.
+
+    arguments may hold others, such as the results file that rostest gives each test node.
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--scenario', choices=sorted(SCENARIOS), required=True)
+    known_arguments, _ = parser.parse_known_args(arguments)
+    return SCENARIOS[known_arguments.scenario]
+
+
 if __name__ == '__main__':
+    scenario = scenario_from_arguments(rospy.myargv()[1:])
     rospy.init_node('test_ekf_synthetic')
-    rostest.rosrun('diffbot_control', 'test_ekf_synthetic', TestEkfSynthetic)
+    rostest.rosrun('diffbot_control', 'test_ekf_synthetic', scenario)
