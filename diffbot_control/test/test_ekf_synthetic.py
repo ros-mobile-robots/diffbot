@@ -5,9 +5,11 @@ The test feeds the EKF of ekf.launch, imu_validator.py and robot_localization, s
 odometry and IMU samples, and checks its estimate of the yaw rate. It publishes the topic /clock
 itself (use_sim_time) and advances it in 20 ms steps, the period of the IMU. The docstring of
 step() lists what one step does. A step's waits don't prove that the EKF's callbacks ran before
-the clock moved, but they make it very likely, and the checks don't depend on it: a late input
-is fused one step later. Both inputs show in the estimate: the forward speed comes only from the
-wheels, the yaw rate mostly from the IMU.
+the clock moved, but they make it very likely, and the checks allow for a late input. In a phase
+that waits for an output in every step, a late input is fused one step later. Phase 2 of
+robot_rates, whose clock moves on without outputs, allows a late wheel message within its wheel
+period. Both inputs show in the estimate: the forward speed comes only from the wheels, the yaw
+rate mostly from the IMU.
 
 The file has two scenarios. Each is one test on one filter, from the filter's start, and its
 class's docstring lists its phases. A .test file runs one scenario, which the test node's
@@ -559,16 +561,17 @@ class TestEkfAtTheRobotRates(SteppedClockTestCase):
         """Check phase 2: the filter's outputs and estimate after the IMU stops.
 
         Without the IMU, the filter has a measurement to fuse only when a wheel message arrives.
-        Without one, the filter predicts only when the ROS time is sensor_timeout (ekf.yaml,
-        0.1 s) past its last measurement, and that is the wheel odometry's period. The filter
-        publishes no second output with the same stamp. So it publishes one output per wheel
-        period, as long as each wheel message reaches the filter before the clock reaches the
-        next one's stamp: in the test, within about 0.9 s of wall time. When the message reaches
-        the filter before the update STEP after its stamp, the output is stamped with the
-        message's time: the prediction to that time, published before the filter fused the
-        message, or the fused message. A message that arrives later can leave an update of its
-        period to predict, with that update's time, or is fused in a later update. So the check
-        allows any stamp within the period.
+        Without one, the filter predicts only when the ROS time is sensor_timeout (ekf.yaml, 0.1 s)
+        past its last measurement, and that is the wheel odometry's period. The filter publishes no
+        second output with the same stamp. So it publishes one output per wheel period, as long as
+        each wheel message reaches the filter, and the filter's updates run, before the clock
+        reaches the next wheel message's stamp. The steps' sleeps give a message about 0.9 s of
+        wall time for that, 5 DELIVERY and 4 NO_OUTPUT_WAIT, but they don't prove that the filter's
+        updates ran. When the message reaches the filter before the update STEP after its stamp,
+        the output is stamped with the message's time: the prediction to that time, published
+        before the filter fused the message, or the fused message. A message that arrives later can
+        leave an update of its period to predict, with that update's time, or is fused in a later
+        update. So the check allows any stamp within the period.
         """
         output_count_before = self.ekf_outputs.count()
         wheel_stamps = self.run_wheel_periods_without_imu(IMU_STOPPED_WHEEL_MESSAGES)
