@@ -203,8 +203,8 @@ def has_finite_covariance_and_positive_variances(covariance: Sequence[float]) ->
 class ImuValidator:
     """The checks of a sample and the history they need, without ROS communication.
 
-    The node calls record_if_valid() for each sample and seconds_since_last_valid_sample() for
-    the diagnostics. Both get the ROS time as an argument, so the unit tests can call them
+    The node calls drop_reason_or_record() for each sample and seconds_since_last_valid_sample()
+    for the diagnostics. Both get the ROS time as an argument, so the unit tests can call them
     directly. The other methods and the attributes are for this class itself.
     """
 
@@ -241,13 +241,14 @@ class ImuValidator:
             self.last_valid_at = None
         self.last_observed_time = now
 
-    def record_if_valid(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
-        """Return the reason to drop message at ROS time now, or record it and return None.
+    def drop_reason_or_record(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
+        """Return the first reason to drop message at ROS time now, or record it and return None.
 
-        None means that the sample is valid. The method then records it as the last valid one
-        (record_valid_sample()): the next sample's stamp has to be later, and
-        seconds_since_last_valid_sample() counts from now. So the same sample is valid only once.
-        For an invalid sample, the method records only the ROS time (observe_time()).
+        None means that the sample is valid. The method then records the sample's stamp and now
+        as the last valid sample's (record_valid_sample()): the next sample's stamp has to be
+        later, and seconds_since_last_valid_sample() counts from now. So the same sample is valid
+        only once. For an invalid sample at a ROS time other than 0, the method records only the
+        ROS time (observe_time()), which can make the validator forget the last valid sample.
         """
         reason = self.drop_reason(message, now)
         if reason is None:
@@ -314,7 +315,7 @@ class ImuValidator:
     def seconds_since_last_valid_sample(self, now: rospy.Time) -> Optional[float]:
         """Return the ROS time in s since the last valid sample was recorded, at ROS time now.
 
-        The time counts from the ROS time of that sample's record_if_valid() call, not from
+        The time counts from the ROS time of that sample's drop_reason_or_record() call, not from
         its stamp. None if no sample was valid since the clock last went back, or none at all. A
         sample from before the clock went back doesn't count: it says nothing about the IMU in
         the new time, even when the clock went back by less than the time since that sample.
@@ -355,17 +356,17 @@ class ImuValidatorNode:
         """Forward message if it is valid, else drop it, count it by its reason and warn."""
         with self.lock:
             now = rospy.Time.now()
-            reason = self.validator.record_if_valid(message, now)
-            if reason is None:
+            drop_reason = self.validator.drop_reason_or_record(message, now)
+            if drop_reason is None:
                 self.counts.count_forwarded()
                 # The publisher has a queue (queue_size), so this call doesn't wait for the
                 # subscribers
                 self.publisher.publish(message)
             else:
-                self.counts.count_dropped(reason)
-        if reason is not None:
+                self.counts.count_dropped(drop_reason)
+        if drop_reason is not None:
             warning = 'IMU sample dropped: {} (stamp {:.3f} s, ROS time {:.3f} s)'.format(
-                reason.value, message.header.stamp.to_sec(), now.to_sec())
+                drop_reason.value, message.header.stamp.to_sec(), now.to_sec())
             rospy.logwarn_throttle(WARNING_PERIOD, warning)
 
     def publish_diagnostics(self, event: rospy.timer.TimerEvent) -> None:
