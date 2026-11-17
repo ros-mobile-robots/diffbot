@@ -158,7 +158,7 @@ class TestImuValidator(ValidatorTestCase):
         self.assert_accepted(make_imu_sample(NOW + seconds(MAX_FUTURE)), NOW + seconds(MAX_FUTURE))
 
     def test_validator_forwards_new_samples_after_the_clock_goes_back(self) -> None:
-        # For example a reset of Gazebo's world: the clock and the stamps start again near 0.
+        # For example after /gazebo/reset_simulation: the clock and the stamps start again near 0.
         # The order check starts over there, and works again from the first valid sample on
         self.assert_accepted(make_imu_sample(NOW), NOW)
         restart = rospy.Time(0, 20000000)
