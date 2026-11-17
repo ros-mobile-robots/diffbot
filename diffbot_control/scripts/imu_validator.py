@@ -203,8 +203,8 @@ def has_finite_covariance_and_positive_variances(covariance: Sequence[float]) ->
 class ImuValidator:
     """The checks of a sample and the history they need, without ROS communication.
 
-    The node calls validate_and_record() for each sample and seconds_since_last_valid_sample()
-    for the diagnostics. Both get the ROS time as an argument, so the unit tests can call them
+    The node calls record_if_valid() for each sample and seconds_since_last_valid_sample() for
+    the diagnostics. Both get the ROS time as an argument, so the unit tests can call them
     directly. The other methods and the attributes are for this class itself.
     """
 
@@ -241,13 +241,24 @@ class ImuValidator:
             self.last_valid_at = None
         self.last_observed_time = now
 
-    def validate_and_record(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
-        """Return the reason for dropping message at ROS time now, or record it and return None.
+    def record_if_valid(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
+        """Return the reason to drop message at ROS time now, or record it and return None.
 
-        None means that the sample is valid. The method then records it as the last valid one:
-        the next sample's stamp has to be later, and seconds_since_last_valid_sample() counts
-        from now. So the same sample is valid only once. For an invalid sample, the method
-        records only the ROS time (observe_time()).
+        None means that the sample is valid. The method then records it as the last valid one
+        (record_valid_sample()): the next sample's stamp has to be later, and
+        seconds_since_last_valid_sample() counts from now. So the same sample is valid only once.
+        For an invalid sample, the method records only the ROS time (observe_time()).
+        """
+        reason = self.drop_reason(message, now)
+        if reason is None:
+            self.record_valid_sample(message, now)
+        return reason
+
+    def drop_reason(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
+        """Return the first reason to drop message at ROS time now, or None if every check passes.
+
+        The method also records the ROS time (observe_time()), so a sample that arrives after
+        the clock went back makes the validator forget the last valid sample.
         """
         # Before observe_time(): a ROS time of 0 means no clock yet, not a clock that went back
         if now.is_zero():
@@ -257,9 +268,12 @@ class ImuValidator:
             reason = sample_check(message, now)
             if reason is not None:
                 return reason
+        return None
+
+    def record_valid_sample(self, message: Imu, now: rospy.Time) -> None:
+        """Record message as the last valid sample, which arrived at ROS time now."""
         self.last_valid_stamp = message.header.stamp
         self.last_valid_at = now
-        return None
 
     def check_frame(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
         """Return WRONG_FRAME unless the sample is in the expected frame."""
@@ -300,7 +314,7 @@ class ImuValidator:
     def seconds_since_last_valid_sample(self, now: rospy.Time) -> Optional[float]:
         """Return the ROS time in s since the last valid sample was recorded, at ROS time now.
 
-        The time counts from the ROS time of that sample's validate_and_record() call, not from
+        The time counts from the ROS time of that sample's record_if_valid() call, not from
         its stamp. None if no sample was valid since the clock last went back, or none at all. A
         sample from before the clock went back doesn't count: it says nothing about the IMU in
         the new time, even when the clock went back by less than the time since that sample.
@@ -341,7 +355,7 @@ class ImuValidatorNode:
         """Forward message if it is valid, else drop it, count it by its reason and warn."""
         with self.lock:
             now = rospy.Time.now()
-            reason = self.validator.validate_and_record(message, now)
+            reason = self.validator.record_if_valid(message, now)
             if reason is None:
                 self.counts.count_forwarded()
                 # The publisher has a queue (queue_size), so this call doesn't wait for the
