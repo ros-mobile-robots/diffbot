@@ -19,10 +19,13 @@ The number of distinct values says how many output levels an axis's readings too
 recording. When the noise is about one output step, they take only a few. The count isn't the
 sensor's resolution: that is the size of one step, which the sensor's datasheet gives.
 
-The stamps are the messages' header stamps, which the firmware takes before it reads the IMU. The
-intervals between them show how regularly the recorded samples were taken. LONG_INTERVAL is one
-and a half periods of the firmware's 50 Hz. A longer interval is worth a look: a sample was taken
-late, dropped or lost. The header stamps don't say when a message arrived, so they can't show a
+The stamps are the messages' header stamps, which the firmware takes before it reads the IMU,
+in the order in which the bag stored the messages. The intervals between them show how regularly
+the recorded samples were stamped. LONG_INTERVAL is one and a half periods of the firmware's
+50 Hz. The report counts the longer intervals, because they are worth a look. It can't say why
+one is long. With this firmware, a sample that was taken late and a sample that is missing are
+two possible reasons. A clock that was set forward is another, and a topic with a lower rate has
+only long intervals. The header stamps don't say when a message arrived, so they can't show a
 late delivery. A stamp that repeats the one before, or is earlier than it, is counted, and the
 recording then has no rate.
 
@@ -30,14 +33,15 @@ A field's statistics come from the messages that measured the field: sensor_msgs
 field without a measurement with -1 as the first element of the field's covariance. A field with
 fewer than two readings gets two lines instead of statistics. The tool prints one line and ends
 with status 1 instead of a report when the file isn't a readable rosbag, when the topic's messages
-have another type, more than one frame_id or a reading that isn't finite, and when fewer than two
-messages or readings are left for the statistics.
+have another type, an empty frame_id, more than one frame_id or a reading that isn't finite, and
+when fewer than two messages or readings are left for the statistics.
 
 Usage: rosrun diffbot_bringup imu_noise_at_rest.py imu_still.bag [--topic /diffbot/imu/data_raw]
 """
 
 import argparse
 import math
+import operator
 import statistics
 import sys
 from typing import Any
@@ -46,6 +50,7 @@ from typing import List
 from typing import NamedTuple
 from typing import Optional
 from typing import Sequence
+from typing import Set
 from typing import Tuple
 
 import rosbag
@@ -60,13 +65,17 @@ NANOSECONDS_PER_SECOND = 1000000000
 NANOSECONDS_PER_MILLISECOND = 1000000
 # The firmware takes a sample every 20 ms (50 Hz)
 IMU_PERIOD = 20 * NANOSECONDS_PER_MILLISECOND  # ns
-# One and a half periods. A longer interval between two header stamps is worth a look: the
-# firmware took a sample late or dropped it, or a message was lost
+# One and a half periods of the firmware. The report counts the longer intervals between two
+# header stamps, because they are worth a look. The count doesn't say why an interval is long
 LONG_INTERVAL = 3 * IMU_PERIOD // 2  # ns
 
 
 class InputError(Exception):
-    """A bag or its messages that give no report, with the reason as the error's text."""
+    """An input that gives no report. The error's text is the line that the tool prints."""
+
+
+class MessageError(Exception):
+    """Messages that the statistics can't use. The error's text is the reason."""
 
 
 class Vector(NamedTuple):
@@ -86,6 +95,15 @@ class ImuSample(NamedTuple):
     # None when the message has no measurement of the field
     angular_velocity: Optional[Vector]  # rad/s
     linear_acceleration: Optional[Vector]  # m/s^2
+
+
+class StoredSample(NamedTuple):
+    """A sample and the place of its message in the bag file."""
+
+    # The position of the message's chunk in the file and of the message in the chunk. The
+    # recorder appends each message, so a later message has a larger position
+    position: Tuple[int, int]
+    sample: ImuSample
 
 
 class AxisStatistics(NamedTuple):
@@ -162,26 +180,47 @@ def count_of(count: int, noun: str) -> str:
     return f'{count} {noun}' if count == 1 else f'{count} {noun}s'
 
 
-def read_messages(bag_path: str, topic: str) -> List[Any]:
-    """Return the topic's messages in the order in which the bag recorded them."""
+def open_bag(bag_path: str) -> Any:
+    """Return the bag, opened for reading, or raise an InputError with the file and the reason."""
     try:
-        with rosbag.Bag(bag_path) as bag:
-            return [message for _, message, _ in bag.read_messages(topics=[topic])]
+        return rosbag.Bag(bag_path)
     except OSError as error:
         raise InputError(f"{bag_path} can't be opened: {error.strerror}") from error
     except rosbag.ROSBagException as error:
         raise InputError(f"{bag_path} can't be read as a rosbag: {error}") from error
+    except UnicodeDecodeError as error:
+        # rosbag reads a bag's first line as text: the format's version
+        raise InputError(f"{bag_path} can't be read as a rosbag: "
+                         "its first line isn't a bag's header") from error
 
 
-def check_message_types(messages: Sequence[Any]) -> None:
-    """Raise an InputError when a message isn't a sensor_msgs/Imu.
+def connection_types(bag: Any, topic: str) -> Set[str]:
+    """Return the message types of the topic's connections, without reading a message.
 
-    rosbag builds the message classes from the definitions stored in the bag. Each class has the
-    name of its type as _type.
+    rosbag asks the connection filter about each connection of the topic before it reads the
+    connection's messages. The filter notes the type and declines the connection.
     """
-    other_types = sorted({message._type for message in messages} - {IMU_TYPE})
+    types: Set[str] = set()
+
+    def note_type(_topic: str, datatype: str, _md5sum: str, _definition: str,
+                  _header: Any) -> bool:
+        types.add(datatype)
+        return False
+
+    for _ in bag.read_messages(topics=[topic], connection_filter=note_type):
+        pass
+    return types
+
+
+def check_topic_type(bag: Any, topic: str) -> None:
+    """Raise a MessageError when the topic has messages that aren't sensor_msgs/Imu.
+
+    Before any message is read: a topic of another type can hold far larger messages, such as a
+    camera's images.
+    """
+    other_types = sorted(connection_types(bag, topic) - {IMU_TYPE})
     if other_types:
-        raise InputError(
+        raise MessageError(
             f'the messages have the type {", ".join(other_types)}, the tool reads {IMU_TYPE}')
 
 
@@ -207,6 +246,33 @@ def to_sample(message: Any) -> ImuSample:
                                             message.linear_acceleration_covariance))
 
 
+def to_stored_sample(record: Any) -> StoredSample:
+    """Convert a raw record of rosbag's reader to the message's sample and its place in the file.
+
+    A raw record is the message's type, its bytes, the type's checksum, the message's position
+    in the file and the message's class, which rosbag builds from the definition in the bag.
+    """
+    _, serialized_message, _, position, message_class = record
+    message = message_class()
+    message.deserialize(serialized_message)
+    return StoredSample(position, to_sample(message))
+
+
+def recorded_samples(bag: Any, topic: str) -> List[ImuSample]:
+    """Return the samples of the topic's messages in the order in which the bag stored them.
+
+    rosbag's reader gives the messages sorted by the time at which the recorder got each one.
+    That isn't the order of the recording when the recorder's clock was set back in between. A
+    publisher on the same clock then stamps its messages earlier too, and in the reader's order
+    its stamps would seem to advance. Each message is converted when it is read, so the messages
+    themselves aren't kept.
+    """
+    stored_samples = [to_stored_sample(record)
+                      for _, record, _ in bag.read_messages(topics=[topic], raw=True)]
+    stored_samples.sort(key=operator.attrgetter('position'))
+    return [stored.sample for stored in stored_samples]
+
+
 def field_readings(samples: Sequence[ImuSample], field: ImuField) -> List[Vector]:
     """Return the field's readings from the samples that measured the field."""
     readings = [getattr(sample, field.name) for sample in samples]
@@ -214,21 +280,35 @@ def field_readings(samples: Sequence[ImuSample], field: ImuField) -> List[Vector
 
 
 def check_message_count(samples: Sequence[ImuSample]) -> None:
-    """Raise an InputError for fewer than two messages: they have no interval between them."""
+    """Raise a MessageError for fewer than two messages: they have no interval between them."""
     if len(samples) < 2:
-        raise InputError(f'{count_of(len(samples), "message")}, the statistics need at least two')
+        raise MessageError(
+            f'{count_of(len(samples), "message")}, the statistics need at least two')
+
+
+def check_named_frame(samples: Sequence[ImuSample]) -> None:
+    """Raise a MessageError when a message has an empty frame_id.
+
+    The frame says which axes a message's readings have. Without its name, nothing shows that
+    the readings of two messages share their axes.
+    """
+    unnamed_count = sum(not sample.frame_id for sample in samples)
+    if unnamed_count:
+        raise MessageError(f'{unnamed_count} of {count_of(len(samples), "message")} have an '
+                           'empty frame_id. The readings need one named frame, which says '
+                           'what their axes are')
 
 
 def check_one_frame(samples: Sequence[ImuSample]) -> None:
-    """Raise an InputError when the messages name more than one frame.
+    """Raise a MessageError when the messages name more than one frame.
 
     Readings in different frames have different axes, so their mean says nothing about one axis.
     """
     frame_ids = sorted({sample.frame_id for sample in samples})
     if len(frame_ids) > 1:
         quoted_frame_ids = ', '.join(f'"{frame_id}"' for frame_id in frame_ids)
-        raise InputError(f'the messages have more than one frame_id ({quoted_frame_ids}), '
-                         'so their readings have different axes')
+        raise MessageError(f'the messages have more than one frame_id ({quoted_frame_ids}), '
+                           'so their readings have different axes')
 
 
 def format_stamp(stamp: int) -> str:
@@ -248,7 +328,7 @@ def first_sample_with_a_nonfinite_reading(samples: Sequence[ImuSample],
 
 
 def check_finite_readings(samples: Sequence[ImuSample]) -> None:
-    """Raise an InputError for a measured reading with a NaN or an infinite value.
+    """Raise a MessageError for a measured reading with a NaN or an infinite value.
 
     One such value would make the axis's mean and variance NaN or infinite too.
     """
@@ -256,21 +336,24 @@ def check_finite_readings(samples: Sequence[ImuSample]) -> None:
         sample = first_sample_with_a_nonfinite_reading(samples, field)
         if sample is not None:
             x, y, z = getattr(sample, field.name)
-            raise InputError(f'the message stamped {format_stamp(sample.stamp)} has the '
-                             f"{field.name} ({x}, {y}, {z}), which isn't finite")
+            raise MessageError(f'the message stamped {format_stamp(sample.stamp)} has the '
+                               f"{field.name} ({x}, {y}, {z}), which isn't finite")
 
 
 def check_reading_count(samples: Sequence[ImuSample]) -> None:
-    """Raise an InputError when no field has the two readings that a variance needs."""
-    if all(len(field_readings(samples, field)) < 2 for field in FIELDS):
-        raise InputError('fewer than two messages have a measurement of the angular velocity '
-                         'or of the acceleration')
+    """Raise a MessageError when no field has the two readings that a variance needs."""
+    reading_counts = [len(field_readings(samples, field)) for field in FIELDS]
+    if max(reading_counts) < 2:
+        counts_by_field = ' and '.join(f'{field.name} has {count_of(reading_count, "reading")}'
+                                       for field, reading_count in zip(FIELDS, reading_counts))
+        raise MessageError(f'{counts_by_field}. At least one of them needs two')
 
 
 SampleCheck = Callable[[Sequence[ImuSample]], None]
 # In this order: the later checks and the statistics rely on the earlier ones
 SAMPLE_CHECKS: Tuple[SampleCheck, ...] = (
     check_message_count,
+    check_named_frame,
     check_one_frame,
     check_finite_readings,
     check_reading_count,
@@ -278,22 +361,22 @@ SAMPLE_CHECKS: Tuple[SampleCheck, ...] = (
 
 
 def check_samples(samples: Sequence[ImuSample]) -> None:
-    """Raise the InputError of the first check in SAMPLE_CHECKS that the samples fail."""
+    """Raise the MessageError of the first check in SAMPLE_CHECKS that the samples fail."""
     for check in SAMPLE_CHECKS:
         check(samples)
 
 
 def read_samples(bag_path: str, topic: str) -> List[ImuSample]:
-    """Return the samples of the topic's messages, in the bag's order, after all the checks.
+    """Return the samples of the topic's messages, in the order of recording, after all checks.
 
     An InputError about the messages names the bag and the topic.
     """
-    messages = read_messages(bag_path, topic)
     try:
-        check_message_types(messages)
-        samples = [to_sample(message) for message in messages]
+        with open_bag(bag_path) as bag:
+            check_topic_type(bag, topic)
+            samples = recorded_samples(bag, topic)
         check_samples(samples)
-    except InputError as error:
+    except MessageError as error:
         raise InputError(f'{bag_path}, {topic}: {error}') from error
     return samples
 
@@ -369,7 +452,8 @@ def gravity(linear_acceleration: FieldStatistics) -> Optional[float]:
 def imu_statistics(samples: Sequence[ImuSample]) -> ImuStatistics:
     """Return the statistics of the samples' stamps and readings.
 
-    The samples have passed check_samples(): at least two of them, all in one frame.
+    The samples are in the order of recording and have passed check_samples(): at least two of
+    them, all in one frame.
     """
     linear_acceleration = field_statistics(field_readings(samples, LINEAR_ACCELERATION))
     return ImuStatistics(
@@ -457,7 +541,11 @@ def format_report(topic: str, imu: ImuStatistics) -> List[str]:
 def parse_arguments() -> argparse.Namespace:
     """Return the command line's bag and topic."""
     parser = argparse.ArgumentParser(
-        description="Print an IMU's bias and noise from a rosbag recorded at rest.")
+        description="Print an IMU's bias and noise from a rosbag recorded at rest.",
+        epilog=f'The report counts the intervals between the header stamps that are longer than '
+               f'{LONG_INTERVAL // NANOSECONDS_PER_MILLISECOND} ms: one and a half periods of '
+               "the 50 Hz at which the robot's firmware publishes. For a topic with another "
+               "rate, compare the shortest and the longest interval with that rate's period.")
     parser.add_argument('bag', help='the rosbag file')
     parser.add_argument('--topic', default=DEFAULT_TOPIC,
                         help='the sensor_msgs/Imu topic (default: %(default)s)')

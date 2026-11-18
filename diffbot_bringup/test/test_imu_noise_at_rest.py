@@ -7,8 +7,10 @@ them. No test needs a ROS master. catkin runs them with nose (catkin_add_nosetes
 CMakeLists.txt).
 """
 
+import gzip
 import math
 import os
+import shutil
 import statistics
 import subprocess
 import sys
@@ -34,6 +36,7 @@ from imu_noise_at_rest import axis_statistics  # noqa: E402, I100
 from imu_noise_at_rest import AxisStatistics  # noqa: E402
 from imu_noise_at_rest import check_finite_readings  # noqa: E402
 from imu_noise_at_rest import check_message_count  # noqa: E402
+from imu_noise_at_rest import check_named_frame  # noqa: E402
 from imu_noise_at_rest import check_one_frame  # noqa: E402
 from imu_noise_at_rest import check_reading_count  # noqa: E402
 from imu_noise_at_rest import check_samples  # noqa: E402
@@ -47,9 +50,9 @@ from imu_noise_at_rest import IMU_PERIOD  # noqa: E402
 from imu_noise_at_rest import imu_statistics  # noqa: E402
 from imu_noise_at_rest import ImuSample  # noqa: E402
 from imu_noise_at_rest import ImuStatistics  # noqa: E402
-from imu_noise_at_rest import InputError  # noqa: E402
 from imu_noise_at_rest import LONG_INTERVAL  # noqa: E402
 from imu_noise_at_rest import measured_vector  # noqa: E402
+from imu_noise_at_rest import MessageError  # noqa: E402
 from imu_noise_at_rest import NANOSECONDS_PER_MILLISECOND  # noqa: E402
 from imu_noise_at_rest import NANOSECONDS_PER_SECOND  # noqa: E402
 from imu_noise_at_rest import NOT_MEASURED  # noqa: E402
@@ -85,6 +88,9 @@ STAMPS_WITH_A_REPEAT_AND_A_STEP_BACK = [
     EPOCH + offset * MILLISECOND for offset in (0, 20, 20, 10, 80)]
 # Three stamps one period of the firmware apart
 REGULAR_STAMPS = [EPOCH + index * IMU_PERIOD for index in range(3)]
+# The time that a message takes from its header stamp to the recorder, in the bags of the tests
+# that set the recorder's clock back
+DELIVERY_TIME = 2 * MILLISECOND  # ns
 
 
 def sample(stamp: int = EPOCH, frame_id: str = FRAME,
@@ -268,17 +274,25 @@ class TestStampStatistics(unittest.TestCase):
 
 
 class TestSampleChecks(unittest.TestCase):
-    """The checks raise an InputError for samples that the statistics can't use."""
+    """The checks raise a MessageError for samples that the statistics can't use."""
 
     def test_check_message_count_fails_for_one_message(self) -> None:
         """Check that one sample is refused: it has no interval to another."""
-        with self.assertRaises(InputError) as error:
+        with self.assertRaises(MessageError) as error:
             check_message_count([sample()])
         self.assertEqual(message_of(error), '1 message, the statistics need at least two')
 
+    def test_check_named_frame_fails_for_messages_without_a_frame_id(self) -> None:
+        """Check that samples with an empty frame_id are refused: their axes aren't known."""
+        with self.assertRaises(MessageError) as error:
+            check_named_frame([sample(frame_id=''), sample(frame_id='')])
+        self.assertEqual(message_of(error),
+                         '2 of 2 messages have an empty frame_id. The readings need one named '
+                         'frame, which says what their axes are')
+
     def test_check_one_frame_fails_for_two_frames_and_names_them(self) -> None:
         """Check that samples in imu_link and in other_imu are refused, with both names."""
-        with self.assertRaises(InputError) as error:
+        with self.assertRaises(MessageError) as error:
             check_one_frame([sample(frame_id='other_imu'), sample(frame_id=FRAME)])
         self.assertEqual(message_of(error),
                          'the messages have more than one frame_id ("imu_link", "other_imu"), '
@@ -289,7 +303,7 @@ class TestSampleChecks(unittest.TestCase):
         """Check that a NaN yaw rate is refused, with its field and its message's stamp."""
         not_a_number = sample(stamp=EPOCH + IMU_PERIOD,
                               angular_velocity=Vector(0.0, 0.0, math.nan))
-        with self.assertRaises(InputError) as error:
+        with self.assertRaises(MessageError) as error:
             check_finite_readings([sample(), not_a_number])
         self.assertEqual(message_of(error),
                          'the message stamped 1700000000.020000000 has the angular_velocity '
@@ -298,7 +312,7 @@ class TestSampleChecks(unittest.TestCase):
     def test_check_finite_readings_fails_for_an_infinite_acceleration(self) -> None:
         """Check that an infinite acceleration is refused as well."""
         infinite = sample(linear_acceleration=Vector(math.inf, 0.0, GRAVITY))
-        with self.assertRaises(InputError):
+        with self.assertRaises(MessageError):
             check_finite_readings([sample(), infinite])
 
     def test_check_finite_readings_passes_a_sample_without_a_field(self) -> None:
@@ -306,13 +320,13 @@ class TestSampleChecks(unittest.TestCase):
         check_finite_readings([sample(angular_velocity=None), sample()])
 
     def test_check_reading_count_fails_when_no_field_has_two_readings(self) -> None:
-        """Check that two samples with one reading of each field are refused."""
+        """Check that two samples with one reading of each field are refused, with the counts."""
         samples = [sample(angular_velocity=None), sample(linear_acceleration=None)]
-        with self.assertRaises(InputError) as error:
+        with self.assertRaises(MessageError) as error:
             check_reading_count(samples)
         self.assertEqual(message_of(error),
-                         'fewer than two messages have a measurement of the angular velocity '
-                         'or of the acceleration')
+                         'angular_velocity has 1 reading and linear_acceleration has 1 reading. '
+                         'At least one of them needs two')
 
     def test_check_samples_passes_two_samples_at_rest_in_one_frame(self) -> None:
         """Check that two finite samples in one frame raise nothing."""
@@ -322,15 +336,19 @@ class TestSampleChecks(unittest.TestCase):
 class TestImuStatistics(unittest.TestCase):
     """imu_statistics() takes each statistic from the right field of the samples."""
 
+    def test_imu_statistics_gives_the_stamps_statistics_and_the_frame(self) -> None:
+        """Check that two samples one period apart give that duration and their frame."""
+        imu = imu_statistics([sample(), sample(stamp=EPOCH + IMU_PERIOD)])
+        self.assertEqual(imu.stamps.duration, IMU_PERIOD)
+        self.assertEqual(imu.frame_id, FRAME)
+
     def test_imu_statistics_keeps_the_angular_velocity_and_the_acceleration_apart(
             self) -> None:
-        """Check that the stamps, the yaw rates and the z accelerations each give their own."""
+        """Check that the yaw rates' mean is 0.4 rad/s and the z accelerations' 10 m/s²."""
         samples = [ImuSample(EPOCH, FRAME, Vector(0.1, 0.2, 0.3), Vector(1.0, 2.0, 9.0)),
                    ImuSample(EPOCH + IMU_PERIOD, FRAME, Vector(0.3, 0.4, 0.5),
                              Vector(3.0, 4.0, 11.0))]
         imu = imu_statistics(samples)
-        self.assertEqual(imu.stamps.duration, IMU_PERIOD)
-        self.assertEqual(imu.frame_id, FRAME)
         self.assertAlmostEqual(known(imu.angular_velocity.axes).z.mean, 0.4)
         self.assertAlmostEqual(known(imu.linear_acceleration.axes).z.mean, 10.0)
 
@@ -481,7 +499,10 @@ def messages_one_step_apart() -> List[Imu]:
 
 def write_bag(bag_path: str, topic: str, messages: Sequence[Any],
               arrival_stamps: Sequence[int] = REGULAR_STAMPS) -> None:
-    """Write the messages to a new bag, each with the time at which the recorder got it."""
+    """Write the messages to a new bag in their order, as a recorder stores them.
+
+    Each message gets the time at which the recorder got it, by the recorder's clock.
+    """
     with rosbag.Bag(bag_path, 'w') as bag:
         for message, arrival_stamp in zip(messages, arrival_stamps):
             bag.write(topic, message, to_ros_time(arrival_stamp))
@@ -579,20 +600,41 @@ class TestToolOnBags(unittest.TestCase):
             'Header intervals: shortest 20.0 ms, longest 20.0 ms, 0 longer than 30 ms',
         ])
 
-    def test_tool_gives_no_rate_and_keeps_the_statistics_when_a_stamp_goes_back(self) -> None:
-        """Check a bag whose second header stamp is earlier than its first.
-
-        The report says so instead of a rate, and still has the yaw rate's statistics.
-        """
+    def messages_with_a_step_back(self) -> List[Imu]:
+        """Return three messages of which the second is stamped 10 ms before the first."""
         messages = messages_one_step_apart()
         messages[1].header.stamp = to_ros_time(EPOCH - 10 * MILLISECOND)
-        write_bag(self.bag_path, DEFAULT_TOPIC, messages)
+        return messages
+
+    def assert_report_has_no_rate_and_the_yaw_rate_statistics(self) -> None:
+        """Check the report of messages_with_a_step_back(): no rate, one earlier stamp."""
         lines = self.report_lines()
         self.assertEqual(lines[1], 'Header stamps: 40.0 ms from the first to the last, no rate '
                                    "(some stamps don't advance)")
         self.assertEqual(lines[3],
                          "Stamps that don't advance: 0 repeated, 1 earlier than the one before")
         self.assertEqual(lines[9], 'z                    +0.00111    1.235e-06  0.00111         3')
+
+    def test_tool_gives_no_rate_and_keeps_the_statistics_when_a_stamp_goes_back(self) -> None:
+        """Check a bag whose second header stamp is earlier, while the recorder's clock goes on.
+
+        The report says so instead of a rate, and still has the yaw rate's statistics.
+        """
+        write_bag(self.bag_path, DEFAULT_TOPIC, self.messages_with_a_step_back())
+        self.assert_report_has_no_rate_and_the_yaw_rate_statistics()
+
+    def test_tool_gives_no_rate_when_the_recorder_clock_goes_back_with_the_stamps(self) -> None:
+        """Check the same bag when the recorder's clock is set back together with the stamps.
+
+        Each message reaches the recorder DELIVERY_TIME after its stamp, so sorted by the
+        recorder's time the stamps would advance. The tool reads them in the order in which
+        the bag stored them, and the report is the same as with a recorder's clock that goes on.
+        """
+        messages = self.messages_with_a_step_back()
+        write_bag(self.bag_path, DEFAULT_TOPIC, messages,
+                  arrival_stamps=[message.header.stamp.to_nsec() + DELIVERY_TIME
+                                  for message in messages])
+        self.assert_report_has_no_rate_and_the_yaw_rate_statistics()
 
     def test_tool_ends_with_a_message_when_the_messages_have_two_frames(self) -> None:
         """Check that a second frame, with gravity on -z, is refused instead of averaged."""
@@ -603,6 +645,17 @@ class TestToolOnBags(unittest.TestCase):
         self.assert_tool_ends_with(
             f'{self.bag_path}, {DEFAULT_TOPIC}: the messages have more than one frame_id '
             '("imu_link", "other_imu"), so their readings have different axes')
+
+    def test_tool_ends_with_a_message_when_the_messages_have_no_frame_id(self) -> None:
+        """Check that messages without a frame's name are refused: gravity up, down and up."""
+        messages = messages_one_step_apart()
+        for message in messages:
+            message.header.frame_id = ''
+        messages[1].linear_acceleration.z = -GRAVITY
+        write_bag(self.bag_path, DEFAULT_TOPIC, messages)
+        self.assert_tool_ends_with(
+            f'{self.bag_path}, {DEFAULT_TOPIC}: 3 of 3 messages have an empty frame_id. The '
+            'readings need one named frame, which says what their axes are')
 
     def test_tool_ends_with_a_message_when_a_reading_is_not_a_number(self) -> None:
         """Check that a NaN yaw rate is refused, with the stamp of its message."""
@@ -643,6 +696,15 @@ class TestToolOnBags(unittest.TestCase):
             text_file.write('not a bag\n')
         self.assert_tool_ends_with(f"{self.bag_path} can't be read as a rosbag: "
                                    'This does not appear to be a bag file')
+
+    def test_tool_ends_with_a_message_when_the_file_is_a_compressed_copy_of_a_bag(self) -> None:
+        """Check that a bag packed with gzip, whose first line isn't text, gives no traceback."""
+        unpacked_path = self.bag_path + '.unpacked'
+        write_bag(unpacked_path, DEFAULT_TOPIC, messages_one_step_apart())
+        with open(unpacked_path, 'rb') as unpacked, gzip.open(self.bag_path, 'wb') as packed:
+            shutil.copyfileobj(unpacked, packed)
+        self.assert_tool_ends_with(f"{self.bag_path} can't be read as a rosbag: "
+                                   "its first line isn't a bag's header")
 
 
 if __name__ == '__main__':
