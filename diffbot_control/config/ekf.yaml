@@ -1,0 +1,81 @@
+# robot_localization's EKF (ekf_localization_node), which ekf.launch starts in the diffbot
+# namespace with these parameters. It fuses the wheel odometry with the IMU's yaw rate. It
+# publishes its estimate on the topic /diffbot/odometry/filtered, and the transform
+# odom → base_footprint on the topic /tf. With the EKF on, the drive controller doesn't publish
+# that transform (enable_odom_tf false).
+# The parameters: http://docs.ros.org/en/noetic/api/robot_localization/html/state_estimation_nodes.html
+
+# Hz, the IMU's rate. In the simulation, the drive controller's odometry arrives at 50 Hz too, its
+# publish_rate in diffbot_control.yaml. On the robot, it arrives at most 10 times per second: the
+# controller publishes at most one message each time it runs, and diffbot_base's control loop
+# runs it at 10 Hz (diffbot_base/src/diffbot_base.cpp)
+frequency: 50
+# When no measurement arrives for this long (s), the filter keeps predicting from its last state
+sensor_timeout: 0.1
+# The robot drives on a flat floor: the filter keeps z, roll and pitch and their rates at 0
+two_d_mode: true
+
+map_frame: map
+odom_frame: odom
+base_link_frame: base_footprint
+# The filter estimates the pose in odom: continuous, without the jumps of a map-based localization
+# such as amcl, which publishes map → odom itself
+world_frame: odom
+publish_tf: true
+
+# In the simulation, a reset of Gazebo's world sets the clock back, and every measurement looks
+# older than the one before. The filter then starts again from the new time, instead of ignoring
+# the measurements until the clock has caught up. robot_localization does this only with simulated
+# time. On the robot, a clock that goes back makes the filter ignore the measurements until the
+# clock has caught up. The docs show the check in robot_localization's code:
+# https://ros-mobile-robots.com/packages/imu/robot_localization/#the-other-settings
+reset_on_time_jump: true
+
+# The filter's state has 15 variables: the position x, y, z, the orientation roll, pitch, yaw,
+# their velocities vx, vy, vz, vroll, vpitch, vyaw, and the linear acceleration ax, ay, az.
+# Each input has a list <input>_config of 15 booleans, one for each variable, in this order. The
+# label at the end of each row of a list names the row's three variables.
+#   true:  the filter fuses this variable from this input's messages. It corrects its estimate of
+#          the variable with the measured value
+#   false: the filter ignores the value, even when the message carries it
+# two_d_mode overrules the lists for z, roll, pitch, vz, vroll, vpitch and az. With every
+# measurement, the filter fuses a 0 for each of them.
+# The docs show both lists as tables, with each value's message field, variance and frame:
+# https://ros-mobile-robots.com/packages/imu/robot_localization/#what-the-filter-fuses
+
+# The drive controller's odometry, a nav_msgs/Odometry message. The filter fuses its velocities:
+#   vx:   the forward speed, the message's twist.twist.linear.x
+#   vy:   the sideways speed, twist.twist.linear.y. It is 0 for a differential drive robot, which
+#         can't move sideways. Fusing it, with the controller's variance, keeps the estimate from
+#         drifting sideways
+#   vyaw: the yaw rate, twist.twist.angular.z
+# The filter doesn't fuse the odometry's pose x, y, yaw. The controller computes the pose from
+# the same velocities, so fusing both would count the wheels twice
+odom0: mobile_base_controller/odom
+odom0_config: [false, false, false,   # x, y, z
+               false, false, false,   # roll, pitch, yaw
+               true,  true,  false,   # vx, vy, vz
+               false, false, true,    # vroll, vpitch, vyaw
+               false, false, false]   # ax, ay, az
+# true would fuse the change between two poses instead of the pose. No effect here, because the
+# filter fuses no pose value of this input
+odom0_differential: false
+# The size of the queue of the filter node's ROS subscriber for this topic. Messages that arrive
+# while the node is busy wait in the queue. With 10, at most ten wait, and ROS drops the oldest
+# one when another arrives. robot_localization's default is 1
+odom0_queue_size: 10
+
+# The IMU after imu_validator.py, a sensor_msgs/Imu message. The filter fuses one value:
+#   vyaw: the yaw rate, the message's angular_velocity.z
+# The filter doesn't fuse the IMU's orientation, which the message doesn't carry (the firmware's
+# imu/data_raw has none), and not its acceleration, which would need its bias removed before it
+# helps. A sensor_msgs/Imu message has no position and no linear velocity
+imu0: imu/data_validated
+imu0_config: [false, false, false,   # x, y, z
+              false, false, false,   # roll, pitch, yaw
+              false, false, false,   # vx, vy, vz
+              false, false, true,    # vroll, vpitch, vyaw
+              false, false, false]   # ax, ay, az
+# As odom0_differential and odom0_queue_size
+imu0_differential: false
+imu0_queue_size: 10

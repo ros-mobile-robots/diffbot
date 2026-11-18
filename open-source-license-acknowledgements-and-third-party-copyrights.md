@@ -16,6 +16,12 @@ License: Apache License 2.0
 https://github.com/ROBOTIS-GIT/turtlebot3/blob/master/LICENSE
 
 
+### GAZEBO_ROS_PKGS
+License: Apache License 2.0  
+https://github.com/ros-simulation/gazebo_ros_pkgs/tree/2.9.3/gazebo_plugins  
+`diffbot_gazebo_plugins` has a modified copy of gazebo_plugins' IMU sensor plugin. Its license text is in [`diffbot_gazebo_plugins/LICENSE`](./diffbot_gazebo_plugins/LICENSE).
+
+
 ### ROS CONTROL
 License: BSD 3-Clause
 https://github.com/ros-controls/ros_control/blob/noetic-devel/LICENSE
