@@ -20,12 +20,18 @@
 // its mode register with the value for the IMU mode, and its first data register. WireBusT
 // passes each of them to the Wire library unchanged
 constexpr uint8_t DEVICE_ADDRESS = 0x28;
-// The BNO055's other I2C address, for a breakout whose ADR pin is high (IMU_BNO055_ADDRESS in
-// lib/config/diffbot_base_config.h)
-constexpr uint8_t ALTERNATE_DEVICE_ADDRESS = 0x29;
 constexpr uint8_t WRITTEN_REGISTER = 0x3D;
 constexpr uint8_t WRITTEN_VALUE = 0x08;
 constexpr uint8_t READ_REGISTER = 0x08;
+
+// A second set of values, each different from the first: the BNO055's address for a breakout
+// whose ADR pin is high (IMU_BNO055_ADDRESS in lib/config/diffbot_base_config.h), its system
+// trigger register with the value that resets the chip, and its chip ID register. With these,
+// a test shows that WireBusT passes on the values it gets, not the ones of the first set
+constexpr uint8_t ALTERNATE_DEVICE_ADDRESS = 0x29;
+constexpr uint8_t RESET_REGISTER = 0x3F;
+constexpr uint8_t RESET_VALUE = 0x20;
+constexpr uint8_t CHIP_ID_REGISTER = 0x00;
 
 // A result of Wire's endTransmission() that isn't 0, the value for success: no device
 // acknowledged the address
@@ -149,13 +155,13 @@ TEST_F(WireBusTest, WriteRegisterFailsWhenTheAddressIsNotAcknowledgedAfterASucce
     EXPECT_FALSE(bus_.writeRegister(DEVICE_ADDRESS, WRITTEN_REGISTER, WRITTEN_VALUE));
 }
 
-TEST_F(WireBusTest, WriteRegisterSendsToTheAlternateAddress)
+TEST_F(WireBusTest, WriteRegisterPassesOnTheAddressRegisterAndValue)
 {
-    EXPECT_TRUE(bus_.writeRegister(ALTERNATE_DEVICE_ADDRESS, WRITTEN_REGISTER, WRITTEN_VALUE));
+    EXPECT_TRUE(bus_.writeRegister(ALTERNATE_DEVICE_ADDRESS, RESET_REGISTER, RESET_VALUE));
 
     const std::vector<std::string> expected_calls{
-        beginTransmissionCall(ALTERNATE_DEVICE_ADDRESS), writeCall(WRITTEN_REGISTER),
-        writeCall(WRITTEN_VALUE), endTransmissionCall(WITH_STOP)};
+        beginTransmissionCall(ALTERNATE_DEVICE_ADDRESS), writeCall(RESET_REGISTER),
+        writeCall(RESET_VALUE), endTransmissionCall(WITH_STOP)};
     EXPECT_EQ(wire_.calls, expected_calls);
 }
 
@@ -176,15 +182,15 @@ TEST_F(WireBusTest, ReadRegistersUsesARepeatedStart)
     EXPECT_EQ(data, delivered_bytes);
 }
 
-TEST_F(WireBusTest, ReadRegistersReadsFromTheAlternateAddress)
+TEST_F(WireBusTest, ReadRegistersPassesOnTheAddressAndRegister)
 {
     std::array<uint8_t, READ_LENGTH_BYTES> data{};
 
     EXPECT_TRUE(
-        bus_.readRegisters(ALTERNATE_DEVICE_ADDRESS, READ_REGISTER, data.data(), data.size()));
+        bus_.readRegisters(ALTERNATE_DEVICE_ADDRESS, CHIP_ID_REGISTER, data.data(), data.size()));
 
     const std::vector<std::string> expected_calls{
-        beginTransmissionCall(ALTERNATE_DEVICE_ADDRESS), writeCall(READ_REGISTER),
+        beginTransmissionCall(ALTERNATE_DEVICE_ADDRESS), writeCall(CHIP_ID_REGISTER),
         endTransmissionCall(WITH_REPEATED_START),
         requestFromCall(ALTERNATE_DEVICE_ADDRESS, READ_LENGTH_BYTES)};
     EXPECT_EQ(wire_.calls, expected_calls);
