@@ -319,9 +319,14 @@ class SteppedClockTestCase(unittest.TestCase):
         return start
 
     def outputs_since(self, start: StepStart) -> List[Odometry]:
-        """Return the EKF's outputs after the step's start, stamped at its time or later."""
+        """Return the EKF's outputs that arrived after the step's start and belong to the step.
+
+        An output belongs to the step if its stamp lies between the step's time and the ROS time
+        that the test has published. An output that arrives late from before the clock went back
+        carries a later stamp, and one from an earlier step an earlier stamp.
+        """
         return [message for message in self.ekf_outputs.since(start.output_count_before)
-                if message.header.stamp >= start.stamp]
+                if start.stamp <= message.header.stamp <= self.now]
 
     def step(self, wheel_rate: Optional[float], imu_inputs: Sequence[ImuInput] = ()) -> Odometry:
         """Run one step and return the EKF's last output for it, which has to come.
@@ -336,7 +341,8 @@ class SteppedClockTestCase(unittest.TestCase):
         3. Wait DELIVERY more, for the inputs to arrive at the EKF.
         4. Advance the clock by STEP (advance_clock()). The EKF's 50 Hz update then processes the
            inputs.
-        5. Wait, with the time limit WAIT, for an EKF output stamped at the step's time or later.
+        5. Wait, with the time limit WAIT, for an EKF output that belongs to the step
+           (outputs_since()).
         advance() does 1 to 4.
         """
         start = self.advance(wheel_rate, imu_inputs)
