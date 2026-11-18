@@ -153,7 +153,7 @@ PEP 8 with the settings of ROS 2's `ament_flake8` (99 columns, google import ord
 - **Which files:** every `.py` file. The files of dynamic_reconfigure in a package's `cfg` folder, such as `diffbot_base/cfg/Parameters.cfg`, are Python too, but they keep the layout of dynamic_reconfigure's generator: a star import and a table with aligned columns, which flake8 and mypy reject. The commands below don't select them. `catkin build` runs such a file and fails on an error in it.
 - **The environment:** CI doesn't check the style yet (#117). Install flake8 with ament's plugins, mypy 1.10.1 (the version the project checks with) and the PyYAML type stubs in a virtual environment of Python 3.8 to 3.12, the versions that mypy 1.10.1 supports. Keep the environment outside the checkout. Inside the checkout, Git would list the environment's Python files as new files, and the commands would check them.
 - **What the commands check:** every `.py` file that differs from the branch that the pull request goes to, committed or not, and every new one. That branch is `noetic-devel` of this repository, ros-mobile-robots/diffbot, not of a fork.
-- **Which branch to pass:** in a clone of this repository, call the function without an argument. It then compares with `origin/noetic-devel`. In a clone of your fork, `origin` is the fork, whose `noetic-devel` can hold your own commits, so a comparison with that branch could find nothing to check. The function stops with an `error:` line there. Fetch this repository's branch and pass that one. The last lines of the block show both calls.
+- **Which branch to pass:** in a clone of this repository, call the function without an argument. It then compares with `origin/noetic-devel`. In a clone of your fork, `origin` is the fork, whose `noetic-devel` can hold your own commits, so a comparison with that branch could find nothing to check. The function therefore takes `origin` only when its address is this repository's on github.com, over HTTPS or SSH. With any other address it stops with an `error:` line. Fetch this repository's branch and pass that one. The last lines of the block show both calls.
 
 On the PC, in the repository's root, in bash 4.4 or newer:
 
@@ -170,9 +170,11 @@ lint_changed_python() {
   # 1. The branch that the pull request goes to, and the commit where this branch left it.
   #    Without both, Git can't tell what changed
   if [ -z "$base_ref" ]; then
-    if ! git remote get-url origin 2> /dev/null | grep -q 'ros-mobile-robots/diffbot'; then
-      echo "error: origin isn't ros-mobile-robots/diffbot. Name the branch that the pull request" >&2
-      echo "goes to, for example: lint_changed_python upstream/noetic-devel" >&2
+    # origin has to be this repository itself, by its whole HTTPS or SSH address
+    if ! git config --get remote.origin.url | grep -qxE \
+        '(https://github\.com/|git@github\.com:|ssh://git@github\.com/)ros-mobile-robots/diffbot(\.git)?/?'; then
+      echo "error: origin isn't github.com's ros-mobile-robots/diffbot. Name the branch that the" >&2
+      echo "pull request goes to, for example: lint_changed_python upstream/noetic-devel" >&2
       return 2
     fi
     base_ref=origin/noetic-devel
@@ -284,7 +286,7 @@ for dir in lib/*/; do pc_flags+=("-I${dir%/}"); done
 "${tidy[@]}" lib/imu/bno055.h -- -x c++-header "${pc_flags[@]}"
 ```
 
-Board-only files are `src/main.cpp`, the libraries that use Arduino (`base_controller`, `config`, `encoder`, `motor_controllers`) and the tests that run on a Teensy. They get the flags that PlatformIO compiles `src/main.cpp` with, because that command names every include folder of the firmware. The function `set_board_flags` puts these flags into the array `board_flags`, in three steps. It stops with an `error:` line and an empty array when a step fails, so the checks after it don't run with wrong flags:
+Board-only files are `src/main.cpp`, the libraries that use Arduino (`base_controller`, `config`, `encoder`, `motor_controllers`) and the tests that run on a Teensy. They get the flags that PlatformIO compiles `src/main.cpp` with, because that command names every include folder of the firmware. The function `set_board_flags` puts these flags into the array `board_flags`, in three steps. It stops with an `error:` line, an empty array and status 1 when a step fails or when the command lacks the board's processor, name or include folders. The checks are chained to it with `&&`, so they don't run with wrong flags, and the block's status (`echo $?`) is 0 only when the flags were found and clang-tidy could read both files:
 
 ```bash
 set_board_flags() {
@@ -311,10 +313,14 @@ with open('compile_commands.json') as database:
                    if entry['file'] == 'src/main.cpp')
 flags = shlex.split(command)[1:-1]                  # without the compiler and the source file
 del flags[flags.index('-o'):flags.index('-o') + 2]  # without -o and the object file
-print('\n'.join(flag for flag in flags if flag not in GCC_ONLY))
+flags = [flag for flag in flags if flag not in GCC_ONLY]
+for start in ('-mcpu=', '-DARDUINO_TEENSY', '-I'):  # the board's processor, its name, an include folder
+    if not any(flag.startswith(start) for flag in flags):
+        raise SystemExit(f'the command for src/main.cpp has no {start} flag')
+print('\n'.join(flags))
 PY
   then
-    echo "error: compile_commands.json has no command for src/main.cpp" >&2
+    echo "error: compile_commands.json has no usable command for src/main.cpp" >&2
     rm -f "$list" compile_commands.json
     return 1
   fi
@@ -334,10 +340,9 @@ PY
                 "-I.pio/libdeps/$board/Unity/src" -UUNITY_INCLUDE_CONFIG_H)
 }
 
-if set_board_flags teensy31; then   # or teensy40
-  "${tidy[@]}" src/main.cpp -- "${board_flags[@]}"
+set_board_flags teensy31 &&   # or teensy40
+  "${tidy[@]}" src/main.cpp -- "${board_flags[@]}" &&
   "${tidy[@]}" lib/base_controller/base_controller.h -- -x c++-header "${board_flags[@]}"
-fi
 ```
 
 - **One board is enough today:** the firmware's own files have no code for one board only, and both boards give the same warnings. A file that gets such code is checked with both boards.
