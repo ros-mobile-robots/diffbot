@@ -10,7 +10,7 @@ Find your change in this list. Each line says what to run or check, and links th
 - **Firmware:** build both Teensy environments and run the unit tests on the PC ([Commands](#commands)).
 - **Python:** flake8 and mypy pass on every `.py` file you changed ([Python](#python)).
 - **C++:** clang-tidy's include check on every C++ file you changed, headers and board-only files included ([Check the includes](#check-the-includes)).
-- **Shell script:** shellcheck reports nothing in the lines you changed. A change to the robot image's entry point also passes the image's smoke test ([Launch files, shell scripts and workflows](#launch-files-shell-scripts-and-workflows)).
+- **Shell script:** shellcheck reports no finding for a new script, and no finding that the script didn't have before your change. A change to the robot image's entry point also passes the image's smoke test ([Launch files, shell scripts and workflows](#launch-files-shell-scripts-and-workflows)).
 - **New logic:** new logic comes with a test that CI runs. That is a unit test for a function that computes or decides, and a rostest file for a node. A test that was run by hand and isn't in the repository doesn't count ([Tests](#tests)).
 - **A feature of the robots' code, of CI or of the development setup:** the documentation pull request is planned with the code and linked under `## Documentation` ([Commits and pull requests](#commits-and-pull-requests)).
 - **Every change:** `catkin build` without new warnings, and CI green on the pull request. Don't loosen a tolerance, skip a test or silence a warning to get there. Explain the failure instead. The commits are signed and hold one topic ([Commits and pull requests](#commits-and-pull-requests)).
@@ -58,7 +58,7 @@ Or install PlatformIO on the PC with its installer script or in a virtual enviro
 | `*.py` | flake8 and mypy, with `lint_changed_python` ([Python](#python)) | PC, repository root, in the lint environment | The last line is `checked … files`, and the exit status is 0 |
 | C++ in `diffbot_base` and `diffbot_gazebo_plugins` | clang-tidy's include check with catkin's compile commands ([Check the includes](#check-the-includes)) | Dev container, `~/catkin_ws` | No `misc-include-cleaner` warning is in a line you added or changed |
 | C++ in `diffbot_firmware` | The same check, with the flags of the PC build or of the board ([Check the includes](#check-the-includes)) | Firmware container, `diffbot_firmware` | The same |
-| Shell scripts | shellcheck ([Launch files, shell scripts and workflows](#launch-files-shell-scripts-and-workflows)) | PC, repository root | shellcheck reports nothing in a line you added or changed |
+| Shell scripts | shellcheck ([Launch files, shell scripts and workflows](#launch-files-shell-scripts-and-workflows)) | PC, repository root | A new script has no finding, and a changed script has no finding that `noetic-devel`'s version doesn't have |
 
 ## Code and tests
 
@@ -152,7 +152,8 @@ PEP 8 with the settings of ROS 2's `ament_flake8` (99 columns, google import ord
 
 - **Which files:** every `.py` file. The files of dynamic_reconfigure in a package's `cfg` folder, such as `diffbot_base/cfg/Parameters.cfg`, are Python too, but they keep the layout of dynamic_reconfigure's generator: a star import and a table with aligned columns, which flake8 and mypy reject. The commands below don't select them. `catkin build` runs such a file and fails on an error in it.
 - **The environment:** CI doesn't check the style yet (#117). Install flake8 with ament's plugins, mypy 1.10.1 (the version the project checks with) and the PyYAML type stubs in a virtual environment of Python 3.8 to 3.12, the versions that mypy 1.10.1 supports. Keep the environment outside the checkout. Inside the checkout, Git would list the environment's Python files as new files, and the commands would check them.
-- **What the commands check:** every `.py` file that differs from `noetic-devel`, committed or not, and every new one. They compare with `origin/noetic-devel`. If your clone has another name for this repository's remote, pass its branch, as in `lint_changed_python upstream/noetic-devel`.
+- **What the commands check:** every `.py` file that differs from the branch that the pull request goes to, committed or not, and every new one. That branch is `noetic-devel` of this repository, ros-mobile-robots/diffbot, not of a fork.
+- **Which branch to pass:** in a clone of this repository, call the function without an argument. It then compares with `origin/noetic-devel`. In a clone of your fork, `origin` is the fork, whose `noetic-devel` can hold your own commits, so a comparison with that branch could find nothing to check. The function stops with an `error:` line there. Fetch this repository's branch and pass that one. The last lines of the block show both calls.
 
 On the PC, in the repository's root, in bash 4.4 or newer:
 
@@ -164,13 +165,21 @@ python3 -m venv ~/.venvs/diffbot-lint   # once
 source ~/.venvs/diffbot-lint/bin/activate
 
 lint_changed_python() {
-  local base_ref=${1:-origin/noetic-devel} base list status=0 file
+  local base_ref=${1:-} base list status=0 file
   local -a files
-  # 1. The base branch, and the commit where this branch left it. Without both, Git can't tell
-  #    what changed
+  # 1. The branch that the pull request goes to, and the commit where this branch left it.
+  #    Without both, Git can't tell what changed
+  if [ -z "$base_ref" ]; then
+    if ! git remote get-url origin 2> /dev/null | grep -q 'ros-mobile-robots/diffbot'; then
+      echo "error: origin isn't ros-mobile-robots/diffbot. Name the branch that the pull request" >&2
+      echo "goes to, for example: lint_changed_python upstream/noetic-devel" >&2
+      return 2
+    fi
+    base_ref=origin/noetic-devel
+  fi
   if ! git rev-parse --verify --quiet "$base_ref^{commit}" > /dev/null; then
-    echo "error: $base_ref isn't in this clone. Fetch it first, for example with" >&2
-    echo "  git fetch origin noetic-devel:refs/remotes/origin/noetic-devel" >&2
+    echo "error: $base_ref isn't in this clone. Fetch the branch first:" >&2
+    echo "  git fetch ${base_ref%%/*} ${base_ref#*/}:refs/remotes/$base_ref" >&2
     return 2
   fi
   if ! base=$(git merge-base "$base_ref" HEAD); then
@@ -201,7 +210,13 @@ lint_changed_python() {
   echo "checked ${#files[@]} files"
   return "$status"
 }
+
+# In a clone of this repository:
 lint_changed_python
+# In a clone of your fork, compare with this repository's branch instead:
+#   git remote add upstream https://github.com/ros-mobile-robots/diffbot.git   # once
+#   git fetch upstream noetic-devel
+#   lint_changed_python upstream/noetic-devel
 ```
 
 The last line of the output is `checked … files`. The exit status (`echo $?`) is 0 when flake8 and mypy found nothing, also when no Python file changed. It is 1 when flake8 or mypy reported a finding, and 2 with an `error:` line when Git couldn't work out the changed files. A status of 2 means that nothing was checked.
@@ -235,7 +250,7 @@ class FakeBno055Bus : public diffbot::I2cBus { /* … */ };
 
 clang-tidy 18's check `misc-include-cleaner` reports a name whose header isn't included directly, and an include that isn't used. CI doesn't run the check yet (#117). Run it on every C++ file you changed, headers and board-only files included, and say in the pull request which files you checked.
 
-- **It passes when** no `misc-include-cleaner` warning is in a line you added or changed. A file you add has no warning at all: with `--warnings-as-errors='*'`, clang-tidy's exit status is then 0.
+- **Pass criterion:** no `misc-include-cleaner` warning is in a line you added or changed. A file you add has no warning at all: with `--warnings-as-errors='*'`, clang-tidy's exit status is then 0.
 - **Older lines:** the files of `diffbot_base` and `diffbot_gazebo_plugins` and the firmware's board files have warnings in older lines. They belong to #117, not to your pull request.
 - **Entry headers:** the firmware's commands below ignore the headers behind the entry headers `unity.h`, `Arduino.h` and `Wire.h`, so that a name from them counts as included.
 
@@ -269,37 +284,79 @@ for dir in lib/*/; do pc_flags+=("-I${dir%/}"); done
 "${tidy[@]}" lib/imu/bno055.h -- -x c++-header "${pc_flags[@]}"
 ```
 
-Board-only files are `src/main.cpp`, the libraries that use Arduino (`base_controller`, `config`, `encoder`, `motor_controllers`) and the tests that run on a Teensy. They get the flags that PlatformIO compiles `src/main.cpp` with, because that command names every include folder of the firmware. clang also needs to know what the board's GCC knows by itself: the target, two integer types, and the folders of the toolchain's C and C++ headers. The last two flags are for the tests that run on a Teensy: Unity's folder, and Unity without the configuration header that PlatformIO writes only when it builds such a test.
+Board-only files are `src/main.cpp`, the libraries that use Arduino (`base_controller`, `config`, `encoder`, `motor_controllers`) and the tests that run on a Teensy. They get the flags that PlatformIO compiles `src/main.cpp` with, because that command names every include folder of the firmware. The function `set_board_flags` puts these flags into the array `board_flags`, in three steps. It stops with an `error:` line and an empty array when a step fails, so the checks after it don't run with wrong flags:
 
 ```bash
-board=teensy31                                 # or teensy40
-pio run -e "$board" -t compiledb > /dev/null   # writes compile_commands.json
-mapfile -t board_flags < <(python -c '
-import json, shlex
-command = next(e["command"] for e in json.load(open("compile_commands.json")) if e["file"] == "src/main.cpp")
+set_board_flags() {
+  local board=$1 list sysroot cxx multilib
+  local gcc=/pio-core/packages/toolchain-gccarmnoneeabi-teensy/bin/arm-none-eabi-g++
+  board_flags=()
+  # 1. PlatformIO's compile commands for the board, written anew
+  rm -f compile_commands.json
+  if ! pio run -e "$board" -t compiledb > /dev/null; then
+    echo "error: PlatformIO wrote no compile commands for $board" >&2
+    return 1
+  fi
+  # 2. The flags of the command for src/main.cpp: without the compiler, the file names and the
+  #    switches that only GCC knows
+  list=$(mktemp) || return 1
+  if ! python - > "$list" << 'PY'
+import json
+import shlex
+
+GCC_ONLY = {'-c', '-felide-constructors', '-fsingle-precision-constant', '-fpermissive',
+            '-Wno-psabi', '-Wno-error=narrowing', '-Wno-maybe-uninitialized'}
+with open('compile_commands.json') as database:
+    command = next(entry['command'] for entry in json.load(database)
+                   if entry['file'] == 'src/main.cpp')
 flags = shlex.split(command)[1:-1]                  # without the compiler and the source file
-del flags[flags.index("-o"):flags.index("-o") + 2]  # without -o and the object file
-print("\n".join(flag for flag in flags if flag != "-c"))')
-rm compile_commands.json                       # the file isn't committed
-gcc=/pio-core/packages/toolchain-gccarmnoneeabi-teensy/bin/arm-none-eabi-g++
-sysroot=$(dirname "$(dirname "$gcc")")/arm-none-eabi
-cxx=$sysroot/include/c++/$("$gcc" -dumpfullversion)
-board_flags+=(--target=arm-none-eabi -D__INT32_TYPE__='long int' -D__UINT32_TYPE__='long unsigned int'
-              -isystem "$cxx" -isystem "$cxx/arm-none-eabi/$("$gcc" "${board_flags[@]}" -print-multi-directory)"
-              -isystem "$sysroot/include" "-I.pio/libdeps/$board/Unity/src" -UUNITY_INCLUDE_CONFIG_H)
-"${tidy[@]}" src/main.cpp -- "${board_flags[@]}"
-"${tidy[@]}" lib/base_controller/base_controller.h -- -x c++-header "${board_flags[@]}"
+del flags[flags.index('-o'):flags.index('-o') + 2]  # without -o and the object file
+print('\n'.join(flag for flag in flags if flag not in GCC_ONLY))
+PY
+  then
+    echo "error: compile_commands.json has no command for src/main.cpp" >&2
+    rm -f "$list" compile_commands.json
+    return 1
+  fi
+  mapfile -t board_flags < "$list"
+  rm -f "$list" compile_commands.json   # the compile commands aren't committed
+  # 3. What the board's GCC knows by itself and clang doesn't: the target, two integer types and
+  #    the folders of the toolchain's C and C++ headers. Then Unity, for the tests on a Teensy
+  sysroot=$(dirname "$(dirname "$gcc")")/arm-none-eabi
+  if ! cxx=$sysroot/include/c++/$("$gcc" -dumpfullversion) ||
+     ! multilib=$("$gcc" "${board_flags[@]}" -print-multi-directory); then
+    echo "error: the toolchain's GCC didn't answer: $gcc" >&2
+    board_flags=()
+    return 1
+  fi
+  board_flags+=(--target=arm-none-eabi -D__INT32_TYPE__='long int' -D__UINT32_TYPE__='long unsigned int'
+                -isystem "$cxx" -isystem "$cxx/arm-none-eabi/$multilib" -isystem "$sysroot/include"
+                "-I.pio/libdeps/$board/Unity/src" -UUNITY_INCLUDE_CONFIG_H)
+}
+
+if set_board_flags teensy31; then   # or teensy40
+  "${tidy[@]}" src/main.cpp -- "${board_flags[@]}"
+  "${tidy[@]}" lib/base_controller/base_controller.h -- -x c++-header "${board_flags[@]}"
+fi
 ```
 
 - **One board is enough today:** the firmware's own files have no code for one board only, and both boards give the same warnings. A file that gets such code is checked with both boards.
 - **The two integer types:** `int32_t` is `long` for the board's GCC and `int` for clang. Without the two definitions, clang stops at two declarations of `random()` that then differ in their return type.
+- **Unity:** the last two flags are for the tests that run on a Teensy. They name Unity's folder, and they leave out the configuration header that PlatformIO writes only when it builds such a test.
 
 ### Launch files, shell scripts and workflows
 
 - **Launch files:** the first comment as above. A Boolean argument's `doc` says what `true` does, and another argument's `doc` names the values it takes. A `$(eval …)` expression gets a comment that says what it computes.
 - **Shell scripts:** a Bash script that is run, not sourced, starts with `set -euo pipefail`. One with several steps has a function per step, `main "$@"` at the end, its constants as `readonly` with their unit, and a header that lists the steps as a numbered list.
 - **Exceptions to `set -euo pipefail`:** a script may leave out one of the three options where it meets an environment that it doesn't control, with the reason in a comment at that line. The known case is ROS: Noetic's `setup.bash` reads `ROS_MASTER_URI` when the variable isn't set, so a script that sources that file can't use `-u`. Under `-u`, read a variable that may be unset as `${ROS_IP:-}`.
-- **shellcheck:** `shellcheck <script>` reports nothing in the lines you add or change. Without shellcheck on the PC, run `docker run --rm -v "$PWD":/mnt:ro koalaman/shellcheck:v0.10.0 <script>` in the repository's root. shellcheck can't read ROS's `setup.bash` and reports SC1091 at a line that sources the file. `# shellcheck source=/dev/null` above the line says so.
+- **shellcheck:** a new script passes `shellcheck <script>` without a finding. Four of the six older scripts have findings. A change to one of them adds none, wherever in the script the new finding would show up: run shellcheck on the script as `noetic-devel` has it and on your version, and compare the two lists. On the PC, in the repository's root, for example for `.docker/robot/smoke_test.sh` (in a clone of a fork, with `upstream/noetic-devel`, see [Python](#python)):
+
+    ```bash
+    git show origin/noetic-devel:.docker/robot/smoke_test.sh | shellcheck -   # the findings before your change
+    shellcheck .docker/robot/smoke_test.sh                                     # the findings with your change
+    ```
+
+    Without shellcheck on the PC, `docker run --rm -i -v "$PWD":/mnt:ro koalaman/shellcheck:v0.10.0` takes the place of `shellcheck` in both lines. shellcheck can't read ROS's `setup.bash` and reports SC1091 at a line that sources the file. `# shellcheck source=/dev/null` above the line says so. No workflow runs shellcheck yet.
 - **The robot image's entry point:** a change to `.docker/robot/entrypoint.sh` is checked by the image's smoke test, `.docker/robot/smoke_test.sh`. The workflow Robot container runs the smoke test for the pull request, in a container that starts through the entry point.
 - **Workflows:** the first comment says when the workflow runs and why it is a workflow of its own. Read-only permissions at the top, and more only in the job that needs them. Values from the event come in through `env:`, not through `${{ }}` inside `run:`, as in `.github/workflows/pr_description.yml`.
 

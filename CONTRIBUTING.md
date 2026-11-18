@@ -56,7 +56,8 @@ CI runs on every pull request: [industrial_ci](https://github.com/ros-industrial
 
 ## Pull requests
 
-- **One feature or fix per pull request**, on a branch named `feat/…`, `fix/…`, `docs/…`, `chore/…`, `refactor/…` or `test/…`, with a short topic in kebab-case, such as `fix/encoder-ticks`. Keep unrelated changes for another PR.
+- **One topic:** one feature or fix per pull request. Keep unrelated changes for another PR.
+- **Branch:** `feat/…`, `fix/…`, `docs/…`, `chore/…`, `refactor/…` or `test/…`, with a short topic in kebab-case, such as `fix/encoder-ticks`.
 - **Pull requests are squash-merged.** The PR title becomes the commit's subject, so write it as `Area: what changed`, for example `Simulation test: narrower turn checks`. Aim for 65 characters or fewer; GitHub adds the PR number. The whole description becomes the commit message, so start it with what changes and why.
 - **Describe how you tested it:** what you ran, on which robot or in simulation, and what you saw.
 - **Issues:** end the description with `Closes #N` when your pull request resolves issue N. If the issue stays open, name it without a closing keyword, for example `Part of #N`.
