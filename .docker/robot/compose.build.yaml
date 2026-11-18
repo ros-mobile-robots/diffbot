@@ -1,0 +1,20 @@
+# Builds the robot image from this repository, with your changes, under a name of its own:
+# diffbot-robot:local. Compose reads this file only when a command names it, after compose.yaml.
+# In this folder:
+#   docker compose -f compose.yaml -f compose.build.yaml build   # build diffbot-robot:local
+# To run the build, set ROBOT_IMAGE=diffbot-robot:local in .env, then:
+#   docker compose up -d --pull never                            # start it, without a download
+# The name is fixed here and doesn't follow ROBOT_IMAGE: a build can't take the name of the
+# published image, ghcr.io/ros-mobile-robots/diffbot-robot, and be started in its place later.
+
+services:
+  bringup:
+    image: diffbot-robot:local
+    build:
+      # The repository's root folder, whose files the Dockerfile copies into the image
+      context: ../..
+      dockerfile: .docker/robot/Dockerfile
+  # No build of its own: the lidar runs the image that bringup's build produced. The name is
+  # repeated here so that a command with this file can't mix the build with a published image.
+  lidar:
+    image: diffbot-robot:local
