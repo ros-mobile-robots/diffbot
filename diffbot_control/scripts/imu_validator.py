@@ -213,78 +213,87 @@ class ImuValidator:
         self.frame_id = frame_id
         self.max_age = rospy.Duration.from_sec(max_age)
         self.max_future = rospy.Duration.from_sec(max_future)
-        # The stamp of the last valid sample, and the ROS time at which it was recorded
+        # The last valid sample's stamp and arrival ROS time: two times, not the sample itself
         self.last_valid_stamp: Optional[rospy.Time] = None
-        self.last_valid_at: Optional[rospy.Time] = None
-        # The ROS time of the last clock check (clear_last_valid_sample_if_clock_went_back())
+        self.last_valid_arrival_time: Optional[rospy.Time] = None
+        # The ROS time of the last clock check (clear_last_valid_sample_times_if_clock_went_back())
         self.last_checked_ros_time: Optional[rospy.Time] = None
         # In this order. The first check that fails gives the reason
         self.sample_checks: Tuple[SampleCheck, ...] = (
             self.check_frame,
             self.check_finite_values,
             self.check_angular_velocity_covariance,
-            self.check_not_from_the_future,
+            self.check_not_too_far_ahead,
             self.check_not_too_old,
-            self.check_newer_than_the_last,
+            self.check_stamp_later_than_last_valid,
         )
 
-    def clear_last_valid_sample_if_clock_went_back(self, now: rospy.Time) -> None:
-        """Clear the last valid sample if now is earlier than the ROS time of the last check.
+    def clear_last_valid_sample_times_if_clock_went_back(self, now: rospy.Time) -> None:
+        """Clear the last valid sample's stamp and arrival time if the clock went back.
 
-        now is the ROS time of a sample's arrival or of a diagnostics report. When the clock went
-        back, for example after /gazebo/reset_simulation, the order check and the time since the
-        last valid sample start over, so that only a sample that is valid in the new time counts
-        again. The method keeps now for the next check, whether or not the clock went back.
+        now is the ROS time of a sample's arrival or of a diagnostics report. The clock went back
+        if now is earlier than the ROS time of the last clock check, for example after
+        /gazebo/reset_simulation. The order check and the time since the last valid sample then
+        start over, so that only a sample that is valid in the new time counts again. The method
+        keeps now for the next clock check, whether or not the clock went back.
         """
         if self.clock_went_back(now):
-            self.clear_last_valid_sample()
+            self.clear_last_valid_sample_times()
         self.last_checked_ros_time = now
 
     def clock_went_back(self, now: rospy.Time) -> bool:
         """Return whether now is earlier than the ROS time of the last clock check."""
         return self.last_checked_ros_time is not None and now < self.last_checked_ros_time
 
-    def clear_last_valid_sample(self) -> None:
-        """Clear the last valid sample's stamp and arrival time, as before the first sample."""
+    def clear_last_valid_sample_times(self) -> None:
+        """Set last_valid_stamp and last_valid_arrival_time to None.
+
+        The two times are then as before the first valid sample.
+        """
         self.last_valid_stamp = None
-        self.last_valid_at = None
+        self.last_valid_arrival_time = None
 
     def drop_reason_or_record(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
-        """Return the first reason to drop message at ROS time now, or record it and return None.
+        """Return the first reason to drop message, or record its two times and return None.
 
-        None means that the sample is valid. The method then records the sample's stamp and now
-        as the last valid sample's (record_valid_sample()): the next sample's stamp has to be
-        later, and seconds_since_last_valid_sample() counts from now. So the same sample is valid
-        only once. An invalid sample isn't recorded, but a clock check at nonzero ROS time still
-        records now and can clear the previous valid sample if the clock went back.
+        now is the ROS time at which message arrives. None means that the sample is valid. Only
+        then, the method records the sample's stamp and now, its arrival time, as the last valid
+        sample's two times (record_valid_sample_times()): the next sample's stamp has to be
+        later, and seconds_since_last_valid_sample() counts from now. A sample with the same
+        stamp is then invalid, until the clock goes back and the clock check clears the two
+        times. An invalid sample leaves the two times as they are, unless the sample arrives
+        after the clock went back. The clock check runs for every sample at a nonzero ROS time,
+        valid or not: the check keeps now as the ROS time of the last clock check, and clears the
+        two times if the clock went back.
         """
         reason = self.drop_reason(message, now)
         if reason is None:
-            self.record_valid_sample(message, now)
+            self.record_valid_sample_times(message, now)
         return reason
 
     def drop_reason(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
         """Return the first reason to drop message at ROS time now, or None if every check passes.
 
-        The method also checks the clock (clear_last_valid_sample_if_clock_went_back()), so a
-        sample that arrives after the clock went back makes the validator clear the last valid
-        sample.
+        At the ROS time zero, the method returns NO_CLOCK and checks nothing else. At any other
+        ROS time, the method first checks the clock
+        (clear_last_valid_sample_times_if_clock_went_back()), so a sample that arrives after the
+        clock went back makes the validator clear the last valid sample's stamp and arrival time.
         """
         # Treat zero as unavailable ROS time for samples. Return before the clock check to
         # preserve the previous clock check's time and the last valid sample's times
         if now.is_zero():
             return DropReason.NO_CLOCK
-        self.clear_last_valid_sample_if_clock_went_back(now)
+        self.clear_last_valid_sample_times_if_clock_went_back(now)
         for sample_check in self.sample_checks:
             reason = sample_check(message, now)
             if reason is not None:
                 return reason
         return None
 
-    def record_valid_sample(self, message: Imu, now: rospy.Time) -> None:
-        """Record message as the last valid sample, which arrived at ROS time now."""
+    def record_valid_sample_times(self, message: Imu, now: rospy.Time) -> None:
+        """Record a valid sample's times: the stamp of message and now, its arrival ROS time."""
         self.last_valid_stamp = message.header.stamp
-        self.last_valid_at = now
+        self.last_valid_arrival_time = now
 
     def check_frame(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
         """Return WRONG_FRAME unless the sample is in the expected frame."""
@@ -307,7 +316,7 @@ class ImuValidator:
             return None
         return DropReason.INVALID_ANGULAR_VELOCITY_COVARIANCE
 
-    def check_not_from_the_future(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
+    def check_not_too_far_ahead(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
         """Return FROM_THE_FUTURE if the stamp is more than max_future after now."""
         return DropReason.FROM_THE_FUTURE if message.header.stamp > now + self.max_future else None
 
@@ -315,27 +324,29 @@ class ImuValidator:
         """Return TOO_OLD if the stamp is more than max_age before now."""
         return DropReason.TOO_OLD if now - message.header.stamp > self.max_age else None
 
-    def check_newer_than_the_last(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
-        """Return NOT_NEWER unless the stamp is later than the last valid sample's."""
+    def check_stamp_later_than_last_valid(self, message: Imu,
+                                          now: rospy.Time) -> Optional[DropReason]:
+        """Return NOT_NEWER if last_valid_stamp is set and the sample's stamp is not later."""
         if (self.last_valid_stamp is not None
                 and message.header.stamp <= self.last_valid_stamp):
             return DropReason.NOT_NEWER
         return None
 
     def seconds_since_last_valid_sample(self, now: rospy.Time) -> Optional[float]:
-        """Return the ROS time in s since the last valid sample was recorded, at ROS time now.
+        """Return the ROS time in s since the last valid sample arrived, at ROS time now.
 
-        The time counts from the ROS time of that sample's drop_reason_or_record() call, not from
-        its stamp. None if no sample was valid since the clock last went back, or none at all. A
-        sample from before the clock went back doesn't count: it says nothing about the IMU in
-        the new time, even when the clock went back by less than the time since that sample.
-        The method also checks the clock (clear_last_valid_sample_if_clock_went_back()), so
-        the validator notices a clock that went back while no sample arrives.
+        The time counts from last_valid_arrival_time, the ROS time of that sample's
+        drop_reason_or_record() call, not from its stamp. None if no sample was valid since the
+        clock last went back, or none at all. A sample from before the clock went back doesn't
+        count: it says nothing about the IMU in the new time, even when the clock went back by
+        less than the time since that sample. The method also checks the clock
+        (clear_last_valid_sample_times_if_clock_went_back()), so the validator notices a clock
+        that went back while no sample arrives.
         """
-        self.clear_last_valid_sample_if_clock_went_back(now)
-        if self.last_valid_at is None:
+        self.clear_last_valid_sample_times_if_clock_went_back(now)
+        if self.last_valid_arrival_time is None:
             return None
-        return (now - self.last_valid_at).to_sec()
+        return (now - self.last_valid_arrival_time).to_sec()
 
 
 class ImuValidatorNode:
