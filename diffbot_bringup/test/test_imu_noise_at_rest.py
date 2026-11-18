@@ -787,6 +787,14 @@ class TestToolOnBags(unittest.TestCase):
         lines = self.report_lines(['--topic', '/imu/data'])
         self.assertEqual(lines[0], '/imu/data: 3 messages, frame_id "imu_link"')
 
+    def test_tool_shows_a_line_break_in_the_topic_on_the_first_line(self) -> None:
+        """Check that a topic's name with a line break doesn't split the report's first line."""
+        topic = '/imu\nraw'
+        write_bag(self.bag_path, topic, messages_one_step_apart())
+        lines = self.report_lines(['--topic', topic])
+        self.assertEqual(lines[0], '/imu\\nraw: 3 messages, frame_id "imu_link"')
+        self.assertEqual(len(lines), 18)
+
     def test_tool_gives_the_reason_instead_of_statistics_for_a_field_not_measured(self) -> None:
         """Check a bag whose messages mark the angular velocity as not measured.
 

@@ -683,8 +683,8 @@ def format_rate(rate: Optional[float]) -> str:
 
 def format_stamps(topic: str, frame_id: str, stamps: StampStatistics) -> List[str]:
     """Return the lines about the messages' count and frame and about their header stamps."""
-    return [f'{topic}: {count_of(stamps.message_count, "message")}, '
-            f'frame_id "{on_one_line(frame_id)}"',
+    return [on_one_line(f'{topic}: {count_of(stamps.message_count, "message")}, '
+                        f'frame_id "{frame_id}"'),
             f'Header stamps: {format_duration(stamps.duration)} from the first to the last, '
             f'{format_rate(stamps.rate)}',
             f'Header intervals: shortest {format_duration(stamps.shortest_interval)}, '
