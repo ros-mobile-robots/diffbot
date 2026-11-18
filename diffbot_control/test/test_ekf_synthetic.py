@@ -479,7 +479,8 @@ class TestEkfWithInvalidImuSamples(SteppedClockTestCase):
     def check_validator_drops_samples_with_a_repeated_stamp(self) -> None:
         """Check that the estimate stays at the valid samples' rate despite repeated stamps."""
         outputs = self.run_steps(PHASE_STEPS, WHEEL_INPUT,
-                                 [VALID_SAMPLE, ImuInput(0.0, BAD_RATE, NOT_NEWER)])
+                                 [VALID_SAMPLE,
+                                  ImuInput(VALID_SAMPLE.offset, BAD_RATE, NOT_NEWER)])
         self.assert_stays_at_most(outputs, IMU_RATE + YAW_RATE_TOLERANCE,
                                   'phase 3: samples with a repeated stamp')
         self.assert_yaw_rate(outputs[-1], IMU_RATE, YAW_RATE_TOLERANCE,
