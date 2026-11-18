@@ -48,6 +48,11 @@ on:
 permissions:
   contents: read
 
+# Each action is named by the full commit of a release, with the release in the comment after it.
+# A commit can't be moved to other code later, as a tag such as v7 can. That matters most in the
+# publish job, whose actions run with the right to write packages. To update an action, take the
+# commit of its new release from the action's repository and change the comment with it.
+
 defaults:
   run:
     # bash with pipefail: a failing docker save in a pipe fails the step
@@ -66,10 +71,18 @@ jobs:
             arch: amd64
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v7
-      # The template that users copy to .env must give a valid configuration
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The template that users copy to .env must give a valid configuration, alone and together
+      # with the file for a build of one's own
       - name: Check the settings template
-        run: docker compose --env-file .docker/robot/env.example -f .docker/robot/compose.yaml config --quiet
+        run: |
+          cd .docker/robot
+          docker compose --env-file env.example -f compose.yaml config --quiet
+          docker compose --env-file env.example -f compose.yaml -f compose.build.yaml config --quiet
+      # The publish job's script, without a registry: stand-ins answer its reads. It must write
+      # nothing unless the registry itself says that a tag doesn't exist.
+      - name: Test the publish script
+        run: .docker/robot/test_publish_image.sh
       # The label says which commit the image is built from, also on the robot (docker inspect)
       - name: Build the robot image
         run: >-
@@ -107,7 +120,7 @@ jobs:
           github.repository == 'ros-mobile-robots/diffbot' &&
           github.ref == 'refs/heads/noetic-devel' &&
           (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: robot-image-${{ matrix.arch }}
           path: ${{ runner.temp }}/robot-image.tar.gz
@@ -130,20 +143,21 @@ jobs:
     permissions:
       contents: read
       packages: write
-    # One publication at a time, up to 100 waiting, none cancelled
+    # One publication at a time. Up to 100 more wait for their turn, and none of those is
+    # cancelled. GitHub cancels a publication only if it arrives while 100 are waiting already.
     concurrency:
       group: robot-image-publish
       queue: max
     steps:
       # The whole history, so that noetic only moves forward
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: robot-image-*
           path: ${{ runner.temp }}/robot-images
-      - uses: docker/login-action@v4
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

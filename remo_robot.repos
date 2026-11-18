@@ -2,7 +2,11 @@ repositories:
   src/rplidar_ros:
     type: git
     url: https://github.com/ros-mobile-robots/rplidar_ros
-    version: noetic-devel
+    # One commit of the lidar driver's branch noetic-devel instead of the branch itself. The
+    # robot image is built twice, once per processor architecture, and both builds fetch this
+    # repository. With the commit, both get the same driver, also when one build runs later.
+    # To move to a newer driver, write the new commit here: git ls-remote <url> noetic-devel
+    version: 0c474e311f925f81ffba97313745f80a2de02e68
 #  src/raspicam_node:
 #    type: git
 #    url: https://github.com/UbiquityRobotics/raspicam_node
