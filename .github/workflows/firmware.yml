@@ -66,22 +66,23 @@ jobs:
           key: pio-core-${{ runner.os }}-${{ runner.arch }}-native-${{ hashFiles('.docker/firmware/requirements.txt', 'diffbot_firmware/platformio.ini') }}
           restore-keys: |
             pio-core-${{ runner.os }}-${{ runner.arch }}-native-
-      # pio test also passes when an environment runs no test case, for example when PlatformIO
-      # finds no suite folder for it. So the step has PlatformIO write its JSON report, which
-      # lists each suite with its environment (env_name) and its number of test cases
-      # (testcase_nums). jq adds up each environment's test cases, and the step fails when one
-      # of the two environments ran none.
+      # pio test also passes when no test of an environment passed, for example when PlatformIO
+      # finds no suite folder for it, or when every test is skipped. So the step has PlatformIO
+      # write its JSON report, which lists each suite with its environment (env_name) and each
+      # test case with its status. jq counts each environment's test cases with the status
+      # PASSED, and the step fails when one of the two environments has none.
       - name: Run the unit tests
         run: |
           .docker/firmware/run.sh pio test -e native -e native_googletest \
             --json-output-path .pio/unit-test-report.json
           for environment in native native_googletest; do
-            test_cases="$(jq --arg environment "$environment" \
-              '[.test_suites[] | select(.env_name == $environment) | .testcase_nums] | add // 0' \
+            passed="$(jq --arg environment "$environment" \
+              '[.test_suites[] | select(.env_name == $environment) | .test_cases[]
+                | select(.status == "PASSED")] | length' \
               diffbot_firmware/.pio/unit-test-report.json)"
-            echo "$environment: $test_cases test cases"
-            if [ "$test_cases" -eq 0 ]; then
-              echo "::error::The environment $environment ran no test case"
+            echo "$environment: $passed test cases passed"
+            if [ "$passed" -eq 0 ]; then
+              echo "::error::No test case of the environment $environment passed"
               exit 1
             fi
           done
