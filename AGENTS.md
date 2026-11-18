@@ -153,7 +153,7 @@ PEP 8 with the settings of ROS 2's `ament_flake8` (99 columns, google import ord
 - **Which files:** every `.py` file. The files of dynamic_reconfigure in a package's `cfg` folder, such as `diffbot_base/cfg/Parameters.cfg`, are Python too, but they keep the layout of dynamic_reconfigure's generator: a star import and a table with aligned columns, which flake8 and mypy reject. The commands below don't select them. `catkin build` runs such a file and fails on an error in it.
 - **The environment:** CI doesn't check the style yet (#117). Install flake8 with ament's plugins, mypy 1.10.1 (the version the project checks with) and the PyYAML type stubs in a virtual environment of Python 3.8 to 3.12, the versions that mypy 1.10.1 supports. Keep the environment outside the checkout. Inside the checkout, Git would list the environment's Python files as new files, and the commands would check them.
 - **What the commands check:** every `.py` file that differs from the branch that the pull request goes to, committed or not, and every new one. That branch is `noetic-devel` of this repository, ros-mobile-robots/diffbot, not of a fork.
-- **Which branch to pass:** in a clone of this repository, call the function without an argument. It then compares with `origin/noetic-devel`. In a clone of your fork, `origin` is the fork, whose `noetic-devel` can hold your own commits, so a comparison with that branch could find nothing to check. The function therefore takes `origin` only when its address is this repository's on github.com, over HTTPS or SSH. With any other address it stops with an `error:` line. Fetch this repository's branch and pass that one. The last lines of the block show both calls.
+- **Which branch to pass:** in a clone of this repository, call the function without an argument. It then compares with `origin/noetic-devel`. In a clone of your fork, `origin` is the fork, whose `noetic-devel` can hold your own commits, so a comparison with that branch could find nothing to check. The function therefore takes `origin` only when the address that Git fetches from is this repository's on github.com, over HTTPS or SSH. With any other address it stops with an `error:` line. Fetch this repository's branch and pass that one. The last lines of the block show both calls.
 
 On the PC, in the repository's root, in bash 4.4 or newer:
 
@@ -170,8 +170,8 @@ lint_changed_python() {
   # 1. The branch that the pull request goes to, and the commit where this branch left it.
   #    Without both, Git can't tell what changed
   if [ -z "$base_ref" ]; then
-    # origin has to be this repository itself, by its whole HTTPS or SSH address
-    if ! git config --get remote.origin.url | grep -qxE \
+    # origin has to be this repository itself: the whole HTTPS or SSH address that Git fetches from
+    if ! git remote get-url origin 2> /dev/null | grep -qxE \
         '(https://github\.com/|git@github\.com:|ssh://git@github\.com/)ros-mobile-robots/diffbot(\.git)?/?'; then
       echo "error: origin isn't github.com's ros-mobile-robots/diffbot. Name the branch that the" >&2
       echo "pull request goes to, for example: lint_changed_python upstream/noetic-devel" >&2
