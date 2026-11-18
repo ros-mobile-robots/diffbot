@@ -25,6 +25,7 @@ from typing import Tuple
 from typing import TypeVar
 import unittest
 
+import genpy.dynamic
 import rosbag
 import rospy
 from sensor_msgs.msg import Imu
@@ -50,7 +51,6 @@ from imu_noise_at_rest import FieldStatistics  # noqa: E402
 from imu_noise_at_rest import format_duration  # noqa: E402
 from imu_noise_at_rest import format_report  # noqa: E402
 from imu_noise_at_rest import format_table  # noqa: E402
-from imu_noise_at_rest import IMU_DEFINITION  # noqa: E402
 from imu_noise_at_rest import IMU_PERIOD  # noqa: E402
 from imu_noise_at_rest import imu_statistics  # noqa: E402
 from imu_noise_at_rest import ImuSample  # noqa: E402
@@ -98,6 +98,13 @@ REGULAR_STAMPS = [EPOCH + index * IMU_PERIOD for index in range(3)]
 # The time that a message takes from its header stamp to the recorder, in the bags of the tests
 # that set the recorder's clock back
 DELIVERY_TIME = 2 * MILLISECOND  # ns
+
+# ROS's sensor_msgs/Imu as a bag stores the type: its name and the text of its definition
+IMU_DEFINITION = MessageDefinition(Imu._type, Imu._full_text)
+# The same definition with an array of one vector as the angular velocity. ROS gives this
+# definition the checksum of sensor_msgs/Imu
+ONE_VECTOR_ARRAY_DEFINITION = MessageDefinition(Imu._type, Imu._full_text.replace(
+    'geometry_msgs/Vector3 angular_velocity', 'geometry_msgs/Vector3[1] angular_velocity'))
 
 
 def sample(stamp: int = EPOCH, frame_id: str = FRAME,
@@ -310,8 +317,8 @@ class BagWithConnections:
     def read_messages(self, topics: Sequence[str], connection_filter: Any) -> List[Any]:
         """Ask the filter about each connection, as rosbag does, and return no message."""
         for definition in self.definitions:
-            connection_filter(topics[0], definition.type_name, definition.checksum,
-                              'the definition', {})
+            connection_filter(topics[0], definition.type_name, 'the checksum', definition.text,
+                              {})
         return []
 
 
@@ -330,6 +337,11 @@ class TestTopicChecks(unittest.TestCase):
         """Check that a topic with one connection of ROS's sensor_msgs/Imu raises nothing."""
         check_topic(BagWithConnections([IMU_DEFINITION]), DEFAULT_TOPIC)
 
+    def test_check_topic_passes_a_definition_that_differs_in_its_comments(self) -> None:
+        """Check that a definition with one more comment line has the same fields."""
+        with_a_comment = MessageDefinition(Imu._type, '# Another comment\n' + Imu._full_text)
+        check_topic(BagWithConnections([with_a_comment]), DEFAULT_TOPIC)
+
     def test_check_topic_fails_for_a_topic_with_several_types_and_names_them_all(
             self) -> None:
         """Check that an IMU topic with two more types is refused, with all three names.
@@ -337,23 +349,35 @@ class TestTopicChecks(unittest.TestCase):
         rosbag info shows such a topic with one type only, here sensor_msgs/Imu.
         """
         bag = BagWithConnections([IMU_DEFINITION,
-                                  MessageDefinition('std_msgs/String', String._md5sum),
-                                  MessageDefinition('std_msgs/UInt32', 'another checksum')])
+                                  MessageDefinition(String._type, String._full_text),
+                                  MessageDefinition('std_msgs/UInt32', 'uint32 data')])
         with self.assertRaises(MessageError) as error:
             check_topic(bag, DEFAULT_TOPIC)
         self.assertEqual(message_of(error),
                          'the topic holds sensor_msgs/Imu, std_msgs/String, std_msgs/UInt32. '
                          'Every message of the topic must be a sensor_msgs/Imu')
 
-    def test_check_topic_fails_for_imu_messages_with_another_definition(self) -> None:
-        """Check that the type's name with another definition's checksum is refused."""
-        bag = BagWithConnections([MessageDefinition('sensor_msgs/Imu', 'another checksum')])
+    def test_check_topic_fails_for_an_imu_definition_with_an_array_in_place_of_a_vector(
+            self) -> None:
+        """Check that an angular velocity defined as an array of one vector is refused.
+
+        The definition has the checksum of ROS's sensor_msgs/Imu, so only its fields tell.
+        """
         with self.assertRaises(MessageError) as error:
-            check_topic(bag, DEFAULT_TOPIC)
+            check_topic(BagWithConnections([ONE_VECTOR_ARRAY_DEFINITION]), DEFAULT_TOPIC)
         self.assertEqual(message_of(error),
-                         "the topic's messages are named sensor_msgs/Imu, but their definition "
-                         "isn't ROS's: its checksum is another checksum instead of "
-                         + Imu._md5sum)
+                         "the bag defines the topic's sensor_msgs/Imu messages with other "
+                         "fields than ROS's: angular_velocity is a geometry_msgs/Vector3[1] "
+                         'instead of a geometry_msgs/Vector3')
+
+    def test_check_topic_fails_for_an_imu_definition_that_is_no_definition(self) -> None:
+        """Check that a definition that genpy can't read is refused with genpy's reason."""
+        no_definition = MessageDefinition(Imu._type, 'not a definition ][')
+        with self.assertRaises(MessageError) as error:
+            check_topic(BagWithConnections([no_definition]), DEFAULT_TOPIC)
+        self.assertTrue(message_of(error).startswith(
+            "the bag's definition of the topic's messages can't be read: InvalidMsgSpec: "),
+            message_of(error))
 
     def test_check_topic_fails_with_the_readers_reason_when_the_reader_fails(self) -> None:
         """Check that an error of the bag's reader is the reason, with its type's name."""
@@ -828,12 +852,11 @@ class TestToolOnBags(unittest.TestCase):
             f'{self.bag_path}, {DEFAULT_TOPIC}: the topic holds std_msgs/String. Every message '
             'of the topic must be a sensor_msgs/Imu')
 
-    def test_tool_ends_with_a_message_when_the_imu_messages_have_another_definition(
-            self) -> None:
-        """Check that messages named sensor_msgs/Imu with another definition are refused.
+    def test_tool_ends_with_a_message_when_the_imu_messages_have_other_fields(self) -> None:
+        """Check that messages named sensor_msgs/Imu with the fields of a String are refused.
 
-        The bag's connection names the type sensor_msgs/Imu with the definition and the
-        checksum of std_msgs/String, whose messages have none of an IMU's fields.
+        The bag's connection names the type sensor_msgs/Imu and stores the definition of
+        std_msgs/String, whose messages have none of an IMU's fields.
         """
         connection = {'topic': DEFAULT_TOPIC, 'type': Imu._type, 'md5sum': String._md5sum,
                       'message_definition': String._full_text}
@@ -842,9 +865,27 @@ class TestToolOnBags(unittest.TestCase):
                 bag.write(DEFAULT_TOPIC, String('not an IMU message'),
                           to_ros_time(arrival_stamp), connection_header=connection)
         self.assert_tool_ends_with(
-            f"{self.bag_path}, {DEFAULT_TOPIC}: the topic's messages are named sensor_msgs/Imu, "
-            f"but their definition isn't ROS's: its checksum is {String._md5sum} instead of "
-            f'{Imu._md5sum}')
+            f"{self.bag_path}, {DEFAULT_TOPIC}: the bag defines the topic's sensor_msgs/Imu "
+            "messages with other fields than ROS's: the message has the fields data instead of "
+            'header, orientation, orientation_covariance, angular_velocity, '
+            'angular_velocity_covariance, linear_acceleration, linear_acceleration_covariance')
+
+    def test_tool_ends_with_a_message_when_the_angular_velocity_is_an_array_of_one_vector(
+            self) -> None:
+        """Check that messages whose angular velocity is an array of one vector are refused.
+
+        Their definition has the checksum of ROS's sensor_msgs/Imu, and rosbag reads them. The
+        tool would find a list where it reads the vector's x.
+        """
+        message_class = genpy.dynamic.generate_dynamic(
+            Imu._type, ONE_VECTOR_ARRAY_DEFINITION.text)[Imu._type]
+        with rosbag.Bag(self.bag_path, 'w') as bag:
+            for arrival_stamp in REGULAR_STAMPS:
+                bag.write(DEFAULT_TOPIC, message_class(), to_ros_time(arrival_stamp))
+        self.assert_tool_ends_with(
+            f"{self.bag_path}, {DEFAULT_TOPIC}: the bag defines the topic's sensor_msgs/Imu "
+            "messages with other fields than ROS's: angular_velocity is a "
+            'geometry_msgs/Vector3[1] instead of a geometry_msgs/Vector3')
 
     def test_tool_ends_with_a_message_when_the_topic_has_one_message(self) -> None:
         """Check that one message is refused: the statistics need two."""

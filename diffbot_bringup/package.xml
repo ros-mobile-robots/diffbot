@@ -50,7 +50,9 @@
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   <exec_depend>teleop_twist_keyboard</exec_depend>
-  <!-- scripts/imu_noise_at_rest.py reads sensor_msgs/Imu messages from a rosbag -->
+  <!-- scripts/imu_noise_at_rest.py reads sensor_msgs/Imu messages from a rosbag and builds the
+       messages' class from the bag's definition with genpy, as rosbag does -->
+  <exec_depend>genpy</exec_depend>
   <exec_depend>rosbag</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <test_depend>python3-nose</test_depend>

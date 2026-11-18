@@ -33,9 +33,9 @@ A field's statistics come from the messages that measured the field: sensor_msgs
 field without a measurement with -1 as the first element of the field's covariance. A field with
 fewer than two readings gets two lines instead of statistics. The tool prints one line and ends
 with status 1 instead of a report when the file isn't a readable rosbag, when the topic's messages
-have another type, an empty frame_id, more than one frame_id or a reading that isn't finite or
-is larger than any IMU's, and when fewer than two messages or readings are left for the
-statistics.
+have another type or other fields than ROS's sensor_msgs/Imu, an empty frame_id, more than one
+frame_id or a reading that isn't finite or is beyond the tool's limit for a plausible reading,
+and when fewer than two messages or readings are left for the statistics.
 
 Usage: rosrun diffbot_bringup imu_noise_at_rest.py imu_still.bag [--topic /diffbot/imu/data_raw]
 """
@@ -56,17 +56,19 @@ from typing import Sequence
 from typing import Set
 from typing import Tuple
 
+import genpy.dynamic
 import rosbag
 from sensor_msgs.msg import Imu
 
 DEFAULT_TOPIC = '/diffbot/imu/data_raw'
+IMU_TYPE = 'sensor_msgs/Imu'
 # The first bytes of every bag file, before the format's version
 BAG_FILE_START = b'#ROS'
 # sensor_msgs/Imu: a message without a measurement of a field has -1 as the first element of the
 # field's covariance
 NOT_MEASURED = -1.0
-# This tool's limit for a plausible reading. No IMU measures a rate in rad/s or an acceleration
-# in m/s^2 of this size, so the tool takes a larger value as damaged data
+# The tool's limit for a plausible reading of a robot at rest, as a rate in rad/s and as an
+# acceleration in m/s^2. The tool takes a value beyond it as damaged data
 LARGEST_READING = 1.0e6
 
 NANOSECONDS_PER_SECOND = 1000000000
@@ -106,14 +108,10 @@ class ImuSample(NamedTuple):
 
 
 class MessageDefinition(NamedTuple):
-    """The name of a message type and the checksum of the type's definition."""
+    """A message type as a bag stores it: the type's name and the text of its definition."""
 
     type_name: str
-    checksum: str
-
-
-# ROS's own definition of the messages that the tool reads
-IMU_DEFINITION = MessageDefinition(Imu._type, Imu._md5sum)
+    text: str
 
 
 class StoredSample(NamedTuple):
@@ -244,14 +242,14 @@ def topic_definitions(bag: Any, topic: str) -> Set[MessageDefinition]:
     """Return the message definitions of the topic's connections, without reading a message.
 
     rosbag asks the connection filter about each connection of the topic before it reads the
-    connection's messages. The filter notes the connection's type and checksum and declines the
+    connection's messages. The filter notes the connection's message type and declines the
     connection. An error of rosbag's reader becomes the reason of a MessageError.
     """
     definitions: Set[MessageDefinition] = set()
 
-    def note_definition(_topic: str, type_name: str, checksum: str, _definition: str,
+    def note_definition(_topic: str, type_name: str, _checksum: str, definition: str,
                         _header: Any) -> bool:
-        definitions.add(MessageDefinition(type_name, checksum))
+        definitions.add(MessageDefinition(type_name, definition))
         return False
 
     try:
@@ -271,23 +269,54 @@ def check_topic_type(definitions: Set[MessageDefinition]) -> None:
     with several types: only one of them.
     """
     type_names = sorted({definition.type_name for definition in definitions})
-    if any(type_name != IMU_DEFINITION.type_name for type_name in type_names):
+    if any(type_name != IMU_TYPE for type_name in type_names):
         raise MessageError(f'the topic holds {", ".join(type_names)}. '
-                           f'Every message of the topic must be a {IMU_DEFINITION.type_name}')
+                           f'Every message of the topic must be a {IMU_TYPE}')
 
 
-def check_topic_checksum(definitions: Set[MessageDefinition]) -> None:
-    """Raise a MessageError when the messages' definition isn't ROS's sensor_msgs/Imu.
+def first_field_difference(message: Any, reference: Any, path: str = '') -> Optional[str]:
+    """Return how a message's fields first differ from a reference message's, or None.
 
-    A bag stores each message type's definition. Messages that carry the type's name with
-    another definition can lack the fields that the tool reads.
+    Both are messages of classes that genpy generated. A class lists its fields' names as
+    __slots__ and their types as _slot_types. A field that is a message itself is compared in
+    the same way, with the path to the field in front of its fields' names.
     """
-    checksums = sorted({definition.checksum for definition in definitions})
-    if any(checksum != IMU_DEFINITION.checksum for checksum in checksums):
-        raise MessageError(
-            f"the topic's messages are named {IMU_DEFINITION.type_name}, but their definition "
-            f"isn't ROS's: its checksum is {', '.join(checksums)} instead of "
-            f'{IMU_DEFINITION.checksum}')
+    if message.__slots__ != reference.__slots__:
+        return (f'{path or "the message"} has the fields {", ".join(message.__slots__)} '
+                f'instead of {", ".join(reference.__slots__)}')
+    for name, field_type, reference_type in zip(message.__slots__, message._slot_types,
+                                                reference._slot_types):
+        if field_type != reference_type:
+            return f'{path}{name} is a {field_type} instead of a {reference_type}'
+        reference_field = getattr(reference, name)
+        if hasattr(reference_field, '_slot_types'):
+            difference = first_field_difference(getattr(message, name), reference_field,
+                                                f'{path}{name}.')
+            if difference is not None:
+                return difference
+    return None
+
+
+def check_topic_fields(definitions: Set[MessageDefinition]) -> None:
+    """Raise a MessageError when the bag defines the messages with other fields than ROS does.
+
+    A bag stores the definition of each message type, and rosbag builds the messages' class
+    from it, so the type's name alone doesn't say that a message has the fields that the tool
+    reads. The definition's checksum doesn't say it either: an array of vectors has the checksum
+    of one vector. So the tool builds the class as rosbag does and compares its fields with
+    those of ROS's sensor_msgs/Imu. A definition that differs in its comments passes.
+    """
+    for definition in sorted(definitions):
+        try:
+            message_class = genpy.dynamic.generate_dynamic(definition.type_name,
+                                                           definition.text)[definition.type_name]
+        except Exception as error:
+            raise MessageError("the bag's definition of the topic's messages can't be read: "
+                               f'{reason_of(error)}') from error
+        difference = first_field_difference(message_class(), Imu())
+        if difference is not None:
+            raise MessageError(f"the bag defines the topic's {IMU_TYPE} messages with other "
+                               f"fields than ROS's: {difference}")
 
 
 def check_topic(bag: Any, topic: str) -> None:
@@ -298,7 +327,7 @@ def check_topic(bag: Any, topic: str) -> None:
     """
     definitions = topic_definitions(bag, topic)
     check_topic_type(definitions)
-    check_topic_checksum(definitions)
+    check_topic_fields(definitions)
 
 
 def measured_vector(vector: Any, covariance: Sequence[float]) -> Optional[Vector]:
@@ -413,7 +442,7 @@ def format_stamp(stamp: int) -> str:
     return f'{seconds}.{nanoseconds:09d}'
 
 
-def is_of_an_imus_size(value: float) -> bool:
+def is_plausible(value: float) -> bool:
     """Return whether a value's size is at most LARGEST_READING."""
     return abs(value) <= LARGEST_READING
 
@@ -450,11 +479,11 @@ def check_finite_readings(samples: Sequence[ImuSample]) -> None:
 def check_reading_size(samples: Sequence[ImuSample]) -> None:
     """Raise a MessageError for a measured reading with a value beyond LARGEST_READING.
 
-    A value of that size isn't a measurement. It comes from damaged data, for example a changed
-    byte in a number's exponent, and it would decide the axis's mean and variance alone.
+    The tool takes a value of that size as damaged data, for example a changed byte in a
+    number's exponent. One such value would decide the axis's mean and variance alone.
     """
     for field in FIELDS:
-        sample = first_sample_with_an_unexpected_reading(samples, field, is_of_an_imus_size)
+        sample = first_sample_with_an_unexpected_reading(samples, field, is_plausible)
         if sample is not None:
             raise MessageError(f'{format_reading(sample, field)}. The tool takes a value '
                                f'beyond {LARGEST_READING:g} {field.unit} as damaged data')
