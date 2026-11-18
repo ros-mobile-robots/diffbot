@@ -25,7 +25,7 @@ The unit tests use two frameworks, and [`platformio.ini`](platformio.ini) has an
 | [Unity](https://github.com/ThrowTheSwitch/Unity), which can also run on a Teensy | [`test/test_*`](test) | `native` | The tests of the rosserial code, and the suites of the core that are still written for Unity |
 | [GoogleTest](https://google.github.io/googletest/), which PlatformIO offers for the PC and not for a Teensy | [`test/googletest/test_*`](test/googletest) | `native_googletest` | New tests of the core. A Unity suite of the core moves here when its code changes |
 
-[`test/googletest/test_wire_bus`](test/googletest/test_wire_bus/test_wire_bus.cpp) shows the pattern for a GoogleTest suite: a fixture for what the tests share, and a parameterized test for a test that runs with several values. [Firmware unit tests](https://ros-mobile-robots.com/development/ci/#firmware-unit-tests) on ros-mobile-robots.com explains both frameworks and how to write a test.
+[`test/googletest/test_wire_bus`](test/googletest/test_wire_bus/test_wire_bus.cpp) shows the pattern for a GoogleTest suite: a fixture for what the tests share, and a parameterized test for a test that runs with several values. [Write a GoogleTest suite](https://ros-mobile-robots.com/development/firmware-unit-tests/#write-a-googletest-suite) on ros-mobile-robots.com walks through a new suite, from a first file with one test to the fixture and the parameterized test.
 
 The firmware files land in `.pio/build/<board>/` in this folder, for example `firmware.hex`, which PJRC's [Teensy Loader](https://www.pjrc.com/teensy/loader.html) can flash. With PlatformIO installed on your PC ([CONTRIBUTING](../CONTRIBUTING.md)), `pio run -e teensy40` or `pio run -e teensy31` in this folder builds it too.
 
