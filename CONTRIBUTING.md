@@ -27,7 +27,7 @@ In `~/catkin_ws`:
 catkin build                                        # build the workspace
 source devel/setup.bash
 catkin build --catkin-make-args run_tests           # build and run all tests
-catkin_test_results build                           # summary: 10 tests, 0 errors, 0 failures
+catkin_test_results build                           # Summary: … tests, 0 errors, 0 failures, 0 skipped
 rostest diffbot_gazebo sim_drive_diffbot.test       # one robot's simulation test
 ```
 
@@ -56,13 +56,15 @@ CI runs on every pull request: [industrial_ci](https://github.com/ros-industrial
 
 ## Pull requests
 
-- **One feature or fix per pull request**, on a branch named `feat/…`, `fix/…`, `docs/…` or `chore/…`. Keep unrelated changes for another PR.
+- **One feature or fix per pull request**, on a branch named `feat/…`, `fix/…`, `docs/…`, `chore/…`, `refactor/…` or `test/…`, with a short topic in kebab-case, such as `fix/encoder-ticks`. Keep unrelated changes for another PR.
 - **Pull requests are squash-merged.** The PR title becomes the commit's subject, so write it as `Area: what changed`, for example `Simulation test: narrower turn checks`. Aim for 65 characters or fewer; GitHub adds the PR number. The whole description becomes the commit message, so start it with what changes and why.
-- **Describe how you tested it:** what you ran, on which robot or in simulation, and what you saw. Link the issue with `Closes #N`.
+- **Describe how you tested it:** what you ran, on which robot or in simulation, and what you saw.
+- **Issues:** end the description with `Closes #N` when your pull request resolves issue N. If the issue stays open, name it without a closing keyword, for example `Part of #N`.
+- **Signed commits:** sign your commits with GPG, `git commit -S`.
 - **Code:** a function does one thing, and its name says what. Values that belong together travel as one type, a closed set of states is an `Enum`, and what two threads share has a lock. [AGENTS.md](AGENTS.md#code-and-tests) has the rules with examples, for Python, C++, launch files, shell scripts and workflows.
 - **Comments:** they explain why the code is the way it is, not what changed or how it used to be. The history belongs in the commit and the PR. A flow of several steps is a numbered list.
 - **Tests:** new code comes with a test that CI runs. A test's name says what the test checks, as a sentence: the subject, the result, then the condition, for example `test_bno055_startup_fails_at_the_reset_deadline_without_another_poll`. A test checks one behavior, and tests don't depend on their order.
-- **Python and C++:** Python follows PEP 8 with the settings of ROS 2's `ament_flake8`, with PEP 257 docstrings and type hints on every function. [AGENTS.md](AGENTS.md#python) lists the commands that check it. C++ files include the header of every name they use, which clang-tidy's include cleaner checks.
+- **Python and C++:** Python follows PEP 8 with the settings of ROS 2's `ament_flake8`, with PEP 257 docstrings and type hints on every function. [AGENTS.md](AGENTS.md#python) lists the commands that check every `.py` file you changed. C++ files include the header of every name they use. clang-tidy's check `misc-include-cleaner` finds what is missing, and [AGENTS.md](AGENTS.md#check-the-includes) has its commands for `diffbot_base`, `diffbot_gazebo_plugins` and the firmware. CI doesn't run these two checks yet, so say in the pull request which files you checked.
 - **Documentation:** every feature also gets documentation on ros-mobile-robots.com, planned with the code. Open a pull request in [ros-mobile-robots.github.io](https://github.com/ros-mobile-robots/ros-mobile-robots.github.io) and link it under `## Documentation` in the description, as `ros-mobile-robots/ros-mobile-robots.github.io#N`. Its pages say what the feature does, how the code works and how it is tested, with a walk through each test: what it sets up, what goes in, what happens, and what is checked with which tolerance, with a picture per test. If a page on ros-mobile-robots.com already explains the change, link that page instead. If nothing user-visible changes, write `None`. The PR description check fails until that section has one of the three. It runs again when you edit the description: look at that new run, because re-running the old one still sees the old text.
 - Follow [REP 103](https://www.ros.org/reps/rep-0103.html) for units and coordinate frames.
 
