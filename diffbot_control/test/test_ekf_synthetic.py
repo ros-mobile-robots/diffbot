@@ -75,8 +75,9 @@ STEPS_PER_WHEEL_MESSAGE = round(ROBOT_WHEEL_ODOMETRY_PERIOD.to_sec() / STEP.to_s
 FUSION_STEPS = 150
 PHASE_STEPS = 50
 AFTER_RESET_STEPS = 100
-# Wheel messages, one every STEPS_PER_WHEEL_MESSAGE steps, after the IMU stopped
-IMU_STOPPED_WHEEL_MESSAGES = 20
+# Wheel periods of STEPS_PER_WHEEL_MESSAGE steps after the IMU stopped. The first step of each
+# period publishes a wheel message
+IMU_STOPPED_WHEEL_PERIODS = 20
 # s of ROS time without IMU samples before phase 7 reads the diagnostics: longer than the 1 s
 # period of the validator's diagnostics
 DIAGNOSTICS_WAIT = rospy.Duration(1.5)
@@ -108,6 +109,17 @@ YAW_RATE_TOLERANCE = 0.01  # rad/s
 # rad/s, for the estimate that approaches the wheels' rate after the IMU samples stop passing
 WHEEL_RATE_TOLERANCE = 0.02
 
+# robot_rates' phase 1 changes the wheels' forward speed from SPEED to CHANGED_SPEED with the wheel
+# message of this step, the 21st, 2 s into the phase
+SPEED_CHANGE_STEP = 100
+# m/s, SPEED plus ten times SPEED_TOLERANCE. The filter estimates an acceleration from the change,
+# which moves the estimate between two wheel messages: by less than SPEED_TOLERANCE for this change
+CHANGED_SPEED = 0.12
+# Steps from SPEED_CHANGE_STEP on within which the estimate has to reach CHANGED_SPEED: the second
+# wheel message after the change brings it within SPEED_TOLERANCE, one more step allows for a late
+# message
+SPEED_CHANGE_WINDOW = STEPS_PER_WHEEL_MESSAGE + 1  # 6
+
 # The validator's status on the topic /diagnostics contains this name, and its values have these
 # keys (scripts/imu_validator.py). The texts are written out here and not imported from the
 # script: the test pins what a user reads on that topic
@@ -132,6 +144,18 @@ class ImuInput(NamedTuple):
 
 # A valid sample stamped at the step's time, which the validator has to forward
 VALID_SAMPLE = ImuInput(0.0, IMU_RATE, None)
+
+
+class WheelInput(NamedTuple):
+    """The wheel odometry that a step publishes: what the wheels report."""
+
+    speed: float  # m/s, forward
+    yaw_rate: float  # rad/s
+
+
+# What the wheels report in every wheel message, apart from robot_rates' phase 1 after its change
+WHEEL_INPUT = WheelInput(SPEED, WHEEL_RATE)
+CHANGED_SPEED_WHEEL_INPUT = WheelInput(CHANGED_SPEED, WHEEL_RATE)
 
 
 Item = TypeVar('Item')
@@ -182,15 +206,15 @@ def stamp_key(stamp: rospy.Time) -> StampKey:
     return (stamp.secs, stamp.nsecs)
 
 
-def wheel_odometry(stamp: rospy.Time, yaw_rate: float) -> Odometry:
-    """Return the drive controller's odometry at stamp, for a robot turning at yaw_rate."""
+def wheel_odometry(stamp: rospy.Time, wheel_input: WheelInput) -> Odometry:
+    """Return the drive controller's odometry at stamp, for wheels that report wheel_input."""
     message = Odometry()
     message.header.stamp = stamp
     message.header.frame_id = 'odom'
     message.child_frame_id = 'base_footprint'
     message.pose.pose.orientation.w = 1.0
-    message.twist.twist.linear.x = SPEED
-    message.twist.twist.angular.z = yaw_rate
+    message.twist.twist.linear.x = wheel_input.speed
+    message.twist.twist.angular.z = wheel_input.yaw_rate
     for axis, variance in enumerate(WHEEL_VARIANCES):
         message.pose.covariance[DIAGONAL_STRIDE * axis] = variance
         message.twist.covariance[DIAGONAL_STRIDE * axis] = variance
@@ -214,13 +238,20 @@ def imu_sample(stamp: rospy.Time, yaw_rate: float) -> Imu:
     return message
 
 
-def wait_for(condition: Callable[[], bool], failure: str) -> None:
-    """Wait on the wall clock until condition() is true, at most WAIT s, else fail with failure."""
+def wait_until(condition: Callable[[], bool]) -> bool:
+    """Wait at most WAIT s of wall time for condition() to be true, and return whether it is."""
     deadline = time.monotonic() + WAIT
     while not condition():
         if time.monotonic() > deadline:
-            raise AssertionError(failure)
+            return False
         time.sleep(POLL_INTERVAL)
+    return True
+
+
+def wait_for(condition: Callable[[], bool], failure: str) -> None:
+    """Wait on the wall clock until condition() is true, at most WAIT s, else fail with failure."""
+    if not wait_until(condition):
+        raise AssertionError(failure)
 
 
 class SteppedClockTestCase(unittest.TestCase):
@@ -273,15 +304,15 @@ class SteppedClockTestCase(unittest.TestCase):
                 and self.validated_imu_subscriber.get_num_connections() > 0
                 and self.filtered_odometry_subscriber.get_num_connections() > 0)
 
-    def publish_inputs(self, stamp: rospy.Time, wheel_rate: Optional[float],
+    def publish_inputs(self, stamp: rospy.Time, wheel_input: Optional[WheelInput],
                        imu_inputs: Sequence[ImuInput]) -> List[StampKey]:
         """Publish one step's wheel odometry and IMU samples, stamped relative to stamp.
 
-        A wheel_rate of None publishes no wheel odometry in the step. Return the stamp keys of
+        A wheel_input of None publishes no wheel odometry in the step. Return the stamp keys of
         the samples that the validator has to forward.
         """
-        if wheel_rate is not None:
-            self.wheel_odometry_publisher.publish(wheel_odometry(stamp, wheel_rate))
+        if wheel_input is not None:
+            self.wheel_odometry_publisher.publish(wheel_odometry(stamp, wheel_input))
         valid_stamp_keys = []
         for imu_input in imu_inputs:
             sample_stamp = stamp + rospy.Duration.from_sec(imu_input.offset)
@@ -309,10 +340,11 @@ class SteppedClockTestCase(unittest.TestCase):
         self.now += STEP
         self.clock_publisher.publish(Clock(self.now))
 
-    def advance(self, wheel_rate: Optional[float], imu_inputs: Sequence[ImuInput]) -> StepStart:
+    def advance(self, wheel_input: Optional[WheelInput],
+                imu_inputs: Sequence[ImuInput]) -> StepStart:
         """Do 1 to 4 of a step, as step() lists them, and return where the step started."""
         start = StepStart(self.now, self.ekf_outputs.count())
-        valid_stamp_keys = self.publish_inputs(start.stamp, wheel_rate, imu_inputs)
+        valid_stamp_keys = self.publish_inputs(start.stamp, wheel_input, imu_inputs)
         self.wait_for_forwarded(valid_stamp_keys, start.stamp)
         time.sleep(DELIVERY)
         self.advance_clock()
@@ -328,11 +360,12 @@ class SteppedClockTestCase(unittest.TestCase):
         return [message for message in self.ekf_outputs.since(start.output_count_before)
                 if start.stamp <= message.header.stamp <= self.now]
 
-    def step(self, wheel_rate: Optional[float], imu_inputs: Sequence[ImuInput] = ()) -> Odometry:
+    def step(self, wheel_input: Optional[WheelInput],
+             imu_inputs: Sequence[ImuInput] = ()) -> Odometry:
         """Run one step and return the EKF's last output for it, which has to come.
 
         One step:
-        1. Publish the step's wheel odometry, if wheel_rate isn't None, stamped with the step's
+        1. Publish the step's wheel odometry, if wheel_input isn't None, stamped with the step's
            ROS time, and its IMU samples, each stamped with that time plus the sample's offset
            (publish_inputs()).
         2. Wait on the wall clock until the IMU sample validator's output for the step's valid
@@ -345,23 +378,23 @@ class SteppedClockTestCase(unittest.TestCase):
            (outputs_since()).
         advance() does 1 to 4.
         """
-        start = self.advance(wheel_rate, imu_inputs)
+        start = self.advance(wheel_input, imu_inputs)
         wait_for(lambda: bool(self.outputs_since(start)),
                  'no EKF output for the step at {:.2f} s'.format(start.stamp.to_sec()))
         return self.outputs_since(start)[-1]
 
-    def step_allowing_no_output(self, wheel_rate: Optional[float],
+    def step_allowing_no_output(self, wheel_input: Optional[WheelInput],
                                 imu_inputs: Sequence[ImuInput] = ()) -> Optional[Odometry]:
         """Run one step and return the EKF's last output for it, or None if none came."""
-        start = self.advance(wheel_rate, imu_inputs)
+        start = self.advance(wheel_input, imu_inputs)
         time.sleep(NO_OUTPUT_WAIT)
         outputs = self.outputs_since(start)
         return outputs[-1] if outputs else None
 
-    def run_steps(self, count: int, wheel_rate: float,
+    def run_steps(self, count: int, wheel_input: WheelInput,
                   imu_inputs: Sequence[ImuInput] = ()) -> List[Odometry]:
         """Run count steps with the same inputs and return the EKF's output for each."""
-        return [self.step(wheel_rate, imu_inputs) for _ in range(count)]
+        return [self.step(wheel_input, imu_inputs) for _ in range(count)]
 
     def assert_yaw_rate(self, output: Odometry, expected: float, delta: float, what: str) -> None:
         """Assert that the output's yaw rate is expected ± delta. what names the case."""
@@ -376,19 +409,19 @@ class SteppedClockTestCase(unittest.TestCase):
         self.assertLessEqual(highest, limit,
                              '{}: the estimate went up to {:.4f} rad/s'.format(what, highest))
 
-    def assert_forward_speed(self, output: Odometry, what: str) -> None:
-        """Assert that the output's forward speed is the wheels' SPEED. what names the case."""
-        self.assertAlmostEqual(output.twist.twist.linear.x, SPEED, delta=SPEED_TOLERANCE,
+    def assert_forward_speed(self, output: Odometry, speed: float, what: str) -> None:
+        """Assert that the output's forward speed is the wheels' speed. what names the case."""
+        self.assertAlmostEqual(output.twist.twist.linear.x, speed, delta=SPEED_TOLERANCE,
                                msg=what + ': the forward speed comes from the wheels')
 
-    def assert_fused_estimate(self, output: Odometry, what: str) -> None:
+    def assert_fused_estimate(self, output: Odometry, speed: float, what: str) -> None:
         """Assert that output has the EKF's frames, the wheels' speed and the IMU's yaw rate.
 
         what names the case.
         """
         self.assertEqual(output.header.frame_id, 'odom', what)
         self.assertEqual(output.child_frame_id, 'base_footprint', what)
-        self.assert_forward_speed(output, what)
+        self.assert_forward_speed(output, speed, what)
         self.assert_yaw_rate(output, IMU_RATE, YAW_RATE_TOLERANCE,
                              what + ": the IMU's variance is far smaller than the wheels'")
 
@@ -428,13 +461,13 @@ class TestEkfWithInvalidImuSamples(SteppedClockTestCase):
 
     def check_estimate_follows_the_imu_with_the_smaller_variance(self) -> None:
         """Check that the estimate follows the IMU's yaw rate when the wheels report another."""
-        outputs = self.run_steps(FUSION_STEPS, WHEEL_RATE, [VALID_SAMPLE])
+        outputs = self.run_steps(FUSION_STEPS, WHEEL_INPUT, [VALID_SAMPLE])
         self.print_fusion('fusion', outputs[-1])
-        self.assert_fused_estimate(outputs[-1], 'phase 1')
+        self.assert_fused_estimate(outputs[-1], SPEED, 'phase 1')
 
     def check_estimate_follows_the_wheels_when_imu_samples_are_stale(self) -> None:
         """Check that the estimate goes to the wheels' yaw rate when every IMU sample is stale."""
-        outputs = self.run_steps(PHASE_STEPS, WHEEL_RATE,
+        outputs = self.run_steps(PHASE_STEPS, WHEEL_INPUT,
                                  [ImuInput(STALE_OFFSET, BAD_RATE, TOO_OLD)])
         print('stale IMU: estimate from {:.4f} to {:.4f} rad/s'.format(
             outputs[0].twist.twist.angular.z, outputs[-1].twist.twist.angular.z))
@@ -445,7 +478,7 @@ class TestEkfWithInvalidImuSamples(SteppedClockTestCase):
 
     def check_validator_drops_samples_with_a_repeated_stamp(self) -> None:
         """Check that the estimate stays at the valid samples' rate despite repeated stamps."""
-        outputs = self.run_steps(PHASE_STEPS, WHEEL_RATE,
+        outputs = self.run_steps(PHASE_STEPS, WHEEL_INPUT,
                                  [VALID_SAMPLE, ImuInput(0.0, BAD_RATE, NOT_NEWER)])
         self.assert_stays_at_most(outputs, IMU_RATE + YAW_RATE_TOLERANCE,
                                   'phase 3: samples with a repeated stamp')
@@ -454,7 +487,7 @@ class TestEkfWithInvalidImuSamples(SteppedClockTestCase):
 
     def check_validator_drops_samples_from_the_future(self) -> None:
         """Check that the estimate stays at the valid samples' rate despite future stamps."""
-        outputs = self.run_steps(PHASE_STEPS, WHEEL_RATE,
+        outputs = self.run_steps(PHASE_STEPS, WHEEL_INPUT,
                                  [VALID_SAMPLE,
                                   ImuInput(FUTURE_OFFSET, BAD_RATE, FROM_THE_FUTURE)])
         self.assert_stays_at_most(outputs, IMU_RATE + YAW_RATE_TOLERANCE,
@@ -463,7 +496,7 @@ class TestEkfWithInvalidImuSamples(SteppedClockTestCase):
 
     def check_validator_drops_samples_older_than_the_last_valid_one(self) -> None:
         """Check that the estimate stays at the valid samples' rate despite older stamps."""
-        outputs = self.run_steps(PHASE_STEPS, WHEEL_RATE,
+        outputs = self.run_steps(PHASE_STEPS, WHEEL_INPUT,
                                  [VALID_SAMPLE, ImuInput(OLDER_OFFSET, BAD_RATE, NOT_NEWER)])
         self.assert_stays_at_most(outputs, IMU_RATE + YAW_RATE_TOLERANCE,
                                   'phase 5: samples older than the last valid one')
@@ -480,12 +513,12 @@ class TestEkfWithInvalidImuSamples(SteppedClockTestCase):
         # one of its step: the reset clears the node's callback queue. So the outputs start
         # again within a few steps
         for _ in range(RESET_STEPS):
-            if self.step_allowing_no_output(WHEEL_RATE, [VALID_SAMPLE]) is not None:
+            if self.step_allowing_no_output(WHEEL_INPUT, [VALID_SAMPLE]) is not None:
                 break
         else:
             self.fail('phase 6: no EKF output within {} steps after the clock went back'.format(
                 RESET_STEPS))
-        outputs = self.run_steps(AFTER_RESET_STEPS, WHEEL_RATE, [VALID_SAMPLE])
+        outputs = self.run_steps(AFTER_RESET_STEPS, WHEEL_INPUT, [VALID_SAMPLE])
         print('after the clock went back to {:.0f} s: estimate {:.4f} rad/s at {:.2f} s'.format(
             RESTART.to_sec(), outputs[-1].twist.twist.angular.z,
             outputs[-1].header.stamp.to_sec()))
@@ -519,7 +552,7 @@ class TestEkfWithInvalidImuSamples(SteppedClockTestCase):
         array_count_before = self.diagnostics.count()
         start = self.now
         while self.now < start + DIAGNOSTICS_WAIT:
-            self.step(WHEEL_RATE)
+            self.step(WHEEL_INPUT)
         wait_for(lambda: self.validator_values(array_count_before) is not None,
                  'phase 7: no status of the IMU sample validator on the topic /diagnostics')
         values = self.validator_values(array_count_before)
@@ -543,28 +576,55 @@ class TestEkfAtTheRobotRates(SteppedClockTestCase):
     Its phases run in this order, and the second needs the state that the first left:
     1. Fusion at the robot's rates: the IMU reports 0.5 rad/s in every step, the wheels 0.4 rad/s
        in every fifth step. The filter publishes in every step, and the estimate follows the
-       IMU, with the wheels' forward speed also between two wheel messages.
-    2. The IMU stops, the wheel odometry goes on in every fifth step, and the clock moves on in
-       every step. The filter publishes one output per wheel period, and the estimate goes to
-       the wheels' 0.4 rad/s.
+       IMU, with the wheels' forward speed also between two wheel messages. From the 21st wheel
+       message on, the wheels report 0.12 m/s instead of 0.1 m/s, and the estimate's forward
+       speed follows within 6 steps.
+    2. The IMU stops, the wheel odometry goes on in every fifth step, at 0.1 m/s again, and the
+       clock moves on in every step. The filter publishes one output per wheel period, and the
+       estimate goes to the wheels' 0.4 rad/s and 0.1 m/s.
     """
+
+    def setUp(self) -> None:
+        super().setUp()
+        # The stamps of the wheel messages on their topic, which phase 2 counts
+        self.wheel_message_stamps: ArrivalLog[rospy.Time] = ArrivalLog()
+        self.wheel_odometry_subscriber = rospy.Subscriber(
+            WHEEL_ODOMETRY_TOPIC, Odometry, self.on_wheel_odometry, queue_size=QUEUE_SIZE)
+        wait_for(lambda: self.wheel_odometry_subscriber.get_num_connections() > 0,
+                 "the test's subscriber to the wheel odometry didn't connect")
+
+    def on_wheel_odometry(self, message: Odometry) -> None:
+        """Note the stamp of a wheel message on the topic."""
+        self.wheel_message_stamps.append(message.header.stamp)
 
     def test_ekf_follows_the_imu_at_the_robot_rates_and_the_wheels_after_the_imu_stops(
             self) -> None:
-        self.check_estimate_follows_the_imu_with_wheel_odometry_every_fifth_step()
+        self.check_estimate_follows_the_imu_and_a_wheel_speed_change_at_the_robot_rates()
         self.check_ekf_publishes_at_the_wheel_rate_and_follows_the_wheels_when_the_imu_stops()
 
-    def check_estimate_follows_the_imu_with_wheel_odometry_every_fifth_step(self) -> None:
-        """Check phase 1: phase 1 of invalid_imu_samples, with wheel odometry every fifth step."""
-        # The last of the FUSION_STEPS steps is the fourth after a wheel message, so the checks
-        # of the forward speed and the yaw rate look at an output between two wheel messages
+    def check_estimate_follows_the_imu_and_a_wheel_speed_change_at_the_robot_rates(
+            self) -> None:
+        """Check that the estimate follows the IMU's yaw rate and the change of the wheels' speed.
+
+        The wheel messages report SPEED before SPEED_CHANGE_STEP and CHANGED_SPEED from it on.
+        The forward speed comes only from the wheels, so the estimate reaches CHANGED_SPEED only
+        if the filter fuses wheel messages after the change.
+        """
+        # The step before SPEED_CHANGE_STEP and the last of the FUSION_STEPS steps are each the
+        # fourth after a wheel message, so the checks of the fused estimate look at outputs between
+        # two wheel messages
         outputs = self.run_steps_at_the_robot_rates(FUSION_STEPS, [VALID_SAMPLE])
         self.print_fusion("fusion at the robot's rates", outputs[-1])
-        self.assert_fused_estimate(outputs[-1], 'phase 1')
+        self.print_speed_change(outputs)
+        self.assert_fused_estimate(outputs[SPEED_CHANGE_STEP - 1], SPEED,
+                                   'phase 1, before the speed change')
+        self.assert_forward_speeds(outputs[SPEED_CHANGE_STEP + SPEED_CHANGE_WINDOW:],
+                                   CHANGED_SPEED, 'phase 1, after the speed change')
+        self.assert_fused_estimate(outputs[-1], CHANGED_SPEED, 'phase 1')
 
     def check_ekf_publishes_at_the_wheel_rate_and_follows_the_wheels_when_the_imu_stops(
             self) -> None:
-        """Check phase 2: the filter's outputs and estimate after the IMU stops.
+        """Check that the EKF follows the wheels, one output per wheel period, once the IMU stops.
 
         Without the IMU, the filter has a measurement to fuse only when a wheel message arrives.
         Without one, the filter predicts only when the ROS time is sensor_timeout (ekf.yaml, 0.1 s)
@@ -577,29 +637,30 @@ class TestEkfAtTheRobotRates(SteppedClockTestCase):
         the output is stamped with the message's time: the prediction to that time, published
         before the filter fused the message, or the fused message. A message that arrives later can
         leave an update of its period to predict, with that update's time, or is fused in a later
-        update. So the check allows any stamp within the period.
+        update. So the check allows any stamp within the period. The test also takes the wheel
+        messages from their topic and checks one at the start of each period. It picks outputs
+        and wheel messages by their stamps, so that one whose callback runs late counts in its
+        own phase. It reads them after one more wheel period, whose wheel message and an output
+        from its start on show that every callback of the measured periods has run
+        (wait_for_messages_from()). The wheel messages report SPEED again, so the estimate's
+        forward speed goes back from phase 1's CHANGED_SPEED only if the filter fuses them.
         """
-        output_count_before = self.ekf_outputs.count()
-        wheel_stamps = self.run_wheel_periods_without_imu(IMU_STOPPED_WHEEL_MESSAGES)
-        # The clock ends at the end of the last period, where the next period would start
-        end_of_last_period = wheel_stamps[-1] + ROBOT_WHEEL_ODOMETRY_PERIOD
-        outputs = [message for message in self.ekf_outputs.since(output_count_before)
-                   if message.header.stamp < end_of_last_period]
+        period_starts = self.run_wheel_periods_without_imu(IMU_STOPPED_WHEEL_PERIODS)
+        [next_period_start] = self.run_wheel_periods_without_imu(1)
+        missing_after_the_periods = self.wait_for_messages_from(next_period_start)
+        outputs = self.outputs_within_the_periods(period_starts)
+        wheel_message_stamps = self.wheel_message_stamps_within_the_periods(period_starts)
         if not outputs:
             self.fail('phase 2: no EKF output in the {} wheel periods without the IMU'.format(
-                len(wheel_stamps)))
-        stamped_at_a_wheel_message = [message for message in outputs
-                                      if message.header.stamp in wheel_stamps]
-        print('IMU stopped: {} outputs for {} wheel messages, {} of them stamped at a wheel '
-              'message, estimate from {:.4f} to {:.4f} rad/s, forward {:.4f} m/s'.format(
-                  len(outputs), len(wheel_stamps), len(stamped_at_a_wheel_message),
-                  outputs[0].twist.twist.angular.z, outputs[-1].twist.twist.angular.z,
-                  outputs[-1].twist.twist.linear.x))
-        self.assertEqual([wheel_period_index(message.header.stamp, wheel_stamps)
-                          for message in outputs],
-                         list(range(len(wheel_stamps))),
-                         'phase 2: one EKF output per wheel period, in the order of the periods')
-        self.assert_forward_speed(outputs[-1], 'phase 2')
+                len(period_starts)))
+        self.print_imu_stopped(period_starts, wheel_message_stamps, outputs)
+        self.assertFalse(missing_after_the_periods,
+                         'phase 2: after the wheel periods, the test got no {}, so it may lack '
+                         'messages of the periods too'.format(
+                             ' and no '.join(missing_after_the_periods)))
+        self.assert_one_wheel_message_per_period(wheel_message_stamps, period_starts)
+        self.assert_one_output_per_period(outputs, period_starts)
+        self.assert_forward_speed(outputs[-1], SPEED, 'phase 2')
         self.assert_yaw_rate(outputs[-1], WHEEL_RATE, WHEEL_RATE_TOLERANCE,
                              'phase 2: without IMU samples, the estimate follows the wheels')
 
@@ -607,35 +668,133 @@ class TestEkfAtTheRobotRates(SteppedClockTestCase):
                                      imu_inputs: Sequence[ImuInput]) -> List[Odometry]:
         """Run count steps with the wheel odometry in every fifth and return each step's output.
 
-        Every step publishes imu_inputs. The first step publishes the wheel odometry, then
-        every STEPS_PER_WHEEL_MESSAGE-th step.
+        Every step publishes imu_inputs, and the steps that wheel_input_at_the_robot_rates()
+        gives one publish the wheel odometry.
         """
-        return [self.step(WHEEL_RATE if index % STEPS_PER_WHEEL_MESSAGE == 0 else None,
-                          imu_inputs)
+        return [self.step(wheel_input_at_the_robot_rates(index), imu_inputs)
                 for index in range(count)]
 
     def run_wheel_periods_without_imu(self, count: int) -> List[rospy.Time]:
-        """Run count wheel periods without IMU samples and return the wheel messages' stamps.
+        """Run count wheel periods without IMU samples and return the times when they start.
 
         A wheel period is STEPS_PER_WHEEL_MESSAGE steps. Its first step publishes a wheel
-        message, the others publish nothing. Every step allows no output: the clock moves on
-        whether the filter published or not, after NO_OUTPUT_WAIT for the filter's update.
+        message, stamped with the period's start, the others publish nothing. Every step allows
+        no output: the clock moves on whether the filter published or not, after NO_OUTPUT_WAIT
+        for the filter's update.
         """
-        wheel_stamps: List[rospy.Time] = []
+        period_starts: List[rospy.Time] = []
         for _ in range(count):
-            wheel_stamps.append(self.now)
-            self.step_allowing_no_output(WHEEL_RATE)
+            period_starts.append(self.now)
+            self.step_allowing_no_output(WHEEL_INPUT)
             for _ in range(STEPS_PER_WHEEL_MESSAGE - 1):
                 self.step_allowing_no_output(None)
-        return wheel_stamps
+        return period_starts
+
+    def wait_for_messages_from(self, stamp: rospy.Time) -> List[str]:
+        """Wait for a wheel message stamped stamp and an output from stamp on, return the missing.
+
+        The wait lasts at most WAIT s and doesn't fail. Each subscription gets the messages of its
+        one publisher in order and runs their callbacks in that order. So when both messages have
+        arrived, the callbacks of the earlier wheel messages and outputs have run. The caller moves
+        the clock on past stamp first, through a whole wheel period, so that the filter publishes
+        an output even when the wheel message reaches it late. Return the names of the messages
+        that didn't arrive.
+        """
+        arrivals: Dict[str, Callable[[], bool]] = {
+            'wheel message at {:.2f} s'.format(stamp.to_sec()):
+                lambda: self.wheel_message_stamps.contains_all([stamp]),
+            'EKF output stamped at {:.2f} s or later'.format(stamp.to_sec()):
+                lambda: any(output.header.stamp >= stamp for output in self.ekf_outputs.since(0)),
+        }
+        wait_until(lambda: all(arrived() for arrived in arrivals.values()))
+        return [name for name, arrived in arrivals.items() if not arrived()]
+
+    def outputs_within_the_periods(self, period_starts: Sequence[rospy.Time]) -> List[Odometry]:
+        """Return the EKF's outputs stamped within the wheel periods, in the order of arrival."""
+        return [message for message in self.ekf_outputs.since(0)
+                if within_wheel_periods(message.header.stamp, period_starts)]
+
+    def wheel_message_stamps_within_the_periods(
+            self, period_starts: Sequence[rospy.Time]) -> List[rospy.Time]:
+        """Return the stamps of the wheel messages within the periods, in the order of arrival."""
+        return [stamp for stamp in self.wheel_message_stamps.since(0)
+                if within_wheel_periods(stamp, period_starts)]
+
+    def assert_forward_speeds(self, outputs: Sequence[Odometry], speed: float,
+                              what: str) -> None:
+        """Assert that each output's forward speed is the wheels' speed. what names the case."""
+        for output in outputs:
+            self.assert_forward_speed(
+                output, speed, '{} at {:.2f} s'.format(what, output.header.stamp.to_sec()))
+
+    def assert_one_wheel_message_per_period(self, wheel_message_stamps: Sequence[rospy.Time],
+                                            period_starts: Sequence[rospy.Time]) -> None:
+        """Assert that one wheel message arrived, stamped with each period's start, in order."""
+        received = [stamp.to_sec() for stamp in wheel_message_stamps]
+        expected = [start.to_sec() for start in period_starts]
+        missing = [start for start in expected if start not in received]
+        self.assertEqual(received, expected,
+                         'phase 2: one wheel message at the start of each wheel period'
+                         + (', none at {} s'.format(missing) if missing else ''))
+
+    def assert_one_output_per_period(self, outputs: Sequence[Odometry],
+                                     period_starts: Sequence[rospy.Time]) -> None:
+        """Assert that each wheel period holds one output's stamp, in the order of the periods."""
+        self.assertEqual([wheel_period_index(message.header.stamp, period_starts)
+                          for message in outputs],
+                         list(range(len(period_starts))),
+                         'phase 2: one EKF output per wheel period, in the order of the periods')
+
+    def print_speed_change(self, outputs: Sequence[Odometry]) -> None:
+        """Print the estimated forward speed before, at and after phase 1's change of the speed."""
+        # The stamp of the first wheel message that reports CHANGED_SPEED
+        change_stamp = START + STEP * SPEED_CHANGE_STEP
+        speeds_after_the_window = [output.twist.twist.linear.x
+                                   for output in outputs[SPEED_CHANGE_STEP + SPEED_CHANGE_WINDOW:]]
+        print('speed change at {:.2f} s, wheels {} to {} m/s: estimate {:.4f} m/s before, {:.4f} '
+              'm/s in the step of the change, {:.4f} to {:.4f} m/s from {} steps after it'.format(
+                  change_stamp.to_sec(), SPEED, CHANGED_SPEED,
+                  outputs[SPEED_CHANGE_STEP - 1].twist.twist.linear.x,
+                  outputs[SPEED_CHANGE_STEP].twist.twist.linear.x, min(speeds_after_the_window),
+                  max(speeds_after_the_window), SPEED_CHANGE_WINDOW))
+
+    def print_imu_stopped(self, period_starts: Sequence[rospy.Time],
+                          wheel_message_stamps: Sequence[rospy.Time],
+                          outputs: Sequence[Odometry]) -> None:
+        """Print how many wheel periods, wheel messages and outputs phase 2 had, and estimates."""
+        stamped_at_a_wheel_message = [message for message in outputs
+                                      if message.header.stamp in wheel_message_stamps]
+        print('IMU stopped: {} outputs for {} wheel periods with {} wheel messages, {} of the '
+              'outputs stamped at a wheel message, estimate from {:.4f} to {:.4f} rad/s, '
+              'forward from {:.4f} to {:.4f} m/s'.format(
+                  len(outputs), len(period_starts), len(wheel_message_stamps),
+                  len(stamped_at_a_wheel_message), outputs[0].twist.twist.angular.z,
+                  outputs[-1].twist.twist.angular.z, outputs[0].twist.twist.linear.x,
+                  outputs[-1].twist.twist.linear.x))
 
 
-def wheel_period_index(stamp: rospy.Time, wheel_stamps: Sequence[rospy.Time]) -> int:
+def wheel_input_at_the_robot_rates(step_index: int) -> Optional[WheelInput]:
+    """Return the wheel odometry of phase 1's step at step_index in robot_rates, None for none.
+
+    The first step publishes the wheel odometry, then every STEPS_PER_WHEEL_MESSAGE-th step:
+    WHEEL_INPUT before SPEED_CHANGE_STEP, CHANGED_SPEED_WHEEL_INPUT from it on.
+    """
+    if step_index % STEPS_PER_WHEEL_MESSAGE != 0:
+        return None
+    return WHEEL_INPUT if step_index < SPEED_CHANGE_STEP else CHANGED_SPEED_WHEEL_INPUT
+
+
+def within_wheel_periods(stamp: rospy.Time, period_starts: Sequence[rospy.Time]) -> bool:
+    """Return whether stamp lies from the first period's start to before the last period's end."""
+    return period_starts[0] <= stamp < period_starts[-1] + ROBOT_WHEEL_ODOMETRY_PERIOD
+
+
+def wheel_period_index(stamp: rospy.Time, period_starts: Sequence[rospy.Time]) -> int:
     """Return the index of the wheel period that stamp lies in, -1 before the first.
 
-    A wheel period starts at a wheel message's stamp and ends at the next one's.
+    A wheel period starts at its wheel message's stamp and ends where the next one starts.
     """
-    return sum(1 for wheel_stamp in wheel_stamps if wheel_stamp <= stamp) - 1
+    return sum(1 for period_start in period_starts if period_start <= stamp) - 1
 
 
 # The scenarios, by the name that a .test file gives the test node with --scenario
