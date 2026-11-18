@@ -72,15 +72,27 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # The template that users copy to .env must give a valid configuration, alone and together
-      # with the file for a build of one's own
+      # The template that users copy to .env must give a valid configuration
       - name: Check the settings template
+        run: docker compose --env-file .docker/robot/env.example -f .docker/robot/compose.yaml config --quiet
+      # A build of one's own must never be planned under the published image's name. ROBOT_IMAGE
+      # is set to that name here, and the two files are combined in both orders: the only image
+      # with a build section has to stay diffbot-robot:local, and compose.yaml alone has to
+      # build nothing.
+      - name: Check the name of a local build
+        env:
+          ROBOT_IMAGE: ghcr.io/ros-mobile-robots/diffbot-robot:noetic
         run: |
           cd .docker/robot
-          docker compose --env-file env.example -f compose.yaml config --quiet
-          docker compose --env-file env.example -f compose.yaml -f compose.build.yaml config --quiet
-      # The publish job's script, without a registry: stand-ins answer its reads. It must write
-      # nothing unless the registry itself says that a tag doesn't exist.
+          built_images() {
+            docker compose "$@" config --format json | jq -c '[.services[] | select(.build) | .image]'
+          }
+          test "$(built_images -f compose.yaml)" = '[]'
+          test "$(built_images -f compose.build.yaml)" = '["diffbot-robot:local"]'
+          test "$(built_images -f compose.yaml -f compose.build.yaml)" = '["diffbot-robot:local"]'
+          test "$(built_images -f compose.build.yaml -f compose.yaml)" = '["diffbot-robot:local"]'
+      # The publish job's script, without a registry: stand-ins answer its reads, and the test
+      # checks which tags the script writes for each answer of the registry.
       - name: Test the publish script
         run: .docker/robot/test_publish_image.sh
       # The label says which commit the image is built from, also on the robot (docker inspect)

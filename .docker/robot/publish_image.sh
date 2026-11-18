@@ -40,15 +40,26 @@ fi
 #                counts. Other failures can read alike: a login helper that isn't installed and a
 #                token service that answers 404 both print "not found", and neither says anything
 #                about the tag.
-#   unreadable   The registry denies reading the tag, or answers that it doesn't know the
-#                repository (NAME_UNKNOWN, "name unknown"). Both mean that this job can't see the
-#                package, which only the first publication may answer with a write (see below).
-# A read that gives neither present nor missing is tried three times. After that, an error that is
-# not unreadable stops the job: a failed login, token request or connection. The version and
-# noetic are written only after both read as present or missing.
+#   unreadable   The registry itself refuses: it denies the request for this tag's manifest
+#                (DENIED, UNAUTHORIZED), it doesn't know the repository (NAME_UNKNOWN), or its
+#                token service answers 403. Each means that this job can't see the package,
+#                which only the first publication may answer with a write (see below).
+# Each answer is recognized by the text that skopeo prints for it, with this tag and repository
+# in it. A text that skopeo words differently one day is none of them, and the job stops.
+# A read that gives neither present nor missing is tried three times. After that, an error that
+# is not unreadable stops the job: a failed login, a file that can't be read, an error of the
+# token service or of the connection. The version and noetic are written only after both read
+# as present or missing.
 state() {
-  local reference=$1 error=""
+  local reference=$1 error="" refusal
   local repository=${reference%:*} tag=${reference##*:}
+  local manifest_request="reading manifest $tag in $repository"
+  local refusals=(
+    "$manifest_request: denied"
+    "$manifest_request: unauthorized"
+    "$manifest_request: name unknown"
+    "Requesting bearer token: invalid status code from registry 403 (Forbidden)"
+  )
   for try in 1 2 3; do
     if [ "$try" -gt 1 ]; then
       sleep 15
@@ -57,16 +68,17 @@ state() {
       echo present
       return
     fi
-    if grep -q -F "reading manifest $tag in $repository: manifest unknown" <<<"$error"; then
+    if grep -q -F "$manifest_request: manifest unknown" <<<"$error"; then
       echo missing
       return
     fi
   done
-  if grep -q -i -E 'denied|unauthorized|forbidden' <<<"$error" ||
-    grep -q -F "reading manifest $tag in $repository: name unknown" <<<"$error"; then
-    echo unreadable
-    return
-  fi
+  for refusal in "${refusals[@]}"; do
+    if grep -q -F "$refusal" <<<"$error"; then
+      echo unreadable
+      return
+    fi
+  done
   echo "$error" >&2
   exit 1
 }

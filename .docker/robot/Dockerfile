@@ -6,7 +6,7 @@
 # the lidar driver. No Gazebo and no navigation. RViz is in the image although the robot never
 # opens it: the robot models' packages declare it as a dependency, so rosdep installs it.
 # CI publishes it as ghcr.io/ros-mobile-robots/diffbot-robot (.github/workflows/robot_container.yml).
-# Build it from the repository's root folder (compose.build.yaml does the same):
+# Build it from the repository's root folder, as compose.build.yaml does:
 #   docker build -f .docker/robot/Dockerfile -t diffbot-robot:noetic .
 
 # The two base images: each FROM line names a tag and, after the @, a digest, which is a

@@ -8,13 +8,13 @@ ROS 1 Noetic and the robot's packages in a Docker image, for the robot's compute
 |:--|:--|
 | [`Dockerfile`](Dockerfile) | The image: `ros:noetic-ros-base`, the packages that the bringup and the lidar need for both robots, built in `~/catkin_ws` |
 | [`compose.yaml`](compose.yaml) | Runs the bringup, and with the `lidar` profile the lidar, with the host's network and the serial devices |
-| [`compose.build.yaml`](compose.build.yaml) | Builds the image from your clone, as `diffbot-robot:local`, to run your own changes |
+| [`compose.build.yaml`](compose.build.yaml) | Builds the image from your clone, as `diffbot-robot:local`, to run your own changes. It stands alone, without `compose.yaml` |
 | [`env.example`](env.example) | The template for `.env`, the robot's settings, which `docker compose` reads from this folder |
 | [`99-diffbot-robot.rules`](99-diffbot-robot.rules) | udev rules for the host: `/dev/teensy` and `/dev/rplidar` |
 | [`entrypoint.sh`](entrypoint.sh) | Loads ROS and the workspace before each command |
 | [`smoke_test.sh`](smoke_test.sh) | The test without hardware that [CI](../../.github/workflows/robot_container.yml) runs inside a container of the image |
 | [`publish_image.sh`](publish_image.sh) | Publishes the tested images for both architectures, in CI on `noetic-devel` |
-| [`test_publish_image.sh`](test_publish_image.sh) | Tests what `publish_image.sh` writes for each answer of the registry, without a registry. CI runs it for every pull request |
+| [`test_publish_image.sh`](test_publish_image.sh) | Tests which tags `publish_image.sh` writes for each answer of the registry, without a registry. [CI](../../.github/workflows/robot_container.yml) runs it before it builds the image |
 
 CI publishes the image that passed the smoke test, for arm64 and amd64, as [`ghcr.io/ros-mobile-robots/diffbot-robot`](https://github.com/orgs/ros-mobile-robots/packages/container/package/diffbot-robot): `noetic` is the newest from `noetic-devel`, and `noetic-<commit>` stays the same. The robot downloads it, so it doesn't build anything.
 
@@ -32,7 +32,7 @@ docker compose down        # stop
 docker compose pull --policy always && docker compose up -d   # update the image
 ```
 
-`compose.yaml` only runs an image and never builds one, so a failed download is an error. To run your own changes, build the image on the robot with `docker compose -f compose.yaml -f compose.build.yaml build`. The build gets a name of its own, `diffbot-robot:local`, never the published image's name. Then set `ROBOT_IMAGE=diffbot-robot:local` in `.env` and start the build with `docker compose up -d --pull never`. Remove the line again to go back to the published image.
+`compose.yaml` only runs an image and never builds one, so a failed download is an error. To run your own changes, build the image on the robot with `docker compose -f compose.build.yaml build`. The build gets a name of its own, `diffbot-robot:local`, never the published image's name. Then set `ROBOT_IMAGE=diffbot-robot:local` in `.env` and start the build with `docker compose up -d --pull never`. Remove the line again to go back to the published image.
 
 [`env.example`](env.example) explains each setting. The ROS master runs in one of two places:
 
