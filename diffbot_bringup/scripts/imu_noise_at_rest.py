@@ -303,9 +303,9 @@ def defined_message_class(definition: MessageDefinition) -> Any:
 def check_definition_checksum(definition: MessageDefinition, message_class: Any) -> None:
     """Raise a MessageError when a definition's text doesn't have the definition's checksum.
 
-    The checksum belongs to the layout in which the publisher wrote the messages. rosbag reads
-    them in the layout of the definition's text. When the two differ, the text isn't the
-    messages' definition, and rosbag would read their bytes as other fields than they are.
+    rosbag reads the messages in the layout of the definition's text. When the stored checksum
+    isn't that text's, the two disagree, and the bag doesn't say which of them is the messages'.
+    With the wrong text, rosbag would read the messages' bytes as other fields than they are.
     """
     if message_class._md5sum != definition.checksum:
         raise MessageError(f"the bag's checksum of the topic's {IMU_TYPE} messages is "

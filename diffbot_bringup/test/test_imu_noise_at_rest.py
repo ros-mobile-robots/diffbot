@@ -390,8 +390,8 @@ class TestTopicChecks(unittest.TestCase):
     def test_check_topic_fails_for_a_checksum_that_is_not_the_definitions(self) -> None:
         """Check that ROS's definition under the checksum of another layout is refused.
 
-        The messages were written in the other layout. rosbag would read their bytes as the
-        fields of the definition's text.
+        The two disagree. If the messages were written in the other layout, rosbag would read
+        their bytes as the fields of the definition's text.
         """
         stale = MessageDefinition(Imu._type, String._md5sum, Imu._full_text)
         with self.assertRaises(MessageError) as error:
