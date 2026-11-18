@@ -24,13 +24,29 @@ NOW = rospy.Time(100, 0)  # the ROS time of most checks
 FRAME = 'imu_link'
 MAX_AGE = 0.1  # s
 MAX_FUTURE = 0.02  # s
-# Just beyond the limits: 1 µs more than MAX_AGE and MAX_FUTURE
+# Steps between two times. A comment where a test uses a step says which condition it meets
+ONE_NANOSECOND = rospy.Duration(0, 1)  # the smallest step between two stamps
 ONE_MICROSECOND = 1e-6  # s
+ONE_MILLISECOND = 0.001  # s
+ONE_SECOND = 1.0  # s, more than MAX_AGE
+# Just beyond the limits: 1 µs more than MAX_AGE and MAX_FUTURE
 JUST_TOO_OLD = MAX_AGE + ONE_MICROSECOND  # s
 JUST_TOO_FAR_AHEAD = MAX_FUTURE + ONE_MICROSECOND  # s
-# For health(): 1 ms to add to the silence limit, a time well within it, and a number of new drops
-ONE_MILLISECOND = 0.001  # s
-RECENT = 0.1  # s since the last valid sample
+# Within MAX_AGE, so that check 4 lets a stamp this old through
+SHORTLY_BEFORE = MAX_AGE / 10  # s
+# More than MAX_FUTURE, so that check 4 rejects a stamp this far ahead
+FAR_AHEAD = 5.0  # s
+# With simulated time, the ROS time before the first message on /clock: the validator has no
+# clock
+ROS_TIME_ZERO = rospy.Time(0)
+# ROS times after the clock went back from NOW, neither of them 0: near 0 as after
+# /gazebo/reset_simulation, and a time that leaves room for a stamp ONE_SECOND before it
+RESTART_NEAR_ZERO = rospy.Time(0, 20000000)  # 0.02 s
+RESTART = rospy.Time(50, 0)
+# A time without valid samples, longer than ONE_SECOND plus MAX_AGE
+SILENCE = 3.0  # s
+# A time since the last valid sample, well within the silence limit, and a number of new drops
+RECENT = 0.1  # s
 NEW_DROP_COUNT = 3
 
 # A sample like the firmware's: no orientation (REP 145: orientation_covariance[0] = -1), a left
@@ -101,8 +117,7 @@ class TestImuValidator(ValidatorTestCase):
         self.assert_accepted(make_imu_sample(NOW + seconds(MAX_FUTURE)), NOW + seconds(MAX_FUTURE))
 
     def test_validator_rejects_a_sample_at_ros_time_zero(self) -> None:
-        # With simulated time, before the first /clock message
-        self.assert_rejected(imu_validator.DropReason.NO_CLOCK, make_imu_sample(), rospy.Time(0))
+        self.assert_rejected(imu_validator.DropReason.NO_CLOCK, make_imu_sample(), ROS_TIME_ZERO)
 
     def test_validator_rejects_a_sample_with_a_wrong_or_empty_frame(self) -> None:
         for frame_id in ('base_link', ''):
@@ -146,35 +161,42 @@ class TestImuValidator(ValidatorTestCase):
 
     def test_validator_rejects_a_sample_not_later_than_the_last_valid_one(self) -> None:
         self.assert_accepted(make_imu_sample(NOW), NOW)
+        # The same stamp again
         self.assert_rejected(imu_validator.DropReason.NOT_NEWER, make_imu_sample(NOW), NOW)
+        # An earlier stamp within MAX_AGE, so that check 5 drops it and not check 4
         self.assert_rejected(imu_validator.DropReason.NOT_NEWER,
-                             make_imu_sample(NOW - seconds(0.01)), NOW)
-        self.assert_accepted(make_imu_sample(NOW + rospy.Duration(0, 1)), NOW + seconds(0.001))
+                             make_imu_sample(NOW - seconds(SHORTLY_BEFORE)), NOW)
+        # The smallest later stamp is enough. The sample arrives 1 ms after NOW, after its stamp:
+        # an arrival before NOW would clear last_valid_stamp
+        self.assert_accepted(make_imu_sample(NOW + ONE_NANOSECOND),
+                             NOW + seconds(ONE_MILLISECOND))
 
     def test_validator_accepts_a_new_sample_after_rejecting_a_future_one(self) -> None:
         # The order check compares with last_valid_stamp, the stamp of the last accepted sample,
-        # not with a rejected one's
+        # not with a rejected one's. The rejected stamp is later than the next valid one
         self.assert_accepted(make_imu_sample(NOW), NOW)
         self.assert_rejected(imu_validator.DropReason.FROM_THE_FUTURE,
-                             make_imu_sample(NOW + seconds(5)), NOW)
+                             make_imu_sample(NOW + seconds(FAR_AHEAD)), NOW)
         self.assert_accepted(make_imu_sample(NOW + seconds(MAX_FUTURE)), NOW + seconds(MAX_FUTURE))
 
     def test_validator_accepts_a_stamp_once_after_the_clock_goes_back(self) -> None:
         # For example after /gazebo/reset_simulation: the clock and the stamps start again near 0.
         # The order check starts over there, and works again from the first valid sample on
         self.assert_accepted(make_imu_sample(NOW), NOW)
-        restart = rospy.Time(0, 20000000)
-        self.assert_accepted(make_imu_sample(restart), restart)
-        self.assert_rejected(imu_validator.DropReason.NOT_NEWER, make_imu_sample(restart),
-                             restart + seconds(0.001))
+        self.assert_accepted(make_imu_sample(RESTART_NEAR_ZERO), RESTART_NEAR_ZERO)
+        # The same stamp again, 1 ms later
+        self.assert_rejected(imu_validator.DropReason.NOT_NEWER,
+                             make_imu_sample(RESTART_NEAR_ZERO),
+                             RESTART_NEAR_ZERO + seconds(ONE_MILLISECOND))
 
     def test_validator_rejects_stamps_outside_time_limits_after_the_clock_goes_back(self) -> None:
         self.assert_accepted(make_imu_sample(NOW), NOW)
-        restart = rospy.Time(50, 0)
+        # A stamp that was valid at NOW, ahead of RESTART by more than MAX_FUTURE
         self.assert_rejected(imu_validator.DropReason.FROM_THE_FUTURE,
-                             make_imu_sample(NOW + seconds(MAX_FUTURE)), restart)
+                             make_imu_sample(NOW + seconds(MAX_FUTURE)), RESTART)
+        # More than MAX_AGE before RESTART
         self.assert_rejected(imu_validator.DropReason.TOO_OLD,
-                             make_imu_sample(restart - seconds(1)), restart)
+                             make_imu_sample(RESTART - seconds(ONE_SECOND)), RESTART)
 
 
 class TestSecondsSinceLastValidSample(ValidatorTestCase):
@@ -192,44 +214,56 @@ class TestSecondsSinceLastValidSample(ValidatorTestCase):
 
     def test_silence_is_the_time_since_the_last_valid_sample(self) -> None:
         self.assert_accepted(make_imu_sample(), NOW)
-        self.assert_silence(1.5, NOW + seconds(1.5))
+        self.assert_silence(SILENCE, NOW + seconds(SILENCE))
 
     def test_silence_keeps_growing_while_samples_are_rejected(self) -> None:
         self.assert_accepted(make_imu_sample(), NOW)
-        later = NOW + seconds(3)
+        later = NOW + seconds(SILENCE)
+        # Later than the accepted sample's stamp, so that check 5 lets it through, but more than
+        # MAX_AGE before the ROS time later
         self.assert_rejected(imu_validator.DropReason.TOO_OLD,
-                             make_imu_sample(NOW + seconds(1)), later)
-        self.assert_silence(3.0, later)
+                             make_imu_sample(NOW + seconds(ONE_SECOND)), later)
+        self.assert_silence(SILENCE, later)
 
     def test_silence_is_none_after_the_clock_goes_back_without_samples(self) -> None:
         self.assert_accepted(make_imu_sample(), NOW)
-        self.assertIsNone(self.validator.seconds_since_last_valid_sample(rospy.Time(50, 0)))
-        self.assertIsNone(self.validator.seconds_since_last_valid_sample(rospy.Time(55, 0)))
+        self.assertIsNone(self.validator.seconds_since_last_valid_sample(RESTART))
+        # Still None while the clock goes on
+        self.assertIsNone(self.validator.seconds_since_last_valid_sample(
+            RESTART + seconds(SILENCE)))
 
     def test_silence_is_none_after_the_clock_goes_back_less_than_the_silence(self) -> None:
-        # The clock goes back by less than the time since the last valid sample: still no health
+        # The clock goes back by less than the time since the last valid sample, to a ROS time
+        # at which that sample would be RECENT: still no health. Then the clock goes on
         self.assert_accepted(make_imu_sample(), NOW)
-        self.assert_silence(3.3, NOW + seconds(3.3))
-        self.assertIsNone(self.validator.seconds_since_last_valid_sample(NOW + seconds(0.2)))
-        self.assertIsNone(self.validator.seconds_since_last_valid_sample(NOW + seconds(1.0)))
+        self.assert_silence(SILENCE, NOW + seconds(SILENCE))
+        self.assertIsNone(self.validator.seconds_since_last_valid_sample(NOW + seconds(RECENT)))
+        self.assertIsNone(self.validator.seconds_since_last_valid_sample(
+            NOW + seconds(ONE_SECOND)))
 
     def test_silence_is_none_when_a_rejected_sample_shows_the_clock_went_back(self) -> None:
         self.assert_accepted(make_imu_sample(), NOW)
-        self.assert_silence(3.0, NOW + seconds(3))
+        self.assert_silence(SILENCE, NOW + seconds(SILENCE))
+        # The clock goes back to NOW + RECENT. The sample's stamp is more than MAX_AGE older
         self.assert_rejected(imu_validator.DropReason.TOO_OLD,
-                             make_imu_sample(NOW - seconds(1)), NOW + seconds(0.2))
-        self.assertIsNone(self.validator.seconds_since_last_valid_sample(NOW + seconds(0.3)))
+                             make_imu_sample(NOW - seconds(ONE_SECOND)), NOW + seconds(RECENT))
+        self.assertIsNone(self.validator.seconds_since_last_valid_sample(
+            NOW + seconds(ONE_SECOND)))
 
     def test_silence_restarts_with_the_first_valid_sample_after_the_clock_goes_back(self) -> None:
         self.assert_accepted(make_imu_sample(), NOW)
-        restart = rospy.Time(50, 0)
+        # Two samples that the validator rejects at RESTART: one with a stamp from before the
+        # clock went back, one with a wrong frame
         self.assert_rejected(imu_validator.DropReason.FROM_THE_FUTURE,
-                             make_imu_sample(NOW + seconds(MAX_FUTURE)), restart)
+                             make_imu_sample(NOW + seconds(MAX_FUTURE)), RESTART)
         self.assert_rejected(imu_validator.DropReason.WRONG_FRAME,
-                             make_imu_sample(restart, frame_id='base_link'), restart)
-        self.assertIsNone(self.validator.seconds_since_last_valid_sample(restart + seconds(1)))
-        self.assert_accepted(make_imu_sample(restart + seconds(2)), restart + seconds(2))
-        self.assert_silence(0.5, restart + seconds(2.5))
+                             make_imu_sample(RESTART, frame_id='base_link'), RESTART)
+        self.assertIsNone(self.validator.seconds_since_last_valid_sample(
+            RESTART + seconds(ONE_SECOND)))
+        # The first valid sample after the clock went back, later than the call before
+        first_valid = RESTART + seconds(SILENCE)
+        self.assert_accepted(make_imu_sample(first_valid), first_valid)
+        self.assert_silence(RECENT, first_valid + seconds(RECENT))
 
 
 class TestHealth(unittest.TestCase):
