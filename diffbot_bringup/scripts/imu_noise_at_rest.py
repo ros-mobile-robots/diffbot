@@ -64,6 +64,8 @@ DEFAULT_TOPIC = '/diffbot/imu/data_raw'
 IMU_TYPE = 'sensor_msgs/Imu'
 # The first bytes of every bag file, before the format's version
 BAG_FILE_START = b'#ROS'
+# How the tool's lines show a line break inside a name or a checksum from a bag
+LINE_BREAK_MARK = r'\n'
 # sensor_msgs/Imu: a message without a measurement of a field has -1 as the first element of the
 # field's covariance
 NOT_MEASURED = -1.0
@@ -197,6 +199,18 @@ FIELDS = (ANGULAR_VELOCITY, LINEAR_ACCELERATION)
 def count_of(count: int, noun: str) -> str:
     """Return the count with its noun, in the plural unless the count is one."""
     return f'{count} {noun}' if count == 1 else f'{count} {noun}s'
+
+
+def on_one_line(text: str) -> str:
+    """Return a text with each of its line breaks shown as LINE_BREAK_MARK.
+
+    A name or a checksum that comes from a bag can hold a line break, which would split a line
+    of the report or the tool's one line about an input that it refuses.
+    """
+    lines_with_breaks = text.splitlines(keepends=True)
+    lines = text.splitlines()
+    return ''.join(line + (LINE_BREAK_MARK if line_with_break != line else '')
+                   for line, line_with_break in zip(lines, lines_with_breaks))
 
 
 def reason_of(error: Exception) -> str:
@@ -669,7 +683,8 @@ def format_rate(rate: Optional[float]) -> str:
 
 def format_stamps(topic: str, frame_id: str, stamps: StampStatistics) -> List[str]:
     """Return the lines about the messages' count and frame and about their header stamps."""
-    return [f'{topic}: {count_of(stamps.message_count, "message")}, frame_id "{frame_id}"',
+    return [f'{topic}: {count_of(stamps.message_count, "message")}, '
+            f'frame_id "{on_one_line(frame_id)}"',
             f'Header stamps: {format_duration(stamps.duration)} from the first to the last, '
             f'{format_rate(stamps.rate)}',
             f'Header intervals: shortest {format_duration(stamps.shortest_interval)}, '
@@ -747,7 +762,7 @@ def main() -> None:
     try:
         samples = read_samples(arguments.bag, arguments.topic)
     except InputError as error:
-        sys.exit(str(error))
+        sys.exit(on_one_line(str(error)))
     print('\n'.join(format_report(arguments.topic, imu_statistics(samples))))
 
 

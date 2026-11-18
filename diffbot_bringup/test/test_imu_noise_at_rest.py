@@ -602,6 +602,14 @@ class TestFormatReport(unittest.TestCase):
             'Gravity, the length of the mean acceleration: 9.810 m/s^2',
         ])
 
+    def test_format_report_shows_a_line_break_in_the_frame_id_on_the_first_line(self) -> None:
+        """Check that a frame_id with a line break doesn't split the report's first line."""
+        imu = ImuStatistics(stamps=self.STAMPS, frame_id='imu\nlink',
+                            angular_velocity=self.ROTATION,
+                            linear_acceleration=self.ACCELERATION, gravity=9.81)
+        self.assertEqual(format_report('/imu', imu)[0],
+                         '/imu: 501 messages, frame_id "imu\\nlink"')
+
     def test_format_report_says_no_rate_and_counts_the_stamps_that_do_not_advance(
             self) -> None:
         """Check the stamps' lines for a recording with a repeated and an earlier stamp."""
@@ -916,6 +924,23 @@ class TestToolOnBags(unittest.TestCase):
         self.assert_tool_ends_with(
             f"{self.bag_path}, {DEFAULT_TOPIC}: the bag's checksum of the topic's "
             f'sensor_msgs/Imu messages is {String._md5sum}, but the definition that the bag '
+            f'stores for them has the checksum {Imu._md5sum}')
+
+    def test_tool_shows_a_line_break_in_a_checksum_on_its_one_line(self) -> None:
+        """Check a bag whose stored checksum is ROS's with a line break at its end.
+
+        The tool's line shows the line break as a backslash and an n, so the line stays one
+        line, and the two checksums in it don't look the same.
+        """
+        connection = {'topic': DEFAULT_TOPIC, 'type': Imu._type, 'md5sum': Imu._md5sum + '\n',
+                      'message_definition': Imu._full_text}
+        with rosbag.Bag(self.bag_path, 'w') as bag:
+            for message in messages_one_step_apart():
+                bag.write(DEFAULT_TOPIC, message, message.header.stamp,
+                          connection_header=connection)
+        self.assert_tool_ends_with(
+            f"{self.bag_path}, {DEFAULT_TOPIC}: the bag's checksum of the topic's "
+            f'sensor_msgs/Imu messages is {Imu._md5sum}\\n, but the definition that the bag '
             f'stores for them has the checksum {Imu._md5sum}')
 
     def test_tool_ends_with_a_message_when_the_angular_velocity_is_an_array_of_one_vector(
