@@ -76,8 +76,8 @@ class ValidatorTestCase(unittest.TestCase):
     """A new validator for each test, and assertions about its decision on one sample.
 
     Each assertion calls drop_reason_or_record() once, as the node does for each sample. Only
-    for an accepted sample, the validator records the sample's stamp and arrival time as the last
-    valid sample's.
+    for an accepted sample, the validator stores the sample's stamp in its attribute
+    last_valid_stamp and the ROS time of its arrival in last_valid_arrival_time.
     """
 
     def setUp(self) -> None:
@@ -152,7 +152,8 @@ class TestImuValidator(ValidatorTestCase):
         self.assert_accepted(make_imu_sample(NOW + rospy.Duration(0, 1)), NOW + seconds(0.001))
 
     def test_validator_accepts_a_new_sample_after_rejecting_a_future_one(self) -> None:
-        # The order check compares with the last valid sample's stamp, not with a rejected one's
+        # The order check compares with last_valid_stamp, the stamp of the last accepted sample,
+        # not with a rejected one's
         self.assert_accepted(make_imu_sample(NOW), NOW)
         self.assert_rejected(imu_validator.DropReason.FROM_THE_FUTURE,
                              make_imu_sample(NOW + seconds(5)), NOW)
