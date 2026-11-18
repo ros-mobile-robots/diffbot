@@ -213,7 +213,8 @@ class TestSecondsSinceLastValidSample(ValidatorTestCase):
         self.assertIsNone(self.validator.seconds_since_last_valid_sample(NOW))
 
     def test_silence_is_the_time_since_the_last_valid_sample(self) -> None:
-        self.assert_accepted(make_imu_sample(), NOW)
+        # The sample arrives SHORTLY_BEFORE after its stamp: the silence counts from its arrival
+        self.assert_accepted(make_imu_sample(NOW - seconds(SHORTLY_BEFORE)), NOW)
         self.assert_silence(SILENCE, NOW + seconds(SILENCE))
 
     def test_silence_keeps_growing_while_samples_are_rejected(self) -> None:
@@ -247,8 +248,10 @@ class TestSecondsSinceLastValidSample(ValidatorTestCase):
         # The clock goes back to NOW + RECENT. The sample's stamp is more than MAX_AGE older
         self.assert_rejected(imu_validator.DropReason.TOO_OLD,
                              make_imu_sample(NOW - seconds(ONE_SECOND)), NOW + seconds(RECENT))
+        # Later than the call at NOW + SILENCE, so that this call sees no clock that went back:
+        # only the rejected sample's clock check can have cleared last_valid_arrival_time
         self.assertIsNone(self.validator.seconds_since_last_valid_sample(
-            NOW + seconds(ONE_SECOND)))
+            NOW + seconds(SILENCE + ONE_SECOND)))
 
     def test_silence_restarts_with_the_first_valid_sample_after_the_clock_goes_back(self) -> None:
         self.assert_accepted(make_imu_sample(), NOW)
