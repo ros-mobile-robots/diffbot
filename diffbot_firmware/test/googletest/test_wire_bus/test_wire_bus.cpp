@@ -20,6 +20,9 @@
 // its mode register with the value for the IMU mode, and its first data register. WireBusT
 // passes each of them to the Wire library unchanged
 constexpr uint8_t DEVICE_ADDRESS = 0x28;
+// The BNO055's other I2C address, for a breakout whose ADR pin is high (IMU_BNO055_ADDRESS in
+// lib/config/diffbot_base_config.h)
+constexpr uint8_t ALTERNATE_DEVICE_ADDRESS = 0x29;
 constexpr uint8_t WRITTEN_REGISTER = 0x3D;
 constexpr uint8_t WRITTEN_VALUE = 0x08;
 constexpr uint8_t READ_REGISTER = 0x08;
@@ -146,6 +149,16 @@ TEST_F(WireBusTest, WriteRegisterFailsWhenTheAddressIsNotAcknowledgedAfterASucce
     EXPECT_FALSE(bus_.writeRegister(DEVICE_ADDRESS, WRITTEN_REGISTER, WRITTEN_VALUE));
 }
 
+TEST_F(WireBusTest, WriteRegisterSendsToTheAlternateAddress)
+{
+    EXPECT_TRUE(bus_.writeRegister(ALTERNATE_DEVICE_ADDRESS, WRITTEN_REGISTER, WRITTEN_VALUE));
+
+    const std::vector<std::string> expected_calls{
+        beginTransmissionCall(ALTERNATE_DEVICE_ADDRESS), writeCall(WRITTEN_REGISTER),
+        writeCall(WRITTEN_VALUE), endTransmissionCall(WITH_STOP)};
+    EXPECT_EQ(wire_.calls, expected_calls);
+}
+
 TEST_F(WireBusTest, ReadRegistersUsesARepeatedStart)
 {
     std::array<uint8_t, READ_LENGTH_BYTES> data{};
@@ -161,6 +174,20 @@ TEST_F(WireBusTest, ReadRegistersUsesARepeatedStart)
     const std::array<uint8_t, READ_LENGTH_BYTES> delivered_bytes{
         FIRST_DELIVERED_BYTE, FIRST_DELIVERED_BYTE + 1, FIRST_DELIVERED_BYTE + 2};
     EXPECT_EQ(data, delivered_bytes);
+}
+
+TEST_F(WireBusTest, ReadRegistersReadsFromTheAlternateAddress)
+{
+    std::array<uint8_t, READ_LENGTH_BYTES> data{};
+
+    EXPECT_TRUE(
+        bus_.readRegisters(ALTERNATE_DEVICE_ADDRESS, READ_REGISTER, data.data(), data.size()));
+
+    const std::vector<std::string> expected_calls{
+        beginTransmissionCall(ALTERNATE_DEVICE_ADDRESS), writeCall(READ_REGISTER),
+        endTransmissionCall(WITH_REPEATED_START),
+        requestFromCall(ALTERNATE_DEVICE_ADDRESS, READ_LENGTH_BYTES)};
+    EXPECT_EQ(wire_.calls, expected_calls);
 }
 
 TEST_F(WireBusTest, ReadRegistersReturnsAllBytesOfASample)
@@ -182,10 +209,11 @@ TEST_F(WireBusTest, ReadRegistersFailsWithoutAReadRequestWhenTheRegisterWriteFai
 
     EXPECT_FALSE(bus_.readRegisters(DEVICE_ADDRESS, READ_REGISTER, data.data(), data.size()));
 
+    // The register write, and no read request after it
     const std::vector<std::string> expected_calls{
         beginTransmissionCall(DEVICE_ADDRESS), writeCall(READ_REGISTER),
         endTransmissionCall(WITH_REPEATED_START)};
-    EXPECT_EQ(wire_.calls, expected_calls) << "a read request followed the failed register write";
+    EXPECT_EQ(wire_.calls, expected_calls);
 }
 
 // A count that the Teensy 4's Wire can report after a failed bus acquisition, with or without
