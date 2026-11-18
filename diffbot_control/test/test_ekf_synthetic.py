@@ -427,13 +427,13 @@ class TestEkfWithInvalidImuSamples(SteppedClockTestCase):
         self.check_validator_diagnostics_count_each_forwarded_and_dropped_sample()
 
     def check_estimate_follows_the_imu_with_the_smaller_variance(self) -> None:
-        """Phase 1: valid IMU samples and wheel odometry that disagree on the yaw rate."""
+        """Check that the estimate follows the IMU's yaw rate when the wheels report another."""
         outputs = self.run_steps(FUSION_STEPS, WHEEL_RATE, [VALID_SAMPLE])
         self.print_fusion('fusion', outputs[-1])
         self.assert_fused_estimate(outputs[-1], 'phase 1')
 
     def check_estimate_follows_the_wheels_when_imu_samples_are_stale(self) -> None:
-        """Phase 2: only IMU samples that are 0.5 s old, which the validator drops."""
+        """Check that the estimate goes to the wheels' yaw rate when every IMU sample is stale."""
         outputs = self.run_steps(PHASE_STEPS, WHEEL_RATE,
                                  [ImuInput(STALE_OFFSET, BAD_RATE, TOO_OLD)])
         print('stale IMU: estimate from {:.4f} to {:.4f} rad/s'.format(
@@ -444,7 +444,7 @@ class TestEkfWithInvalidImuSamples(SteppedClockTestCase):
                              'phase 2: without IMU samples, the estimate follows the wheels')
 
     def check_validator_drops_samples_with_a_repeated_stamp(self) -> None:
-        """Phase 3: each valid sample is followed by one with the same stamp."""
+        """Check that the estimate stays at the valid samples' rate despite repeated stamps."""
         outputs = self.run_steps(PHASE_STEPS, WHEEL_RATE,
                                  [VALID_SAMPLE, ImuInput(0.0, BAD_RATE, NOT_NEWER)])
         self.assert_stays_at_most(outputs, IMU_RATE + YAW_RATE_TOLERANCE,
@@ -453,7 +453,7 @@ class TestEkfWithInvalidImuSamples(SteppedClockTestCase):
                              'phase 3: valid samples again')
 
     def check_validator_drops_samples_from_the_future(self) -> None:
-        """Phase 4: each valid sample is followed by one stamped 0.5 s in the future."""
+        """Check that the estimate stays at the valid samples' rate despite future stamps."""
         outputs = self.run_steps(PHASE_STEPS, WHEEL_RATE,
                                  [VALID_SAMPLE,
                                   ImuInput(FUTURE_OFFSET, BAD_RATE, FROM_THE_FUTURE)])
@@ -462,7 +462,7 @@ class TestEkfWithInvalidImuSamples(SteppedClockTestCase):
         self.assert_yaw_rate(outputs[-1], IMU_RATE, YAW_RATE_TOLERANCE, 'phase 4: valid samples')
 
     def check_validator_drops_samples_older_than_the_last_valid_one(self) -> None:
-        """Phase 5: each valid sample is followed by one with an older stamp."""
+        """Check that the estimate stays at the valid samples' rate despite older stamps."""
         outputs = self.run_steps(PHASE_STEPS, WHEEL_RATE,
                                  [VALID_SAMPLE, ImuInput(OLDER_OFFSET, BAD_RATE, NOT_NEWER)])
         self.assert_stays_at_most(outputs, IMU_RATE + YAW_RATE_TOLERANCE,
@@ -470,7 +470,7 @@ class TestEkfWithInvalidImuSamples(SteppedClockTestCase):
         self.assert_yaw_rate(outputs[-1], IMU_RATE, YAW_RATE_TOLERANCE, 'phase 5: valid samples')
 
     def check_estimate_follows_the_imu_again_after_the_clock_goes_back(self) -> None:
-        """Phase 6: the clock goes back to RESTART, then valid samples as in phase 1."""
+        """Check that the estimate follows the IMU again after the clock goes back to RESTART."""
         self.now = RESTART
         self.clock_publisher.publish(Clock(self.now))
         time.sleep(RESET_DELIVERY)
@@ -495,7 +495,7 @@ class TestEkfWithInvalidImuSamples(SteppedClockTestCase):
                              'phase 6: after the clock went back')
 
     def check_validator_diagnostics_count_each_forwarded_and_dropped_sample(self) -> None:
-        """Phase 7: the validator's diagnostics against the samples that phases 1 to 6 sent."""
+        """Check that the validator's diagnostics count each sample that phases 1 to 6 sent."""
         values = self.wait_for_validator_diagnostics()
         print('validator diagnostics: {}'.format(values))
         self.assert_diagnostic_counts(values)
