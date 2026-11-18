@@ -33,8 +33,9 @@ A field's statistics come from the messages that measured the field: sensor_msgs
 field without a measurement with -1 as the first element of the field's covariance. A field with
 fewer than two readings gets two lines instead of statistics. The tool prints one line and ends
 with status 1 instead of a report when the file isn't a readable rosbag, when the topic's messages
-have another type, an empty frame_id, more than one frame_id or a reading that isn't finite, and
-when fewer than two messages or readings are left for the statistics.
+have another type, an empty frame_id, more than one frame_id or a reading that isn't finite or
+is larger than any IMU's, and when fewer than two messages or readings are left for the
+statistics.
 
 Usage: rosrun diffbot_bringup imu_noise_at_rest.py imu_still.bag [--topic /diffbot/imu/data_raw]
 """
@@ -46,6 +47,7 @@ import statistics
 import sys
 from typing import Any
 from typing import Callable
+from typing import Iterator
 from typing import List
 from typing import NamedTuple
 from typing import Optional
@@ -57,9 +59,14 @@ import rosbag
 
 DEFAULT_TOPIC = '/diffbot/imu/data_raw'
 IMU_TYPE = 'sensor_msgs/Imu'
+# The first bytes of every bag file, before the format's version
+BAG_FILE_START = b'#ROS'
 # sensor_msgs/Imu: a message without a measurement of a field has -1 as the first element of the
 # field's covariance
 NOT_MEASURED = -1.0
+# No IMU measures a rate in rad/s or an acceleration in m/s^2 of this size, so a larger value
+# means damaged data. The limit also keeps the readings' squares far inside a float's range
+LARGEST_READING = 1.0e6
 
 NANOSECONDS_PER_SECOND = 1000000000
 NANOSECONDS_PER_MILLISECOND = 1000000
@@ -110,7 +117,7 @@ class AxisStatistics(NamedTuple):
     """The statistics of one axis's readings."""
 
     mean: float
-    variance: float  # the sample variance, see axis_statistics()
+    variance: float  # the sample variance, see sample_variance()
     distinct_value_count: int
 
     @property
@@ -180,18 +187,45 @@ def count_of(count: int, noun: str) -> str:
     return f'{count} {noun}' if count == 1 else f'{count} {noun}s'
 
 
-def open_bag(bag_path: str) -> Any:
-    """Return the bag, opened for reading, or raise an InputError with the file and the reason."""
+def reason_of(error: Exception) -> str:
+    """Return what an error says, as the reason in the tool's line.
+
+    rosbag's own errors have a text for the user. Another error keeps the name of its type,
+    because its text alone can be a number or empty.
+    """
+    text = str(error)
+    if isinstance(error, rosbag.ROSBagException) and text:
+        return text
+    return f'{type(error).__name__}: {text}' if text else type(error).__name__
+
+
+def check_bag_file_start(bag_path: str) -> None:
+    """Raise an InputError when the file can't be opened or doesn't start as a bag file does."""
     try:
-        return rosbag.Bag(bag_path)
+        with open(bag_path, 'rb') as bag_file:
+            file_start = bag_file.read(len(BAG_FILE_START))
     except OSError as error:
         raise InputError(f"{bag_path} can't be opened: {error.strerror}") from error
-    except rosbag.ROSBagException as error:
-        raise InputError(f"{bag_path} can't be read as a rosbag: {error}") from error
-    except UnicodeDecodeError as error:
-        # rosbag reads a bag's first line as text: the format's version
-        raise InputError(f"{bag_path} can't be read as a rosbag: "
-                         "its first line isn't a bag's header") from error
+    if file_start != BAG_FILE_START:
+        raise InputError(f"{bag_path} isn't a rosbag: a bag file starts with the text #ROSBAG")
+
+
+def open_bag(bag_path: str) -> Any:
+    """Return the bag, opened for reading, or raise an InputError with the file and the reason.
+
+    rosbag reads the bag's index when it opens the file. On a file that starts like a bag and is
+    damaged or cut off, its parser fails with its own errors and with others, such as a
+    KeyError. Whatever the error is, the file can't be read as a rosbag.
+    """
+    check_bag_file_start(bag_path)
+    try:
+        return rosbag.Bag(bag_path)
+    except rosbag.ROSBagUnindexedException as error:
+        # The recorder writes the index when it ends, so a recording that was cut off has none
+        raise InputError(f'{bag_path} has no index, like a recording that was cut off. '
+                         '"rosbag reindex" can repair such a file') from error
+    except Exception as error:
+        raise InputError(f"{bag_path} can't be read as a rosbag: {reason_of(error)}") from error
 
 
 def connection_types(bag: Any, topic: str) -> Set[str]:
@@ -247,15 +281,35 @@ def to_sample(message: Any) -> ImuSample:
                                             message.linear_acceleration_covariance))
 
 
-def to_stored_sample(record: Any) -> StoredSample:
-    """Convert a raw record of rosbag's reader to the message's sample and its place in the file.
+def raw_records(bag: Any, topic: str) -> Iterator[Any]:
+    """Yield the raw records of the topic's messages, in the order of rosbag's reader.
 
     A raw record is the message's type, its bytes, the type's checksum, the message's position
     in the file and the message's class, which rosbag builds from the definition in the bag.
+
+    A bag whose index is intact opens, also when the messages' data is damaged. The reader then
+    fails while it reads, with its own errors, with the decompression's and with others.
+    Whatever the error is, it becomes the reason of a MessageError.
+    """
+    try:
+        for _, record, _ in bag.read_messages(topics=[topic], raw=True):
+            yield record
+    except Exception as error:
+        raise MessageError(f"a message can't be read from the bag: {reason_of(error)}") from error
+
+
+def to_stored_sample(record: Any) -> StoredSample:
+    """Convert a raw record to the message's sample and its place in the file.
+
+    The message's bytes may not fit the message's type, for example when the last bytes are
+    missing. The error of the type's deserialization becomes the reason of a MessageError.
     """
     _, serialized_message, _, position, message_class = record
     message = message_class()
-    message.deserialize(serialized_message)
+    try:
+        message.deserialize(serialized_message)
+    except Exception as error:
+        raise MessageError(f"a message can't be read from the bag: {reason_of(error)}") from error
     return StoredSample(position, to_sample(message))
 
 
@@ -267,16 +321,8 @@ def recorded_samples(bag: Any, topic: str) -> List[ImuSample]:
     publisher on the same clock then stamps its messages earlier too, and in the reader's order
     its stamps would seem to advance. Each message is converted when it is read, so the messages
     themselves aren't kept.
-
-    A bag whose index is intact opens, also when the messages' data is damaged. Reading then
-    fails, with an error of rosbag's or of the chunk's decompression, which becomes the reason
-    of a MessageError.
     """
-    try:
-        stored_samples = [to_stored_sample(record)
-                          for _, record, _ in bag.read_messages(topics=[topic], raw=True)]
-    except (OSError, rosbag.ROSBagException) as error:
-        raise MessageError(f"a message can't be read from the bag: {error}") from error
+    stored_samples = [to_stored_sample(record) for record in raw_records(bag, topic)]
     stored_samples.sort(key=operator.attrgetter('position'))
     return [stored.sample for stored in stored_samples]
 
@@ -325,14 +371,27 @@ def format_stamp(stamp: int) -> str:
     return f'{seconds}.{nanoseconds:09d}'
 
 
-def first_sample_with_a_nonfinite_reading(samples: Sequence[ImuSample],
-                                          field: ImuField) -> Optional[ImuSample]:
-    """Return the first sample whose reading of the field has a NaN or an infinite value."""
+def is_of_an_imus_size(value: float) -> bool:
+    """Return whether a value's size is at most LARGEST_READING."""
+    return abs(value) <= LARGEST_READING
+
+
+def first_sample_with_an_unexpected_reading(samples: Sequence[ImuSample], field: ImuField,
+                                            is_expected: Callable[[float], bool]
+                                            ) -> Optional[ImuSample]:
+    """Return the first sample whose reading of the field has a value that isn't as expected."""
     for sample in samples:
         reading = getattr(sample, field.name)
-        if reading is not None and not all(math.isfinite(value) for value in reading):
+        if reading is not None and not all(is_expected(value) for value in reading):
             return sample
     return None
+
+
+def format_reading(sample: ImuSample, field: ImuField) -> str:
+    """Return a sample's stamp and its reading of the field, as the start of a reason."""
+    x, y, z = getattr(sample, field.name)
+    return (f'the message stamped {format_stamp(sample.stamp)} has the {field.name} '
+            f'({x}, {y}, {z})')
 
 
 def check_finite_readings(samples: Sequence[ImuSample]) -> None:
@@ -341,11 +400,22 @@ def check_finite_readings(samples: Sequence[ImuSample]) -> None:
     One such value would make the axis's mean and variance NaN or infinite too.
     """
     for field in FIELDS:
-        sample = first_sample_with_a_nonfinite_reading(samples, field)
+        sample = first_sample_with_an_unexpected_reading(samples, field, math.isfinite)
         if sample is not None:
-            x, y, z = getattr(sample, field.name)
-            raise MessageError(f'the message stamped {format_stamp(sample.stamp)} has the '
-                               f"{field.name} ({x}, {y}, {z}), which isn't finite")
+            raise MessageError(f"{format_reading(sample, field)}, which isn't finite")
+
+
+def check_reading_size(samples: Sequence[ImuSample]) -> None:
+    """Raise a MessageError for a measured reading with a value beyond LARGEST_READING.
+
+    A value of that size isn't a measurement. It comes from damaged data, for example a changed
+    byte in a number's exponent, and it would decide the axis's mean and variance alone.
+    """
+    for field in FIELDS:
+        sample = first_sample_with_an_unexpected_reading(samples, field, is_of_an_imus_size)
+        if sample is not None:
+            raise MessageError(f'{format_reading(sample, field)}. A value beyond '
+                               f"{LARGEST_READING:g} isn't an IMU's reading")
 
 
 def check_reading_count(samples: Sequence[ImuSample]) -> None:
@@ -364,6 +434,7 @@ SAMPLE_CHECKS: Tuple[SampleCheck, ...] = (
     check_named_frame,
     check_one_frame,
     check_finite_readings,
+    check_reading_size,
     check_reading_count,
 )
 
@@ -389,15 +460,28 @@ def read_samples(bag_path: str, topic: str) -> List[ImuSample]:
     return samples
 
 
-def axis_statistics(values: Sequence[float]) -> AxisStatistics:
-    """Return the mean, the sample variance and the number of distinct values of one axis.
+def sample_variance(values: Sequence[float], mean: float) -> float:
+    """Return the sample variance of the values, whose mean is given.
 
-    The sample variance divides by the number of values minus one: the deviations are measured
-    from the values' own mean, which lies closer to them than the true mean. It needs at least
-    two values.
+    The squared deviations from the mean are added up and divided by the number of values minus
+    one, not by their number: the deviations are measured from the values' own mean, which lies
+    closer to them than the true mean. It needs at least two values.
+
+    math.fsum() adds the squares without losing digits on the way. statistics.variance() gives
+    the same result for an IMU's readings. It fails, in Python 3.8, on deviations so small that
+    their squares are zero as floats.
     """
-    return AxisStatistics(mean=statistics.mean(values),
-                          variance=statistics.variance(values),
+    if len(values) < 2:
+        raise statistics.StatisticsError('a sample variance needs at least two values')
+    squared_deviations = [(value - mean) * (value - mean) for value in values]
+    return math.fsum(squared_deviations) / (len(values) - 1)
+
+
+def axis_statistics(values: Sequence[float]) -> AxisStatistics:
+    """Return the mean, the sample variance and the number of distinct values of one axis."""
+    mean = statistics.mean(values)
+    return AxisStatistics(mean=mean,
+                          variance=sample_variance(values, mean),
                           distinct_value_count=len(set(values)))
 
 

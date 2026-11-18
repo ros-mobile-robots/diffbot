@@ -8,6 +8,7 @@ CMakeLists.txt).
 """
 
 import gzip
+import io
 import math
 import os
 import shutil
@@ -40,6 +41,7 @@ from imu_noise_at_rest import check_message_count  # noqa: E402
 from imu_noise_at_rest import check_named_frame  # noqa: E402
 from imu_noise_at_rest import check_one_frame  # noqa: E402
 from imu_noise_at_rest import check_reading_count  # noqa: E402
+from imu_noise_at_rest import check_reading_size  # noqa: E402
 from imu_noise_at_rest import check_samples  # noqa: E402
 from imu_noise_at_rest import check_topic_type  # noqa: E402
 from imu_noise_at_rest import DEFAULT_TOPIC  # noqa: E402
@@ -52,6 +54,7 @@ from imu_noise_at_rest import IMU_PERIOD  # noqa: E402
 from imu_noise_at_rest import imu_statistics  # noqa: E402
 from imu_noise_at_rest import ImuSample  # noqa: E402
 from imu_noise_at_rest import ImuStatistics  # noqa: E402
+from imu_noise_at_rest import LARGEST_READING  # noqa: E402
 from imu_noise_at_rest import LONG_INTERVAL  # noqa: E402
 from imu_noise_at_rest import measured_vector  # noqa: E402
 from imu_noise_at_rest import MessageError  # noqa: E402
@@ -147,6 +150,15 @@ class TestAxisStatistics(unittest.TestCase):
     def test_axis_statistics_gives_a_variance_of_zero_without_noise(self) -> None:
         """Check that five equal readings have a variance of exactly zero."""
         self.assertEqual(axis_statistics([GYROSCOPE_STEP] * 5).variance, 0.0)
+
+    def test_axis_statistics_gives_a_variance_of_zero_for_deviations_too_small_to_square(
+            self) -> None:
+        """Check that a reading of 7e-304 next to two of zero gives a variance, not an error.
+
+        The squares of such deviations are zero as floats. A changed byte in a number's exponent
+        makes such a reading.
+        """
+        self.assertEqual(axis_statistics([7.0e-304, 0.0, 0.0]).variance, 0.0)
 
     def test_axis_statistics_fails_with_fewer_than_two_values(self) -> None:
         """Check that one value raises an error: a sample variance needs two."""
@@ -352,6 +364,19 @@ class TestSampleChecks(unittest.TestCase):
         with self.assertRaises(MessageError):
             check_finite_readings([sample(), infinite])
 
+    def test_check_reading_size_fails_for_a_reading_beyond_the_largest_reading(self) -> None:
+        """Check that an acceleration of twice LARGEST_READING is refused, with its stamp."""
+        too_large = sample(linear_acceleration=Vector(0.0, 0.0, 2 * LARGEST_READING))
+        with self.assertRaises(MessageError) as error:
+            check_reading_size([sample(), too_large])
+        self.assertEqual(message_of(error),
+                         'the message stamped 1700000000.000000000 has the linear_acceleration '
+                         "(0.0, 0.0, 2000000.0). A value beyond 1e+06 isn't an IMU's reading")
+
+    def test_check_reading_size_passes_a_reading_of_the_largest_reading(self) -> None:
+        """Check that a reading of exactly LARGEST_READING, on the negative side, passes."""
+        check_reading_size([sample(), sample(angular_velocity=Vector(-LARGEST_READING, 0, 0))])
+
     def test_check_finite_readings_passes_a_sample_without_a_field(self) -> None:
         """Check that a field that a message didn't measure isn't looked at."""
         check_finite_readings([sample(angular_velocity=None), sample()])
@@ -546,6 +571,22 @@ def write_bag(bag_path: str, topic: str, messages: Sequence[Any],
             bag.write(topic, message, to_ros_time(arrival_stamp))
 
 
+def write_bag_with_a_short_last_message(bag_path: str) -> None:
+    """Write three messages one step apart, of which the last lacks the last byte of its data.
+
+    The recorder's raw interface takes a message as its type, its bytes, the type's checksum
+    and its class, and stores the bytes as they are.
+    """
+    messages = messages_one_step_apart()
+    serialized_message = io.BytesIO()
+    messages[2].serialize(serialized_message)
+    short_message = (Imu._type, serialized_message.getvalue()[:-1], Imu._md5sum, Imu)
+    with rosbag.Bag(bag_path, 'w') as bag:
+        for message, arrival_stamp in zip(messages[:2], REGULAR_STAMPS):
+            bag.write(DEFAULT_TOPIC, message, to_ros_time(arrival_stamp))
+        bag.write(DEFAULT_TOPIC, short_message, to_ros_time(REGULAR_STAMPS[2]), raw=True)
+
+
 def damage_first_chunk(bag_path: str) -> None:
     """Invert one byte in the middle of the data of the bag's first chunk.
 
@@ -593,6 +634,18 @@ class TestToolOnBags(unittest.TestCase):
         """Check that the tool prints only the message, on stderr, and ends with status 1."""
         result = run_tool([self.bag_path] + list(arguments))
         self.assertEqual(result, (1, '', message + '\n'))
+
+    def assert_tool_ends_with_a_reason_after(self, line_start: str) -> None:
+        """Check that the tool ends with status 1 and one line: the start, then a reason.
+
+        For reasons whose words come from rosbag or from Python, so that the test doesn't
+        depend on them. An empty reason or "None" fails.
+        """
+        status, stdout, stderr = run_tool([self.bag_path])
+        self.assertEqual((status, stdout), (1, ''))
+        self.assertEqual(stderr.count('\n'), 1)
+        self.assertTrue(stderr.startswith(line_start), stderr)
+        self.assertNotIn(stderr[len(line_start):].strip(), ('', 'None'))
 
     def test_tool_prints_the_report_of_three_readings_one_output_step_apart(self) -> None:
         """Check every line for yaw rates of 0, 1 and 2 steps: a variance of one step squared.
@@ -750,36 +803,47 @@ class TestToolOnBags(unittest.TestCase):
         self.assert_tool_ends_with(f"{self.bag_path} can't be opened: No such file or directory")
 
     def test_tool_ends_with_a_message_when_the_file_is_not_a_rosbag(self) -> None:
-        """Check that a text file gives rosbag's reason, not a traceback."""
+        """Check that a text file is refused by its first bytes, not with a traceback."""
         with open(self.bag_path, 'w') as text_file:
             text_file.write('not a bag\n')
-        self.assert_tool_ends_with(f"{self.bag_path} can't be read as a rosbag: "
-                                   'This does not appear to be a bag file')
+        self.assert_tool_ends_with(f"{self.bag_path} isn't a rosbag: a bag file starts with "
+                                   'the text #ROSBAG')
 
     def test_tool_ends_with_a_message_when_the_file_is_a_compressed_copy_of_a_bag(self) -> None:
-        """Check that a bag packed with gzip, whose first line isn't text, gives no traceback."""
+        """Check that a bag packed with gzip, whose first bytes aren't text, is refused."""
         unpacked_path = self.bag_path + '.unpacked'
         write_bag(unpacked_path, DEFAULT_TOPIC, messages_one_step_apart())
         with open(unpacked_path, 'rb') as unpacked, gzip.open(self.bag_path, 'wb') as packed:
             shutil.copyfileobj(unpacked, packed)
-        self.assert_tool_ends_with(f"{self.bag_path} can't be read as a rosbag: "
-                                   "its first line isn't a bag's header")
+        self.assert_tool_ends_with(f"{self.bag_path} isn't a rosbag: a bag file starts with "
+                                   'the text #ROSBAG')
+
+    def test_tool_ends_with_a_message_when_the_file_ends_after_the_first_line(self) -> None:
+        """Check that a bag cut off after its first line is refused, with what can repair it."""
+        with open(self.bag_path, 'w') as cut_off_file:
+            cut_off_file.write('#ROSBAG V2.0\n')
+        self.assert_tool_ends_with(f'{self.bag_path} has no index, like a recording that was '
+                                   'cut off. "rosbag reindex" can repair such a file')
 
     def test_tool_ends_with_a_message_when_the_messages_data_is_damaged(self) -> None:
         """Check that a bag which opens, but whose compressed messages are damaged, is refused.
 
-        The reason after the colon is the decompression's, so the test compares the line up to
-        there.
+        The bag's index is intact. The reason comes from the decompression.
         """
         write_bag(self.bag_path, DEFAULT_TOPIC, messages_one_step_apart(),
                   compression=rosbag.Compression.BZ2)
         damage_first_chunk(self.bag_path)
-        status, stdout, stderr = run_tool([self.bag_path])
-        self.assertEqual((status, stdout), (1, ''))
-        self.assertEqual(stderr.count('\n'), 1)
-        self.assertTrue(
-            stderr.startswith(f"{self.bag_path}, {DEFAULT_TOPIC}: a message can't be read from "
-                              'the bag: '), stderr)
+        self.assert_tool_ends_with_a_reason_after(
+            f"{self.bag_path}, {DEFAULT_TOPIC}: a message can't be read from the bag: ")
+
+    def test_tool_ends_with_a_message_when_a_message_lacks_its_last_byte(self) -> None:
+        """Check that a message whose data is too short for its type is refused.
+
+        rosbag reads the record. The reason comes from the message's deserialization.
+        """
+        write_bag_with_a_short_last_message(self.bag_path)
+        self.assert_tool_ends_with_a_reason_after(
+            f"{self.bag_path}, {DEFAULT_TOPIC}: a message can't be read from the bag: ")
 
 
 if __name__ == '__main__':
