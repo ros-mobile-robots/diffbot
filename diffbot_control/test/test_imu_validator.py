@@ -119,6 +119,18 @@ class TestImuValidator(ValidatorTestCase):
     def test_validator_rejects_a_sample_at_ros_time_zero(self) -> None:
         self.assert_rejected(imu_validator.DropReason.NO_CLOCK, make_imu_sample(), ROS_TIME_ZERO)
 
+    def test_validator_rejects_the_same_stamp_again_after_a_sample_at_ros_time_zero(self) -> None:
+        # A sample at the ROS time 0 returns NO_CLOCK before the clock check, so the validator
+        # keeps last_valid_stamp and last_checked_ros_time
+        self.assert_accepted(make_imu_sample(NOW), NOW)
+        self.assert_rejected(imu_validator.DropReason.NO_CLOCK, make_imu_sample(NOW),
+                             ROS_TIME_ZERO)
+        # The same stamp again, 1 ms after NOW: not before NOW, so this call's own clock check
+        # finds no clock that went back, and only the call at ROS_TIME_ZERO could have cleared
+        # last_valid_stamp
+        self.assert_rejected(imu_validator.DropReason.NOT_NEWER, make_imu_sample(NOW),
+                             NOW + seconds(ONE_MILLISECOND))
+
     def test_validator_rejects_a_sample_with_a_wrong_or_empty_frame(self) -> None:
         for frame_id in ('base_link', ''):
             self.assert_rejected(imu_validator.DropReason.WRONG_FRAME,
