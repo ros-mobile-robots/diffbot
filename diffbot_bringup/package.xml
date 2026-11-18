@@ -53,6 +53,10 @@
   <!-- scripts/imu_noise_at_rest.py reads a rosbag -->
   <exec_depend>rosbag</exec_depend>
   <test_depend>python3-nose</test_depend>
+  <!-- test/test_imu_noise_at_rest.py writes bags with these messages -->
+  <test_depend>rospy</test_depend>
+  <test_depend>sensor_msgs</test_depend>
+  <test_depend>std_msgs</test_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

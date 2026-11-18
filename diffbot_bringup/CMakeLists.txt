@@ -215,6 +215,7 @@ catkin_install_python(PROGRAMS
 # catkin_add_nosetests(test)
 
 if(CATKIN_ENABLE_TESTING)
-  # The statistics of scripts/imu_noise_at_rest.py, on readings with known results
+  # scripts/imu_noise_at_rest.py: its statistics on readings with known results, and the tool
+  # as a command on small bags that the test writes
   catkin_add_nosetests(test/test_imu_noise_at_rest.py)
 endif()
