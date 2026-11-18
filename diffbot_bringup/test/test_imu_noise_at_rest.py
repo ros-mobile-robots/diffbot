@@ -43,13 +43,14 @@ from imu_noise_at_rest import check_one_frame  # noqa: E402
 from imu_noise_at_rest import check_reading_count  # noqa: E402
 from imu_noise_at_rest import check_reading_size  # noqa: E402
 from imu_noise_at_rest import check_samples  # noqa: E402
-from imu_noise_at_rest import check_topic_type  # noqa: E402
+from imu_noise_at_rest import check_topic  # noqa: E402
 from imu_noise_at_rest import DEFAULT_TOPIC  # noqa: E402
 from imu_noise_at_rest import field_statistics  # noqa: E402
 from imu_noise_at_rest import FieldStatistics  # noqa: E402
 from imu_noise_at_rest import format_duration  # noqa: E402
 from imu_noise_at_rest import format_report  # noqa: E402
 from imu_noise_at_rest import format_table  # noqa: E402
+from imu_noise_at_rest import IMU_DEFINITION  # noqa: E402
 from imu_noise_at_rest import IMU_PERIOD  # noqa: E402
 from imu_noise_at_rest import imu_statistics  # noqa: E402
 from imu_noise_at_rest import ImuSample  # noqa: E402
@@ -57,6 +58,7 @@ from imu_noise_at_rest import ImuStatistics  # noqa: E402
 from imu_noise_at_rest import LARGEST_READING  # noqa: E402
 from imu_noise_at_rest import LONG_INTERVAL  # noqa: E402
 from imu_noise_at_rest import measured_vector  # noqa: E402
+from imu_noise_at_rest import MessageDefinition  # noqa: E402
 from imu_noise_at_rest import MessageError  # noqa: E402
 from imu_noise_at_rest import NANOSECONDS_PER_MILLISECOND  # noqa: E402
 from imu_noise_at_rest import NANOSECONDS_PER_SECOND  # noqa: E402
@@ -150,6 +152,17 @@ class TestAxisStatistics(unittest.TestCase):
     def test_axis_statistics_gives_a_variance_of_zero_without_noise(self) -> None:
         """Check that five equal readings have a variance of exactly zero."""
         self.assertEqual(axis_statistics([GYROSCOPE_STEP] * 5).variance, 0.0)
+
+    def test_axis_statistics_gives_the_exact_variance_of_two_neighbouring_floats(
+            self) -> None:
+        """Check that 9.81 and the next float above it have the variance (b - a)² / 2.
+
+        Their mean lies between two floats. Rounded to one of them, it would give one deviation
+        of zero and one of a whole step, and twice the variance.
+        """
+        reading, next_reading = 9.81, 9.810000000000002
+        self.assertEqual(axis_statistics([reading, next_reading]).variance,
+                         (next_reading - reading) ** 2 / 2)
 
     def test_axis_statistics_gives_a_variance_of_zero_for_deviations_too_small_to_square(
             self) -> None:
@@ -290,36 +303,65 @@ class TestStampStatistics(unittest.TestCase):
 class BagWithConnections:
     """A stand-in for a bag that has only the connections of one topic, and no messages."""
 
-    def __init__(self, connection_types: Sequence[str]) -> None:
-        """Remember the message type of each of the topic's connections."""
-        self.connection_types = connection_types
+    def __init__(self, definitions: Sequence[MessageDefinition]) -> None:
+        """Remember the message definition of each of the topic's connections."""
+        self.definitions = definitions
 
     def read_messages(self, topics: Sequence[str], connection_filter: Any) -> List[Any]:
         """Ask the filter about each connection, as rosbag does, and return no message."""
-        for connection_type in self.connection_types:
-            connection_filter(topics[0], connection_type, 'checksum', 'definition', {})
+        for definition in self.definitions:
+            connection_filter(topics[0], definition.type_name, definition.checksum,
+                              'the definition', {})
         return []
 
 
-class TestTopicType(unittest.TestCase):
-    """check_topic_type() refuses a topic with messages that aren't sensor_msgs/Imu."""
+class BagWithAFailingReader:
+    """A stand-in for a bag whose reader fails, as rosbag's reader of an old bag format does."""
 
-    def test_check_topic_type_passes_a_topic_of_imu_messages(self) -> None:
-        """Check that a topic with one connection of sensor_msgs/Imu raises nothing."""
-        check_topic_type(BagWithConnections(['sensor_msgs/Imu']), DEFAULT_TOPIC)
+    def read_messages(self, topics: Sequence[str], connection_filter: Any) -> List[Any]:
+        """Raise the error of a reader that takes no connection filter."""
+        raise TypeError('read_messages() takes 6 positional arguments but 7 were given')
 
-    def test_check_topic_type_fails_for_a_topic_with_several_types_and_names_them_all(
+
+class TestTopicChecks(unittest.TestCase):
+    """check_topic() refuses a topic whose messages aren't ROS's sensor_msgs/Imu."""
+
+    def test_check_topic_passes_a_topic_of_ros_imu_messages(self) -> None:
+        """Check that a topic with one connection of ROS's sensor_msgs/Imu raises nothing."""
+        check_topic(BagWithConnections([IMU_DEFINITION]), DEFAULT_TOPIC)
+
+    def test_check_topic_fails_for_a_topic_with_several_types_and_names_them_all(
             self) -> None:
         """Check that an IMU topic with two more types is refused, with all three names.
 
         rosbag info shows such a topic with one type only, here sensor_msgs/Imu.
         """
-        bag = BagWithConnections(['sensor_msgs/Imu', 'std_msgs/String', 'std_msgs/UInt32'])
+        bag = BagWithConnections([IMU_DEFINITION,
+                                  MessageDefinition('std_msgs/String', String._md5sum),
+                                  MessageDefinition('std_msgs/UInt32', 'another checksum')])
         with self.assertRaises(MessageError) as error:
-            check_topic_type(bag, DEFAULT_TOPIC)
+            check_topic(bag, DEFAULT_TOPIC)
         self.assertEqual(message_of(error),
                          'the topic holds sensor_msgs/Imu, std_msgs/String, std_msgs/UInt32. '
                          'Every message of the topic must be a sensor_msgs/Imu')
+
+    def test_check_topic_fails_for_imu_messages_with_another_definition(self) -> None:
+        """Check that the type's name with another definition's checksum is refused."""
+        bag = BagWithConnections([MessageDefinition('sensor_msgs/Imu', 'another checksum')])
+        with self.assertRaises(MessageError) as error:
+            check_topic(bag, DEFAULT_TOPIC)
+        self.assertEqual(message_of(error),
+                         "the topic's messages are named sensor_msgs/Imu, but their definition "
+                         "isn't ROS's: its checksum is another checksum instead of "
+                         + Imu._md5sum)
+
+    def test_check_topic_fails_with_the_readers_reason_when_the_reader_fails(self) -> None:
+        """Check that an error of the bag's reader is the reason, with its type's name."""
+        with self.assertRaises(MessageError) as error:
+            check_topic(BagWithAFailingReader(), DEFAULT_TOPIC)
+        self.assertEqual(message_of(error),
+                         "the topic's message types can't be read from the bag: TypeError: "
+                         'read_messages() takes 6 positional arguments but 7 were given')
 
 
 class TestSampleChecks(unittest.TestCase):
@@ -371,7 +413,8 @@ class TestSampleChecks(unittest.TestCase):
             check_reading_size([sample(), too_large])
         self.assertEqual(message_of(error),
                          'the message stamped 1700000000.000000000 has the linear_acceleration '
-                         "(0.0, 0.0, 2000000.0). A value beyond 1e+06 isn't an IMU's reading")
+                         '(0.0, 0.0, 2000000.0). The tool takes a value beyond 1e+06 m/s^2 as '
+                         'damaged data')
 
     def test_check_reading_size_passes_a_reading_of_the_largest_reading(self) -> None:
         """Check that a reading of exactly LARGEST_READING, on the negative side, passes."""
@@ -784,6 +827,24 @@ class TestToolOnBags(unittest.TestCase):
         self.assert_tool_ends_with(
             f'{self.bag_path}, {DEFAULT_TOPIC}: the topic holds std_msgs/String. Every message '
             'of the topic must be a sensor_msgs/Imu')
+
+    def test_tool_ends_with_a_message_when_the_imu_messages_have_another_definition(
+            self) -> None:
+        """Check that messages named sensor_msgs/Imu with another definition are refused.
+
+        The bag's connection names the type sensor_msgs/Imu with the definition and the
+        checksum of std_msgs/String, whose messages have none of an IMU's fields.
+        """
+        connection = {'topic': DEFAULT_TOPIC, 'type': Imu._type, 'md5sum': String._md5sum,
+                      'message_definition': String._full_text}
+        with rosbag.Bag(self.bag_path, 'w') as bag:
+            for arrival_stamp in REGULAR_STAMPS:
+                bag.write(DEFAULT_TOPIC, String('not an IMU message'),
+                          to_ros_time(arrival_stamp), connection_header=connection)
+        self.assert_tool_ends_with(
+            f"{self.bag_path}, {DEFAULT_TOPIC}: the topic's messages are named sensor_msgs/Imu, "
+            f"but their definition isn't ROS's: its checksum is {String._md5sum} instead of "
+            f'{Imu._md5sum}')
 
     def test_tool_ends_with_a_message_when_the_topic_has_one_message(self) -> None:
         """Check that one message is refused: the statistics need two."""

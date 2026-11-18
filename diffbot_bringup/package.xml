@@ -50,12 +50,12 @@
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   <exec_depend>teleop_twist_keyboard</exec_depend>
-  <!-- scripts/imu_noise_at_rest.py reads a rosbag -->
+  <!-- scripts/imu_noise_at_rest.py reads sensor_msgs/Imu messages from a rosbag -->
   <exec_depend>rosbag</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
   <test_depend>python3-nose</test_depend>
-  <!-- test/test_imu_noise_at_rest.py writes bags with these messages -->
+  <!-- test/test_imu_noise_at_rest.py writes bags with a ROS time and std_msgs/String -->
   <test_depend>rospy</test_depend>
-  <test_depend>sensor_msgs</test_depend>
   <test_depend>std_msgs</test_depend>
 
   <!-- The export tag contains other, unspecified, tags -->

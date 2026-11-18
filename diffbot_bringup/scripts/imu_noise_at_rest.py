@@ -41,6 +41,7 @@ Usage: rosrun diffbot_bringup imu_noise_at_rest.py imu_still.bag [--topic /diffb
 """
 
 import argparse
+from fractions import Fraction
 import math
 import operator
 import statistics
@@ -56,16 +57,16 @@ from typing import Set
 from typing import Tuple
 
 import rosbag
+from sensor_msgs.msg import Imu
 
 DEFAULT_TOPIC = '/diffbot/imu/data_raw'
-IMU_TYPE = 'sensor_msgs/Imu'
 # The first bytes of every bag file, before the format's version
 BAG_FILE_START = b'#ROS'
 # sensor_msgs/Imu: a message without a measurement of a field has -1 as the first element of the
 # field's covariance
 NOT_MEASURED = -1.0
-# No IMU measures a rate in rad/s or an acceleration in m/s^2 of this size, so a larger value
-# means damaged data. The limit also keeps the readings' squares far inside a float's range
+# This tool's limit for a plausible reading. No IMU measures a rate in rad/s or an acceleration
+# in m/s^2 of this size, so the tool takes a larger value as damaged data
 LARGEST_READING = 1.0e6
 
 NANOSECONDS_PER_SECOND = 1000000000
@@ -102,6 +103,17 @@ class ImuSample(NamedTuple):
     # None when the message has no measurement of the field
     angular_velocity: Optional[Vector]  # rad/s
     linear_acceleration: Optional[Vector]  # m/s^2
+
+
+class MessageDefinition(NamedTuple):
+    """The name of a message type and the checksum of the type's definition."""
+
+    type_name: str
+    checksum: str
+
+
+# ROS's own definition of the messages that the tool reads
+IMU_DEFINITION = MessageDefinition(Imu._type, Imu._md5sum)
 
 
 class StoredSample(NamedTuple):
@@ -228,35 +240,65 @@ def open_bag(bag_path: str) -> Any:
         raise InputError(f"{bag_path} can't be read as a rosbag: {reason_of(error)}") from error
 
 
-def connection_types(bag: Any, topic: str) -> Set[str]:
-    """Return the message types of the topic's connections, without reading a message.
+def topic_definitions(bag: Any, topic: str) -> Set[MessageDefinition]:
+    """Return the message definitions of the topic's connections, without reading a message.
 
     rosbag asks the connection filter about each connection of the topic before it reads the
-    connection's messages. The filter notes the type and declines the connection.
+    connection's messages. The filter notes the connection's type and checksum and declines the
+    connection. An error of rosbag's reader becomes the reason of a MessageError.
     """
-    types: Set[str] = set()
+    definitions: Set[MessageDefinition] = set()
 
-    def note_type(_topic: str, datatype: str, _md5sum: str, _definition: str,
-                  _header: Any) -> bool:
-        types.add(datatype)
+    def note_definition(_topic: str, type_name: str, checksum: str, _definition: str,
+                        _header: Any) -> bool:
+        definitions.add(MessageDefinition(type_name, checksum))
         return False
 
-    for _ in bag.read_messages(topics=[topic], connection_filter=note_type):
-        pass
-    return types
+    try:
+        for _ in bag.read_messages(topics=[topic], connection_filter=note_definition):
+            pass
+    except Exception as error:
+        raise MessageError(
+            f"the topic's message types can't be read from the bag: {reason_of(error)}"
+        ) from error
+    return definitions
 
 
-def check_topic_type(bag: Any, topic: str) -> None:
-    """Raise a MessageError when the topic has messages that aren't sensor_msgs/Imu.
+def check_topic_type(definitions: Set[MessageDefinition]) -> None:
+    """Raise a MessageError when the topic has messages that aren't named sensor_msgs/Imu.
+
+    The reason names all the topic's types, so that it fits what rosbag info shows for a topic
+    with several types: only one of them.
+    """
+    type_names = sorted({definition.type_name for definition in definitions})
+    if any(type_name != IMU_DEFINITION.type_name for type_name in type_names):
+        raise MessageError(f'the topic holds {", ".join(type_names)}. '
+                           f'Every message of the topic must be a {IMU_DEFINITION.type_name}')
+
+
+def check_topic_checksum(definitions: Set[MessageDefinition]) -> None:
+    """Raise a MessageError when the messages' definition isn't ROS's sensor_msgs/Imu.
+
+    A bag stores each message type's definition. Messages that carry the type's name with
+    another definition can lack the fields that the tool reads.
+    """
+    checksums = sorted({definition.checksum for definition in definitions})
+    if any(checksum != IMU_DEFINITION.checksum for checksum in checksums):
+        raise MessageError(
+            f"the topic's messages are named {IMU_DEFINITION.type_name}, but their definition "
+            f"isn't ROS's: its checksum is {', '.join(checksums)} instead of "
+            f'{IMU_DEFINITION.checksum}')
+
+
+def check_topic(bag: Any, topic: str) -> None:
+    """Raise a MessageError when the topic's messages aren't ROS's sensor_msgs/Imu.
 
     Before any message is read: a topic of another type can hold far larger messages, such as a
-    camera's images. The reason names all the topic's types, so that it fits what rosbag info
-    shows for a topic with several types: only one of them.
+    camera's images.
     """
-    types = connection_types(bag, topic)
-    if types - {IMU_TYPE}:
-        raise MessageError(f'the topic holds {", ".join(sorted(types))}. '
-                           f'Every message of the topic must be a {IMU_TYPE}')
+    definitions = topic_definitions(bag, topic)
+    check_topic_type(definitions)
+    check_topic_checksum(definitions)
 
 
 def measured_vector(vector: Any, covariance: Sequence[float]) -> Optional[Vector]:
@@ -414,8 +456,8 @@ def check_reading_size(samples: Sequence[ImuSample]) -> None:
     for field in FIELDS:
         sample = first_sample_with_an_unexpected_reading(samples, field, is_of_an_imus_size)
         if sample is not None:
-            raise MessageError(f'{format_reading(sample, field)}. A value beyond '
-                               f"{LARGEST_READING:g} isn't an IMU's reading")
+            raise MessageError(f'{format_reading(sample, field)}. The tool takes a value '
+                               f'beyond {LARGEST_READING:g} {field.unit} as damaged data')
 
 
 def check_reading_count(samples: Sequence[ImuSample]) -> None:
@@ -452,7 +494,7 @@ def read_samples(bag_path: str, topic: str) -> List[ImuSample]:
     """
     try:
         with open_bag(bag_path) as bag:
-            check_topic_type(bag, topic)
+            check_topic(bag, topic)
             samples = recorded_samples(bag, topic)
         check_samples(samples)
     except MessageError as error:
@@ -460,28 +502,25 @@ def read_samples(bag_path: str, topic: str) -> List[ImuSample]:
     return samples
 
 
-def sample_variance(values: Sequence[float], mean: float) -> float:
-    """Return the sample variance of the values, whose mean is given.
+def sample_variance(values: Sequence[float]) -> float:
+    """Return the sample variance of the values.
 
     The squared deviations from the mean are added up and divided by the number of values minus
     one, not by their number: the deviations are measured from the values' own mean, which lies
     closer to them than the true mean. It needs at least two values.
 
-    math.fsum() adds the squares without losing digits on the way. statistics.variance() gives
-    the same result for an IMU's readings. It fails, in Python 3.8, on deviations so small that
-    their squares are zero as floats.
+    statistics.variance() gets the values as fractions, which hold each float exactly, so the
+    mean, the deviations and their squares aren't rounded. With floats, the mean of two
+    neighbouring floats rounds to one of them, which doubles their variance, and Python 3.8
+    stops on deviations so small that their squares are zero.
     """
-    if len(values) < 2:
-        raise statistics.StatisticsError('a sample variance needs at least two values')
-    squared_deviations = [(value - mean) * (value - mean) for value in values]
-    return math.fsum(squared_deviations) / (len(values) - 1)
+    return float(statistics.variance([Fraction(value) for value in values]))
 
 
 def axis_statistics(values: Sequence[float]) -> AxisStatistics:
     """Return the mean, the sample variance and the number of distinct values of one axis."""
-    mean = statistics.mean(values)
-    return AxisStatistics(mean=mean,
-                          variance=sample_variance(values, mean),
+    return AxisStatistics(mean=statistics.mean(values),
+                          variance=sample_variance(values),
                           distinct_value_count=len(set(values)))
 
 
