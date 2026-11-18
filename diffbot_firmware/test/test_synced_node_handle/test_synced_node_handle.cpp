@@ -159,7 +159,7 @@ void test_synced_node_handle_is_not_synced_after_a_disconnect()
     nh.initNode();
     connect(nh, 1000);
     reply(nh, 1001);
-    nh.getHardware()->receive(rosserial_msgs::TopicInfo::ID_TX_STOP);
+    nh.getHardware()->queueFromHost(rosserial_msgs::TopicInfo::ID_TX_STOP);
     nh.spinOnce();
     TEST_ASSERT_FALSE(nh.connected());
     TEST_ASSERT_FALSE(nh.timeSynced());

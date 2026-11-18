@@ -8,8 +8,6 @@
 
 #include <ros.h>
 #include <diffbot_msgs/EncodersStamped.h>
-#include <diffbot_msgs/WheelsCmdStamped.h>
-#include <diffbot_msgs/AngularVelocities.h>
 #include <diffbot_msgs/PIDStamped.h>
 #include <std_msgs/Empty.h>
 #include <sensor_msgs/JointState.h>
@@ -18,59 +16,54 @@
 #include "encoder_diffbot.h"
 #include "adafruit_feather_wing/adafruit_feather_wing.h"
 #include "pid.h"
+#include "wheel_command.h"
 
 
 namespace diffbot {
 
-    /** \brief Communicates with the high level hardware_interface::RobotHW and interacts with
-     *         the robot hardware sensors (e.g. encoders) and actuators (e.g. motor driver).
-     * 
-     * The BaseController communicates with the high level interface diffbot_base::hardware_interface::RobotHW
-     * using ROS publishers and subscribers. In the main loop (see main.cpp) this class is 
-     * operated at specific update rates \ref update_rate_ for different sensors and acutators.
-     * There exist three update rates:
-     * - control
-     * - imu
-     * - debug
-     * 
-     * The control update rate is used to read from the encoders and write computed pwm signals to the motors
-     * at a certain rate. This is important to avoid running into syncronization errors because 
-     * of too many running calculations.
-     * Similarly the imu update rate reads the latest inertial measurements at a specific rate. 
-     * To keep track when a new update is needed, the \ref last_update_time_ member is used, 
-     * which stores the time stamps when the last update happened. 
-     * Additionally the \ref LastUpdateTime::command_received time stamp
-     * is used to check for connection losses to the high level hardware interface, which then
-     * sets the target velocities to zero (see \ref eStop), if no command message was received for a
-     * specified amount of time.
-     * 
-     * The BaseController subscribes to the target wheel command angular velocities
-     * (\ref diffbot_msgs::WheelsCmdStamped on the "wheel_cmd_velocities" topic) with the 
-     * \ref sub_wheel_cmd_velocities_ and keeps pointers to both motors 
-     * in \ref p_motor_controller_right_ and \ref p_motor_controller_left_ using a generic motor driver agnostic interface 
-     * \ref diffbot::MotorControllerIntf. Each time a new \ref diffbot_msgs::WheelsCmdStamped is received on the
-     * "wheel_cmd_velocities" topic the \ref commandCallback is called and the two target velocities \ref wheel_cmd_velocity_left_
-     * and \ref wheel_cmd_velocity_right_ for each wheel are updated.
-     * 
-     * To measure the angular wheel positions (absolut) and the angular velocities, 
-     * two \ref diffbot::Encoder objects (\ref encoder_left_ \ref encoder_right_)
-     * are used to \ref read() the diffbot::JointStates, stored in \ref joint_state_left_ and \ref joint_state_left_.
-     * After reading the latest states (position and velocity), the values are published with \ref pub_measured_joint_states_ on 
-     * "measured_joint_states" topic of type \ref sensor_msgs::JointState. The \ref diffbot_base::hardware_interface::RobotHW
-     * subscribes to these joint states and passes them on to the \ref diff_drive_controller.
-     * Also inside the \ref read() method, the current encoder ticks read from the \ref encoder_left_ and \ref encoder_right_
-     * and stored in \ref ticks_left_ and \ref ticks_right_.
-     * 
-     * The measured angular velocities are important to compute the pwm signals for each motor using two separate
-     * PID controllers (\ref motor_pid_left_ and \ref motor_pid_right_), which calculate 
-     * the error between measured and commanded angular wheel velocity for each wheel joint.
-     * 
-     * For initialization the following parameters are read from the ROS parameter server.
+    /**
+     * @brief Communicates with the high-level hardware interface on the robot's single-board
+     *        computer (SBC), and interacts with the encoders and the motor driver.
+     *
+     * On the SBC, DiffBotHWInterface in diffbot_base is this firmware's counterpart. The firmware
+     * exchanges these ROS messages with nodes on the SBC through rosserial:
+     * - measured_joint_states, from this class: \ref read publishes the measured wheel positions
+     *   and velocities as a sensor_msgs::JointState with \ref pub_measured_joint_states_.
+     *   DiffBotHWInterface subscribes to this topic and stores the latest measurements. Before
+     *   each controller-manager update, DiffBotHWInterface::read() copies those measurements into
+     *   the joint state arrays exposed to diff_drive_controller.
+     * - wheel_cmd_velocities, to the firmware: DiffBotHWInterface publishes the target angular
+     *   velocities. RosWheelCommandSubscriber receives them, and WheelControl passes each valid
+     *   command to \ref setWheelTargets, which stores the targets in \ref wheel_cmd_velocity_left_
+     *   and \ref wheel_cmd_velocity_right_ without writing motor outputs.
+     * - reset, pid_left and pid_right, to this class: these topics reset the encoders and change
+     *   the PIDs' gains. This class subscribes to them itself.
+     *
+     * The class holds the parts that touch the hardware and the control logic between them:
+     * - Encoders: \ref read gets the angular wheel positions and velocities from two
+     *   diffbot::Encoder objects (\ref encoder_left_, \ref encoder_right_) and stores them in
+     *   \ref joint_state_left_ and \ref joint_state_right_, and the encoder ticks in
+     *   \ref ticks_left_ and \ref ticks_right_.
+     * - PIDs: two PID controllers (\ref motor_pid_left_, \ref motor_pid_right_) compute each
+     *   motor's output from the error between the commanded and the measured angular velocity.
+     * - Motors: \ref write sends the outputs through \ref p_motor_controller_left_ and
+     *   \ref p_motor_controller_right_, pointers to the generic, motor-driver-agnostic interface
+     *   diffbot::MotorControllerIntf.
+     *
+     * WheelControl (lib/wheel_control) decides when these functions run. At each scheduled control
+     * step, WheelControl calls \ref read and, while its timeout check permits driving, \ref write.
+     * When a received command expires, WheelControl calls \ref eStop once.
+     *
+     * main.cpp schedules debug output using the debug rate and last_update_time_.debug.
+     * ImuPublisher schedules the IMU independently. The IMU fields retained in UpdateRate and
+     * LastUpdateTime are unused by the running firmware.
+     *
+     * init() requests these parameters through rosserial:
      * - /diffbot/encoder_resolution
      * - /diffbot/mobile_base_controller/wheel_radius
      * - /diffbot/mobile_base_controller/linear/x/max_velocity
      * - /diffbot/debug/base_controller
-     * 
+     *
      * @tparam TMotorController 
      * @tparam TMotorDriver 
      */
@@ -94,33 +87,28 @@ namespace diffbot {
         BaseController(ros::NodeHandle &nh, TMotorController* motor_controller_left, TMotorController* motor_controller_right);
 
         /**
-         * @brief Stores update rate frequencies (Hz) for the main control loop, (optinal) imu and debug output.
-         * 
-         * The UpdateRate contains a nested strcut \ref period_ T, which define the inverse of the rate
-         * T = 1/f HZ  in seconds. The period (and indirectly the rate) is used together with 
-         * \ref last_update_time_ to compare if enought time elapsed for a new update. 
-         * The comparison is done in the main loop (see, main.cpp).
+         * @brief Stores the debug frequency and period, plus unused IMU timing fields.
+         *
+         * main.cpp uses the debug period, in seconds, to schedule printDebug(). ImuPublisher
+         * uses its own configuration and does not read the IMU frequency or period stored here.
          */
         struct UpdateRate
         {
             double imu_;
-            double control_;
             double debug_;
 
             /**
-             * @brief Inverse of the update rates for control, (optional) imu and debug output.
+             * @brief Inverse of the update rates for the (optional) imu and debug output.
              * 
              * See \ref UpdateRate for more details.
              */
             struct Period
             {
                 double imu_;
-                double control_;
                 double debug_;
 
-                inline Period(double imu_frequency, double control_frequency, double debug_frequency)
+                inline Period(double imu_frequency, double debug_frequency)
                     : imu_(1.0 / imu_frequency)
-                    , control_(1.0 / control_frequency)
                     , debug_(1.0 / debug_frequency) {};
             } period_;
 
@@ -129,21 +117,17 @@ namespace diffbot {
             /**
              * @brief Construct a new Update Rate object.
              * 
-             * Using the frequency parameters \p imu_frequency,
-             * \p control_frequency and \p debug_frequency the corresponding
-             * periods of \ref period_ are initilized.
+             * Using the frequency parameters \p imu_frequency and \p debug_frequency the
+             * corresponding periods of \ref period_ are initialized.
              * 
-             * @param imu_frequency Defines how often the imu is read and published.
-             * @param control_frequency Defines how ofthen the control block is run (reading encoders and writing motor commands).
+             * @param imu_frequency Initializes the unused IMU frequency and period fields
              * @param debug_frequency Defines how often debug messages are output.
              */
             inline UpdateRate(double imu_frequency,
-                               double control_frequency,
                                double debug_frequency)
                 : imu_(imu_frequency)
-                , control_(control_frequency)
                 , debug_(debug_frequency)
-                , period_(imu_frequency, control_frequency, debug_frequency) {};
+                , period_(imu_frequency, debug_frequency) {};
         } update_rate_;
 
         /**
@@ -159,14 +143,13 @@ namespace diffbot {
         /**
          * @brief Keeps track of the last update times.
          *
-         * Records when commands arrive and scheduled updates run. loop() subtracts
-         * these readings from the current reading to decide whether, for example,
-         * 50 ms have passed since a control step or 5 s since a wheel command.
+         * main.cpp uses debug to record the last debug-output time in milliseconds. The imu
+         * field is unused. WheelControl schedules wheel updates and owns the command timeout.
+         * ImuPublisher keeps its own sampling times.
          *
          * These readings come from millis(), the Teensy's elapsed-millisecond counter.
          * Synchronizing ROS time with the robot's computer does not change this counter.
-         * Using ROS time here could delay updates and the command timeout when that
-         * time moved backward, or make a command expire early when it moved forward.
+         * Using ROS time here could delay updates when that time moved backward.
          *
          * The counter returns to zero after about 49.7 days. Unsigned subtraction still
          * gives the elapsed milliseconds if the readings are less than one cycle apart
@@ -174,11 +157,7 @@ namespace diffbot {
          */
         struct LastUpdateTime
         {
-            // Time (ms, millis()) when the last angular wheel command velocity was received.
-            uint32_t command_received;
-            // Time (ms) when the last control update happened.
-            uint32_t control;
-            // Time (ms) when the last imu update took place.
+            // Unused IMU timestamp, initialized with start_ms
             uint32_t imu;
             // Time (ms) when the last debug message was logged.
             uint32_t debug;
@@ -189,21 +168,11 @@ namespace diffbot {
              * @param start_ms Start time of the program, from millis()
              */
             inline LastUpdateTime(uint32_t start_ms)
-                : command_received(start_ms)
-                , control(start_ms)
-                , imu(start_ms)
+                : imu(start_ms)
                 , debug(start_ms) {};
         } last_update_time_;
 
-        /**
-         * @brief Returns a reference to \ref last_update_times_.
-         * 
-         * Used inside the main loop inside main.cpp to compare with the
-         * current time if an update of a specific function (command_received, control, imu, debug)
-         * is needed.
-         * 
-         * @return LastUpdateTime& The pervious update times.
-         */
+        /// Returns the stored timestamps. main.cpp uses debug to schedule debug output
         inline LastUpdateTime& lastUpdateTime() { return last_update_time_; };
 
 
@@ -215,11 +184,8 @@ namespace diffbot {
          */
         inline bool debug() { return debug_; };
 
-        /**
-         * @brief Initializes the main node handle and setup publisher and subscriber.
-         * 
-         * Waits until the connection to the ros master is established.
-         */
+        /// Initializes the node handle and registers this controller's ROS topics.
+        /// Calls spinOnce() until rosserial topic negotiation marks the node handle connected
         void setup();
 
         /**
@@ -237,14 +203,12 @@ namespace diffbot {
         void init();
 
         /**
-         * @brief Sets both target wheel velocities to zero after a command timeout.
+         * @brief Clears both target speeds, PID states and motor outputs.
          *
-         * Sets the \ref wheel_cmd_velocity_left_ and \ref wheel_cmd_velocity_right_ to zero.
-         * It doesn't stop the motors directly or reset the PIDs: the next control step uses the
-         * zero targets, and stored PID state can keep the motor output nonzero (#146).
-         * This method is called when the \ref commandCallback wasn't called within the 
-         * \ref LastUpdateTime::command_received period on the /diffbot/wheel_cmd_velocities topic.
-         * 
+         * Resetting the PIDs means that no stored error drives the motors later. On the
+         * FeatherWing, setSpeed(0) releases the motors and the wheels coast.
+         * WheelControl calls eStop() once when a valid command expires, before logging the
+         * timeout. WheelControl suppresses write() until a new valid command permits driving.
          */
         void eStop();
 
@@ -261,11 +225,12 @@ namespace diffbot {
          * @brief Uses the PIDs to compute capped PWM signals for the left and right motor.
          * 
          * The values for both motors sent to the motor driver are calculated by the two PIDs
-         * \ref pid_motor_left_ and \ref pid_motor_right_, based on the error between 
+         * \ref motor_pid_left_ and \ref motor_pid_right_, based on the error between 
          * commanded angular velocity vs measured angular velocity
          * (e.g. diffbot::PID::error_ = \ref wheel_cmd_velocity_left_ - \ref measured_angular_velocity_left_)
          * 
-         * The calculated PID ouput values are capped at -/+ MAX_RPM to prevent the PID from having too much error
+         * PID::compute() limits the output to PWM_MIN through PWM_MAX. The integral can still grow
+         * while the output is limited, so eStop() resets the stored PID state.
          * The computed and capped PID values are then set using the \ref diffbot::MotorControllerIntf::setSpeed method
          * for the left and right motors \ref p_motor_controller_left_ and \ref p_motor_controller_right_.
          * 
@@ -273,29 +238,14 @@ namespace diffbot {
         void write();
         void printDebug();
 
-        /**
-         * @brief Callback method when a new \ref diffbot_msgs::WheelsCmdStamped is received on the wheel_cmd_velocities topic.
-         * 
-         * Callback method every time the angular wheel commands for each wheel joint are received from 'wheel_cmd_velocities' topic.
-         * This topic is published from the high level \ref hardware_interface::RobotHW::write() method.
-         * 
-         * This callback method receives \ref diffbot_msgs::WheelsCmdStamped message object (\p cmd_msg) consisting of
-         * \ref diffbot_msgs::AngularVelocities, where commanded wheel joints for the left and right wheel are stored.
-         * After receiving the message the \ref wheel_cmd_velocity_left_ and \ref wheel_cmd_velocity_right_ members are updated,
-         * which are used in the next \ref write() of the control loop.
-         * 
-         * \code
-         * wheel_cmd_velocity_left_ = cmd_msg.wheels_cmd.angular_velocities.joint[0];
-         * wheel_cmd_velocity_right_ = cmd_msg.wheels_cmd.angular_velocities.joint[1];
-         * \endcode
-         * 
-         * In this method the \ref lastUpdateTime::command_received time stamp is set to the current time.
-         * This is used for the eStop functionality. In case no diffbot_msgs::WheelsCmdStamped messages are 
-         * received on the wheel_cmd_velocities topic, the eStop method is called (see main loop in main.cpp)
-         * 
-         * @param cmd_msg Message containing the commanded wheel velocities.
-         */
-        void commandCallback(const diffbot_msgs::WheelsCmdStamped& cmd_msg);
+        /// Stores both target angular velocities without writing motor outputs.
+        /// WheelControl supplies valid commands from RosWheelCommandSubscriber. A later write()
+        /// uses the stored targets when WheelControl's timeout check permits driving
+        void setWheelTargets(WheelCommand command)
+        {
+            wheel_cmd_velocity_left_ = command.left_rad_s;
+            wheel_cmd_velocity_right_ = command.right_rad_s;
+        }
 
         /**
          * @brief Callback method to reset both encoder's tick count to zero.
@@ -364,7 +314,6 @@ namespace diffbot {
         MotorControllerIntf<TMotorDriver>* p_motor_controller_right_;
         MotorControllerIntf<TMotorDriver>* p_motor_controller_left_;
 
-        ros::Subscriber<diffbot_msgs::WheelsCmdStamped, BaseController<TMotorController, TMotorDriver>> sub_wheel_cmd_velocities_;
         float wheel_cmd_velocity_left_ = 0.0;
         float wheel_cmd_velocity_right_ = 0.0;
 
@@ -396,9 +345,8 @@ diffbot::BaseController<TMotorController, TMotorDriver>
     , sub_reset_encoders_("reset", &BC<TMotorController, TMotorDriver>::resetEncodersCallback, this)
     , pub_encoders_("encoder_ticks", &encoder_msg_)
     , pub_measured_joint_states_("measured_joint_states", &msg_measured_joint_states_)
-    , sub_wheel_cmd_velocities_("wheel_cmd_velocities", &BC<TMotorController, TMotorDriver>::commandCallback, this)
     , last_update_time_(millis())
-    , update_rate_(UPDATE_RATE_IMU, UPDATE_RATE_CONTROL, UPDATE_RATE_DEBUG)
+    , update_rate_(UPDATE_RATE_IMU, UPDATE_RATE_DEBUG)
     , sub_pid_left_("pid_left", &BC<TMotorController, TMotorDriver>::pidLeftCallback, this)
     , sub_pid_right_("pid_right", &BC<TMotorController, TMotorDriver>::pidRightCallback, this)
     , motor_pid_left_(PWM_MIN, PWM_MAX, K_P, K_I, K_D)
@@ -426,7 +374,6 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::setup()
     msg_measured_joint_states_.velocity_length = 2;
     nh_.advertise(pub_measured_joint_states_);
 
-    nh_.subscribe(sub_wheel_cmd_velocities_);
     nh_.subscribe(sub_reset_encoders_);
 
     nh_.subscribe(sub_pid_left_);
@@ -464,22 +411,6 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::init()
     delay(1);
 
     max_angular_velocity_ = max_linear_velocity_ / wheel_radius_;
-
-    delay(1000);
-}
-
-template <typename TMotorController, typename TMotorDriver>
-void diffbot::BaseController<TMotorController, TMotorDriver>::commandCallback(const diffbot_msgs::WheelsCmdStamped& cmd_msg)
-{
-    // Callback function every time the angular wheel commands for each wheel joint are received from 'wheel_cmd_velocities' topic
-    // This callback function receives diffbot_msgs::WheelsCmdStamped message object
-    // where diffbot_msgs::AngularVelocities for both joints are stored
-    wheel_cmd_velocity_left_ = cmd_msg.wheels_cmd.angular_velocities.joint[0];
-    wheel_cmd_velocity_right_ = cmd_msg.wheels_cmd.angular_velocities.joint[1];
-
-    // Used for the eStop. In case no diffbot_msgs::WheelsCmdStamped messages are received on the wheel_cmd_velocities 
-    // topic, the eStop method is called (see main loop in main.cpp)
-    lastUpdateTime().command_received = millis();
 }
 
 // ROS Subscriber setup to reset both encoders to zero
@@ -531,9 +462,7 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::read()
 
     encoder_msg_.encoders.ticks[0] = ticks_left_;
     encoder_msg_.encoders.ticks[1] = ticks_right_;
-    // Avoid having too many publishers
-    // Otherwise error like 'wrong checksum for topic id and msg'
-    // and 'Write timeout: Write timeout' happen.
+    // Raw encoder-tick publication is disabled. measured_joint_states supplies wheel feedback
     //pub_encoders_.publish(&encoder_msg_);
 }
 
@@ -549,9 +478,9 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::write()
     //motor_cmd_left_ = map(wheel_cmd_velocity_left_, -max_angular_velocity_, max_angular_velocity_, PWM_MIN, PWM_MAX);
     //motor_cmd_right_ = map(wheel_cmd_velocity_right_, -max_angular_velocity_, max_angular_velocity_, PWM_MIN, PWM_MAX);
 
-    // Compute PID output
-    // The value sent to the motor driver is calculated by the PID based on the error between commanded angular velocity vs measured angular velocity
-    // The calculated PID ouput value is capped at -/+ MAX_RPM to prevent the PID from having too much error
+    // Compute each motor output from target minus measured angular velocity.
+    // PID::compute() limits the output to PWM_MIN through PWM_MAX. The integral can still grow
+    // while the output is limited, so eStop() resets the stored PID state
     motor_cmd_left_ = motor_pid_left_.compute(wheel_cmd_velocity_left_, joint_state_left_.angular_velocity_);
     motor_cmd_right_ = motor_pid_right_.compute(wheel_cmd_velocity_right_, joint_state_right_.angular_velocity_);
 
@@ -564,6 +493,12 @@ void diffbot::BaseController<TMotorController, TMotorDriver>::eStop()
 {
     wheel_cmd_velocity_left_ = 0;
     wheel_cmd_velocity_right_ = 0;
+    motor_pid_left_.reset();
+    motor_pid_right_.reset();
+    motor_cmd_left_ = 0;
+    motor_cmd_right_ = 0;
+    p_motor_controller_left_->setSpeed(0);
+    p_motor_controller_right_->setSpeed(0);
 }
 
 template <typename TMotorController, typename TMotorDriver>

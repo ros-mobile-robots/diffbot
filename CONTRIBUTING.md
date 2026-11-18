@@ -16,7 +16,7 @@ When the pin moves to a new version, an existing workspace keeps its old checkou
 cd ~/catkin_ws/src/remo_description
 git status                                          # no changes of your own?
 git fetch --tags
-git checkout 2.0.0                                  # the version in diffbot_dev.repos
+git checkout 2.5.0                                  # the version in diffbot_dev.repos
 ```
 
 ## Build and test
@@ -62,6 +62,7 @@ CI runs on every pull request: [industrial_ci](https://github.com/ros-industrial
 - **Comments explain why** the code is the way it is, not what changed or how it used to be. The history belongs in the commit and the PR.
 - **Every feature also gets documentation** on ros-mobile-robots.com, a new or updated page: open a pull request in [ros-mobile-robots.github.io](https://github.com/ros-mobile-robots/ros-mobile-robots.github.io) and link it under `## Documentation` in the description, as `ros-mobile-robots/ros-mobile-robots.github.io#N`. If a page on ros-mobile-robots.com already explains the change, link that page instead. If nothing user-visible changes, write `None`. The PR description check fails until that section has one of the three. It runs again when you edit the description: look at that new run, because re-running the old one still sees the old text.
 - Follow [REP 103](https://www.ros.org/reps/rep-0103.html) for units and coordinate frames.
+- **Test names** say what the test checks, as a sentence: the subject, the result, then the condition, for example `test_bno055_startup_fails_at_the_reset_deadline_without_another_poll`. [AGENTS.md](AGENTS.md) has the full rule and the exception for existing Python tests.
 - **Python** follows PEP 8 with the settings of ROS 2's `ament_flake8`, with PEP 257 docstrings and type hints. [AGENTS.md](AGENTS.md) lists the commands that check it.
 
 ## AI-assisted contributions
@@ -77,4 +78,4 @@ You don't need to say whether you used AI. Please don't add attribution lines fo
 
 ## License
 
-By contributing, you agree that your contributions are licensed under this repository's [BSD 3-Clause License](LICENSE).
+By contributing, you agree that your contributions are licensed under this repository's [BSD 3-Clause License](LICENSE). The exception is the wheel meshes `diffbot_description/meshes/components/wheel.stl`, `diffbot_description/meshes/diffbot/wheel_rim.stl` and `wheel_tire.stl`: GrabCAD's terms apply to them and to changes of them ([the notice next to `wheel.stl`](diffbot_description/meshes/components/wheel.LICENSE.md)).

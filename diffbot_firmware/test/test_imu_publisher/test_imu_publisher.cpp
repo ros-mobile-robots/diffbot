@@ -327,7 +327,7 @@ void test_imu_publisher_publishes_nothing_after_a_disconnect()
 {
     Robot robot;
     robot.startReadyAndSynced();
-    robot.nh.getHardware()->receive(rosserial_msgs::TopicInfo::ID_TX_STOP);
+    robot.nh.getHardware()->queueFromHost(rosserial_msgs::TopicInfo::ID_TX_STOP);
     TEST_ASSERT_EQUAL(0, robot.runUntil(3000));
 }
 
