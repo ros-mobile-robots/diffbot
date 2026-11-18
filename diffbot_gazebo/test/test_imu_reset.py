@@ -10,8 +10,11 @@ before the reset.
 The test lets the IMU publish for RUN_BEFORE_RESET of simulation time, resets the simulation and
 waits for samples whose stamps lie in the first RECOVERY of the new simulation time. RECOVERY is
 shorter than RUN_BEFORE_RESET, so such a sample can only come from after the reset, from before
-the clock is back at its old value. The test reads /diffbot/imu/data_raw, so the samples pass
-through the plugin and the adapter (imu_raw_adapter.py).
+the clock is back at its old value. Only a stamp that is later than zero and later than the
+stamps that counted before it counts: then the clock runs again and the IMU's stamps advance
+with it. A stream that repeats one stamp hasn't recovered: of samples with one stamp, the IMU
+sample validator (imu_validator.py) forwards one at most. The test reads /diffbot/imu/data_raw,
+so the samples pass through the plugin and the adapter (imu_raw_adapter.py).
 
 RUN_BEFORE_RESET and RECOVERY are simulation time, read from the samples' stamps. Every wait is
 wall time: rospy.sleep and rospy.Rate raise an exception when the clock they wait on goes back.
@@ -35,8 +38,9 @@ QUEUE_SIZE = 100  # messages, 2 s at the IMU's 50 Hz: the test notes them all
 
 RUN_BEFORE_RESET = 3.0  # s of simulation time that the IMU publishes for before the reset
 RECOVERY = 1.0  # s of simulation time after the reset in which the IMU has to publish again
-# Samples from the first RECOVERY after the reset that the test waits for: 0.2 s at the IMU's
-# 50 Hz, which shows that the IMU keeps publishing. The IMU's rate is test_imu.py's check
+# Samples with advancing stamps from the first RECOVERY after the reset that the test waits for:
+# 0.2 s at the IMU's 50 Hz, which shows that the IMU keeps publishing. The IMU's rate is
+# test_imu.py's check
 FRESH_SAMPLE_COUNT = 10
 STARTUP_TIMEOUT = 60.0  # s of wall time for Gazebo to start and offer its reset service
 # s of wall time for the IMU's stamps to reach RUN_BEFORE_RESET. The world runs the simulation
@@ -64,13 +68,20 @@ class TestImuReset(unittest.TestCase):
         return bool(self.stamps) and self.stamps[-1] >= RUN_BEFORE_RESET
 
     def fresh_stamps(self) -> List[float]:
-        """Return the stamps from the first RECOVERY of simulation time after the reset.
+        """Return the advancing stamps from the first RECOVERY of simulation time after the reset.
 
-        A sample that the IMU published before the reset can still arrive after it. Its stamp
-        is RUN_BEFORE_RESET or later, so it doesn't count.
+        A stamp counts when it is later than zero, later than the last stamp that counted, and
+        earlier than RECOVERY. So a stamp that repeats or goes back doesn't count. A sample that
+        the IMU published before the reset can still arrive after it. Its stamp is
+        RUN_BEFORE_RESET or later, so it doesn't count either.
         """
-        stamps_after_reset = self.stamps[self.sample_count_at_reset:]
-        return [stamp for stamp in stamps_after_reset if stamp < RECOVERY]
+        fresh_stamps: List[float] = []
+        latest_fresh_stamp = 0.0
+        for stamp in self.stamps[self.sample_count_at_reset:]:
+            if latest_fresh_stamp < stamp < RECOVERY:
+                fresh_stamps.append(stamp)
+                latest_fresh_stamp = stamp
+        return fresh_stamps
 
     def imu_recovered(self) -> bool:
         """Return whether enough fresh samples have arrived."""
@@ -97,15 +108,15 @@ class TestImuReset(unittest.TestCase):
         fresh_stamps = self.fresh_stamps()
         stamps_after_reset = self.stamps[self.sample_count_at_reset:]
         print('last stamp before the reset {:.3f} s; after the reset {} samples, first stamps {}, '
-              '{} of them earlier than {} s'.format(
+              '{} of them with advancing stamps earlier than {} s'.format(
                   stamp_before_reset, len(stamps_after_reset),
                   ['{:.3f}'.format(stamp) for stamp in stamps_after_reset[:3]],
                   len(fresh_stamps), RECOVERY))
         self.assertTrue(
             recovered,
-            'after the reset at stamp {:.3f} s, {} published {} samples stamped earlier than '
-            '{} s within {} s of wall time, expected {}. It published {} samples in all, the '
-            'first stamped {}'.format(
+            'after the reset at stamp {:.3f} s, {} published {} samples with advancing stamps '
+            'earlier than {} s within {} s of wall time, expected {}. It published {} samples '
+            'in all, the first stamped {}'.format(
                 stamp_before_reset, TOPIC, len(fresh_stamps), RECOVERY, RECOVERY_TIMEOUT,
                 FRESH_SAMPLE_COUNT, len(stamps_after_reset),
                 ['{:.3f} s'.format(stamp) for stamp in stamps_after_reset[:3]]))
