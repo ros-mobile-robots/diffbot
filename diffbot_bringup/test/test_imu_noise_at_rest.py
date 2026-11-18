@@ -99,11 +99,18 @@ REGULAR_STAMPS = [EPOCH + index * IMU_PERIOD for index in range(3)]
 # that set the recorder's clock back
 DELIVERY_TIME = 2 * MILLISECOND  # ns
 
-# ROS's sensor_msgs/Imu as a bag stores the type: its name and the text of its definition
-IMU_DEFINITION = MessageDefinition(Imu._type, Imu._full_text)
+
+def imu_definition(text: str) -> MessageDefinition:
+    """Return a definition named sensor_msgs/Imu with a text and the checksum of that text."""
+    checksum = genpy.dynamic.generate_dynamic(Imu._type, text)[Imu._type]._md5sum
+    return MessageDefinition(Imu._type, checksum, text)
+
+
+# ROS's sensor_msgs/Imu as a bag stores the type
+IMU_DEFINITION = imu_definition(Imu._full_text)
 # The same definition with an array of one vector as the angular velocity. ROS gives this
 # definition the checksum of sensor_msgs/Imu
-ONE_VECTOR_ARRAY_DEFINITION = MessageDefinition(Imu._type, Imu._full_text.replace(
+ONE_VECTOR_ARRAY_DEFINITION = imu_definition(Imu._full_text.replace(
     'geometry_msgs/Vector3 angular_velocity', 'geometry_msgs/Vector3[1] angular_velocity'))
 
 
@@ -317,8 +324,8 @@ class BagWithConnections:
     def read_messages(self, topics: Sequence[str], connection_filter: Any) -> List[Any]:
         """Ask the filter about each connection, as rosbag does, and return no message."""
         for definition in self.definitions:
-            connection_filter(topics[0], definition.type_name, 'the checksum', definition.text,
-                              {})
+            connection_filter(topics[0], definition.type_name, definition.checksum,
+                              definition.text, {})
         return []
 
 
@@ -339,7 +346,7 @@ class TestTopicChecks(unittest.TestCase):
 
     def test_check_topic_passes_a_definition_that_differs_in_its_comments(self) -> None:
         """Check that a definition with one more comment line has the same fields."""
-        with_a_comment = MessageDefinition(Imu._type, '# Another comment\n' + Imu._full_text)
+        with_a_comment = imu_definition('# Another comment\n' + Imu._full_text)
         check_topic(BagWithConnections([with_a_comment]), DEFAULT_TOPIC)
 
     def test_check_topic_fails_for_a_topic_with_several_types_and_names_them_all(
@@ -348,9 +355,9 @@ class TestTopicChecks(unittest.TestCase):
 
         rosbag info shows such a topic with one type only, here sensor_msgs/Imu.
         """
-        bag = BagWithConnections([IMU_DEFINITION,
-                                  MessageDefinition(String._type, String._full_text),
-                                  MessageDefinition('std_msgs/UInt32', 'uint32 data')])
+        string_definition = MessageDefinition(String._type, String._md5sum, String._full_text)
+        other_definition = MessageDefinition('std_msgs/UInt32', 'a checksum', 'uint32 data')
+        bag = BagWithConnections([IMU_DEFINITION, string_definition, other_definition])
         with self.assertRaises(MessageError) as error:
             check_topic(bag, DEFAULT_TOPIC)
         self.assertEqual(message_of(error),
@@ -370,9 +377,33 @@ class TestTopicChecks(unittest.TestCase):
                          "fields than ROS's: angular_velocity is a geometry_msgs/Vector3[1] "
                          'instead of a geometry_msgs/Vector3')
 
+    def test_check_topic_fails_for_a_field_of_a_field_and_names_its_path(self) -> None:
+        """Check that a renamed field of the orientation is refused, with the field's path."""
+        renamed = imu_definition(Imu._full_text.replace('float64 w', 'float64 reading_w'))
+        with self.assertRaises(MessageError) as error:
+            check_topic(BagWithConnections([renamed]), DEFAULT_TOPIC)
+        self.assertEqual(message_of(error),
+                         "the bag defines the topic's sensor_msgs/Imu messages with other "
+                         "fields than ROS's: orientation has the fields x, y, z, reading_w "
+                         'instead of x, y, z, w')
+
+    def test_check_topic_fails_for_a_checksum_that_is_not_the_definitions(self) -> None:
+        """Check that ROS's definition under the checksum of another layout is refused.
+
+        The messages were written in the other layout. rosbag would read their bytes as the
+        fields of the definition's text.
+        """
+        stale = MessageDefinition(Imu._type, String._md5sum, Imu._full_text)
+        with self.assertRaises(MessageError) as error:
+            check_topic(BagWithConnections([stale]), DEFAULT_TOPIC)
+        self.assertEqual(message_of(error),
+                         "the bag's checksum of the topic's sensor_msgs/Imu messages is "
+                         f'{String._md5sum}, but the definition that the bag stores for them '
+                         f'has the checksum {Imu._md5sum}')
+
     def test_check_topic_fails_for_an_imu_definition_that_is_no_definition(self) -> None:
         """Check that a definition that genpy can't read is refused with genpy's reason."""
-        no_definition = MessageDefinition(Imu._type, 'not a definition ][')
+        no_definition = MessageDefinition(Imu._type, Imu._md5sum, 'not a definition ][')
         with self.assertRaises(MessageError) as error:
             check_topic(BagWithConnections([no_definition]), DEFAULT_TOPIC)
         self.assertTrue(message_of(error).startswith(
@@ -869,6 +900,23 @@ class TestToolOnBags(unittest.TestCase):
             "messages with other fields than ROS's: the message has the fields data instead of "
             'header, orientation, orientation_covariance, angular_velocity, '
             'angular_velocity_covariance, linear_acceleration, linear_acceleration_covariance')
+
+    def test_tool_ends_with_a_message_when_the_checksum_is_not_the_definitions(self) -> None:
+        """Check a bag that stores ROS's definition under the checksum of another layout.
+
+        rosbag would read the messages as the definition's text says, whatever layout their
+        bytes have, and the report would have one field's readings under another's name.
+        """
+        connection = {'topic': DEFAULT_TOPIC, 'type': Imu._type, 'md5sum': String._md5sum,
+                      'message_definition': Imu._full_text}
+        with rosbag.Bag(self.bag_path, 'w') as bag:
+            for message in messages_one_step_apart():
+                bag.write(DEFAULT_TOPIC, message, message.header.stamp,
+                          connection_header=connection)
+        self.assert_tool_ends_with(
+            f"{self.bag_path}, {DEFAULT_TOPIC}: the bag's checksum of the topic's "
+            f'sensor_msgs/Imu messages is {String._md5sum}, but the definition that the bag '
+            f'stores for them has the checksum {Imu._md5sum}')
 
     def test_tool_ends_with_a_message_when_the_angular_velocity_is_an_array_of_one_vector(
             self) -> None:

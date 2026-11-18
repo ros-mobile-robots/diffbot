@@ -108,9 +108,11 @@ class ImuSample(NamedTuple):
 
 
 class MessageDefinition(NamedTuple):
-    """A message type as a bag stores it: the type's name and the text of its definition."""
+    """A message type as a bag stores it: its name, its checksum and its definition's text."""
 
     type_name: str
+    # The checksum that the recorder got from the publisher, which rosbag calls md5sum
+    checksum: str
     text: str
 
 
@@ -247,9 +249,9 @@ def topic_definitions(bag: Any, topic: str) -> Set[MessageDefinition]:
     """
     definitions: Set[MessageDefinition] = set()
 
-    def note_definition(_topic: str, type_name: str, _checksum: str, definition: str,
+    def note_definition(_topic: str, type_name: str, checksum: str, definition: str,
                         _header: Any) -> bool:
-        definitions.add(MessageDefinition(type_name, definition))
+        definitions.add(MessageDefinition(type_name, checksum, definition))
         return False
 
     try:
@@ -274,6 +276,29 @@ def check_topic_type(definitions: Set[MessageDefinition]) -> None:
                            f'Every message of the topic must be a {IMU_TYPE}')
 
 
+def defined_message_class(definition: MessageDefinition) -> Any:
+    """Return the message class that genpy builds from a definition's text, as rosbag does."""
+    try:
+        return genpy.dynamic.generate_dynamic(definition.type_name,
+                                              definition.text)[definition.type_name]
+    except Exception as error:
+        raise MessageError("the bag's definition of the topic's messages can't be read: "
+                           f'{reason_of(error)}') from error
+
+
+def check_definition_checksum(definition: MessageDefinition, message_class: Any) -> None:
+    """Raise a MessageError when a definition's text doesn't have the definition's checksum.
+
+    The checksum belongs to the layout in which the publisher wrote the messages. rosbag reads
+    them in the layout of the definition's text. When the two differ, the text isn't the
+    messages' definition, and rosbag would read their bytes as other fields than they are.
+    """
+    if message_class._md5sum != definition.checksum:
+        raise MessageError(f"the bag's checksum of the topic's {IMU_TYPE} messages is "
+                           f'{definition.checksum}, but the definition that the bag stores '
+                           f'for them has the checksum {message_class._md5sum}')
+
+
 def first_field_difference(message: Any, reference: Any, path: str = '') -> Optional[str]:
     """Return how a message's fields first differ from a reference message's, or None.
 
@@ -286,37 +311,41 @@ def first_field_difference(message: Any, reference: Any, path: str = '') -> Opti
                 f'instead of {", ".join(reference.__slots__)}')
     for name, field_type, reference_type in zip(message.__slots__, message._slot_types,
                                                 reference._slot_types):
+        field_path = f'{path}.{name}' if path else name
         if field_type != reference_type:
-            return f'{path}{name} is a {field_type} instead of a {reference_type}'
+            return f'{field_path} is a {field_type} instead of a {reference_type}'
         reference_field = getattr(reference, name)
         if hasattr(reference_field, '_slot_types'):
             difference = first_field_difference(getattr(message, name), reference_field,
-                                                f'{path}{name}.')
+                                                field_path)
             if difference is not None:
                 return difference
     return None
 
 
-def check_topic_fields(definitions: Set[MessageDefinition]) -> None:
-    """Raise a MessageError when the bag defines the messages with other fields than ROS does.
+def check_definition_fields(message_class: Any) -> None:
+    """Raise a MessageError when a class has other fields than ROS's sensor_msgs/Imu.
+
+    The type's name alone doesn't say that a message has the fields that the tool reads. The
+    definition's checksum doesn't say it either: an array of vectors has the checksum of one
+    vector. A definition that differs from ROS's in its comments passes.
+    """
+    difference = first_field_difference(message_class(), Imu())
+    if difference is not None:
+        raise MessageError(f"the bag defines the topic's {IMU_TYPE} messages with other "
+                           f"fields than ROS's: {difference}")
+
+
+def check_topic_definitions(definitions: Set[MessageDefinition]) -> None:
+    """Raise a MessageError when a definition of the topic's messages isn't ROS's.
 
     A bag stores the definition of each message type, and rosbag builds the messages' class
-    from it, so the type's name alone doesn't say that a message has the fields that the tool
-    reads. The definition's checksum doesn't say it either: an array of vectors has the checksum
-    of one vector. So the tool builds the class as rosbag does and compares its fields with
-    those of ROS's sensor_msgs/Imu. A definition that differs in its comments passes.
+    from it. So the tool builds the class in the same way and checks the class.
     """
     for definition in sorted(definitions):
-        try:
-            message_class = genpy.dynamic.generate_dynamic(definition.type_name,
-                                                           definition.text)[definition.type_name]
-        except Exception as error:
-            raise MessageError("the bag's definition of the topic's messages can't be read: "
-                               f'{reason_of(error)}') from error
-        difference = first_field_difference(message_class(), Imu())
-        if difference is not None:
-            raise MessageError(f"the bag defines the topic's {IMU_TYPE} messages with other "
-                               f"fields than ROS's: {difference}")
+        message_class = defined_message_class(definition)
+        check_definition_checksum(definition, message_class)
+        check_definition_fields(message_class)
 
 
 def check_topic(bag: Any, topic: str) -> None:
@@ -327,7 +356,7 @@ def check_topic(bag: Any, topic: str) -> None:
     """
     definitions = topic_definitions(bag, topic)
     check_topic_type(definitions)
-    check_topic_fields(definitions)
+    check_topic_definitions(definitions)
 
 
 def measured_vector(vector: Any, covariance: Sequence[float]) -> Optional[Vector]:
