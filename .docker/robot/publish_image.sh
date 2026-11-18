@@ -20,38 +20,54 @@ description="ROS Noetic and the robot's packages for DiffBot and Remo, for the r
 
 # skopeo copies each archive with OCI manifests: only then can the combined index carry
 # annotations. Docker's own push from its classic image store would send Docker's format.
+# skopeo also asks the registry whether a tag exists (state), with the same login as the copies.
 copy_options=(--format oci)
+read_options=()
 if [ "${INSECURE_REGISTRY:-}" = true ]; then
   copy_options+=(--dest-tls-verify=false)
+  read_options+=(--tls-verify=false)
 fi
 auth_file=${DOCKER_CONFIG:-$HOME/.docker}/config.json
 if [ -f "$auth_file" ]; then
   copy_options+=(--dest-authfile "$auth_file")
+  read_options+=(--authfile "$auth_file")
 fi
 
-# What the registry says about a tag: "present", "missing" if it says the tag doesn't exist, or
-# "unreadable" if it denies reading it. Each check is tried three times, and other errors stop the
-# job. The version and noetic are written only after both read as present or missing.
+# What the registry says about a tag, <image>:<tag>:
+#   present      The registry returned the tag's manifest.
+#   missing      The registry answered the request for this tag's manifest with its error code
+#                MANIFEST_UNKNOWN, which skopeo prints as "manifest unknown". Only this answer
+#                counts. Other failures can read alike: a login helper that isn't installed and a
+#                token service that answers 404 both print "not found", and neither says anything
+#                about the tag.
+#   unreadable   The registry denies reading the tag, or answers that it doesn't know the
+#                repository (NAME_UNKNOWN, "name unknown"). Both mean that this job can't see the
+#                package, which only the first publication may answer with a write (see below).
+# A read that gives neither present nor missing is tried three times. After that, an error that is
+# not unreadable stops the job: a failed login, token request or connection. The version and
+# noetic are written only after both read as present or missing.
 state() {
-  local err=""
+  local reference=$1 error=""
+  local repository=${reference%:*} tag=${reference##*:}
   for try in 1 2 3; do
     if [ "$try" -gt 1 ]; then
       sleep 15
     fi
-    if err=$(docker buildx imagetools inspect "$1" 2>&1 >/dev/null); then
+    if error=$(skopeo inspect --raw "${read_options[@]}" "docker://$reference" 2>&1 >/dev/null); then
       echo present
       return
     fi
-    if grep -q -i 'not found' <<<"$err"; then
+    if grep -q -F "reading manifest $tag in $repository: manifest unknown" <<<"$error"; then
       echo missing
       return
     fi
   done
-  if grep -q -i -E 'denied|unauthorized|forbidden' <<<"$err"; then
+  if grep -q -i -E 'denied|unauthorized|forbidden' <<<"$error" ||
+    grep -q -F "reading manifest $tag in $repository: name unknown" <<<"$error"; then
     echo unreadable
     return
   fi
-  echo "$err" >&2
+  echo "$error" >&2
   exit 1
 }
 
