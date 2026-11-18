@@ -317,12 +317,12 @@ class SteppedClockTestCase(unittest.TestCase):
         for imu_input in imu_inputs:
             sample_stamp = stamp + rospy.Duration.from_sec(imu_input.offset)
             self.raw_imu_publisher.publish(imu_sample(sample_stamp, imu_input.yaw_rate))
-            self.expect(imu_input)
+            self.count_expected_outcome(imu_input)
             if imu_input.drop_reason is None:
                 valid_stamp_keys.append(stamp_key(sample_stamp))
         return valid_stamp_keys
 
-    def expect(self, imu_input: ImuInput) -> None:
+    def count_expected_outcome(self, imu_input: ImuInput) -> None:
         """Count the sample as one that the validator has to forward or to drop."""
         if imu_input.drop_reason is None:
             self.expected_forward_count += 1
