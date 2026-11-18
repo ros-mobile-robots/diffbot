@@ -76,16 +76,18 @@ jobs:
       - name: Check the settings template
         run: docker compose --env-file .docker/robot/env.example -f .docker/robot/compose.yaml config --quiet
       # A build of one's own must never be planned under the published image's name. ROBOT_IMAGE
-      # is set to that name here, and the two files are combined in both orders: the only image
-      # with a build section has to stay diffbot-robot:local, and compose.yaml alone has to
-      # build nothing.
+      # is set to that name here, every profile is on, so that the lidar service counts too, and
+      # the two files are combined in both orders. The names that a build can give an image are
+      # the service's image and the tags of its build section: the only such name has to stay
+      # diffbot-robot:local, and compose.yaml alone has to build nothing.
       - name: Check the name of a local build
         env:
           ROBOT_IMAGE: ghcr.io/ros-mobile-robots/diffbot-robot:noetic
         run: |
           cd .docker/robot
           built_images() {
-            docker compose "$@" config --format json | jq -c '[.services[] | select(.build) | .image]'
+            docker compose --profile '*' "$@" config --format json |
+              jq -c '[.services[] | select(.build) | .image, .build.tags[]?] | unique'
           }
           test "$(built_images -f compose.yaml)" = '[]'
           test "$(built_images -f compose.build.yaml)" = '["diffbot-robot:local"]'

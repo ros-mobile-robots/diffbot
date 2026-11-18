@@ -27,12 +27,15 @@ readonly INDEX_DIGEST=sha256:333333333333333333333333333333333333333333333333333
 readonly OTHER_DIGEST=sha256:4444444444444444444444444444444444444444444444444444444444444444
 
 # The writes of a complete publication, in the script's order, as the stand-ins note them: each
-# copy with its archive and its tag, each create with all of its arguments
+# copy with its archive and its tag, each create with every argument in brackets of its own, so
+# that two arguments passed as one would show
 readonly COMPLETE_PUBLICATION="copy robot-image-amd64 $VERSION-amd64
 copy robot-image-arm64 $VERSION-arm64
-create --tag $VERSION --annotation index:org.opencontainers.image.description=$DESCRIPTION \
---annotation index:org.opencontainers.image.revision=$COMMIT $IMAGE@$AMD64_DIGEST $IMAGE@$ARM64_DIGEST
-create --tag $IMAGE:noetic $IMAGE@$INDEX_DIGEST"
+create [--tag] [$VERSION] \
+[--annotation] [index:org.opencontainers.image.description=$DESCRIPTION] \
+[--annotation] [index:org.opencontainers.image.revision=$COMMIT] \
+[$IMAGE@$AMD64_DIGEST] [$IMAGE@$ARM64_DIGEST]
+create [--tag] [$IMAGE:noetic] [$IMAGE@$INDEX_DIGEST]"
 readonly FIRST_PUBLICATION_COPY="copy robot-image-amd64 $IMAGE:first-publication"
 
 work=$(mktemp -d)
@@ -60,8 +63,21 @@ unexpected() {
   echo "unexpected: skopeo $*" >> "$WRITES"
   exit 90
 }
+# True if an option and its value are two arguments of their own, one after the other:
+# has_option <option> <value> <the call's arguments...>
+has_option() {
+  local option=$1 value=$2
+  shift 2
+  while [ $# -gt 1 ]; do
+    if [ "$1" = "$option" ] && [ "$2" = "$value" ]; then
+      return 0
+    fi
+    shift
+  done
+  return 1
+}
 if [ "$1 $2" = "inspect --raw" ]; then
-  [[ " $* " == *" --authfile $AUTH_FILE "* ]] || unexpected "$@"
+  has_option --authfile "$AUTH_FILE" "$@" || unexpected "$@"
   reference=${last#docker://}
   repository=${reference%:*} tag=${reference##*:}
   answer=$VERSION_ANSWER
@@ -90,7 +106,8 @@ elif [ "$1 $2" = "inspect --config" ]; then
     '{os: "linux", architecture: $architecture,
       config: {Labels: {"org.opencontainers.image.revision": $commit}}}'
 elif [ "$1" = copy ]; then
-  [[ " $* " == *" --format oci "* && " $* " == *" --dest-authfile $AUTH_FILE "* ]] || unexpected "$@"
+  has_option --format oci "$@" || unexpected "$@"
+  has_option --dest-authfile "$AUTH_FILE" "$@" || unexpected "$@"
   archive=${*: -2:1}
   archive=${archive#*robot-image-}
   echo "copy robot-image-${archive%%/*} ${last#docker://}" >> "$WRITES"
@@ -116,7 +133,7 @@ set -euo pipefail
 revision=org.opencontainers.image.revision
 if [ "$1 $2 $3" = "buildx imagetools create" ]; then
   shift 3
-  echo "create $*" >> "$WRITES"
+  { printf 'create'; printf ' [%s]' "$@"; printf '\n'; } >> "$WRITES"
 elif [ "$1 $2 $3" != "buildx imagetools inspect" ]; then
   echo "unexpected: docker $*" >> "$WRITES"
   exit 90
