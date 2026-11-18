@@ -24,10 +24,10 @@ in the order in which the bag stored the messages. The intervals between them sh
 the recorded samples were stamped. LONG_INTERVAL is one and a half periods of the firmware's
 50 Hz. The report counts the longer intervals, because they are worth a look. It can't say why
 one is long. With this firmware, a sample that was taken late and a sample that is missing are
-two possible reasons. A clock that was set forward is another, and a topic with a lower rate has
-only long intervals. The header stamps don't say when a message arrived, so they can't show a
-late delivery. A stamp that repeats the one before, or is earlier than it, is counted, and the
-recording then has no rate.
+two possible reasons. A clock that was set forward is another. A regular topic of 10 Hz has
+intervals of 100 ms, so each of them is longer than this firmware's limit. The header stamps
+don't say when a message arrived, so they can't show a late delivery. A stamp that repeats the
+one before, or is earlier than it, is counted, and the recording then has no rate.
 
 A field's statistics come from the messages that measured the field: sensor_msgs/Imu marks a
 field without a measurement with -1 as the first element of the field's covariance. A field with
@@ -216,12 +216,13 @@ def check_topic_type(bag: Any, topic: str) -> None:
     """Raise a MessageError when the topic has messages that aren't sensor_msgs/Imu.
 
     Before any message is read: a topic of another type can hold far larger messages, such as a
-    camera's images.
+    camera's images. The reason names all the topic's types, so that it fits what rosbag info
+    shows for a topic with several types: only one of them.
     """
-    other_types = sorted(connection_types(bag, topic) - {IMU_TYPE})
-    if other_types:
-        raise MessageError(
-            f'the messages have the type {", ".join(other_types)}, the tool reads {IMU_TYPE}')
+    types = connection_types(bag, topic)
+    if types - {IMU_TYPE}:
+        raise MessageError(f'the topic holds {", ".join(sorted(types))}. '
+                           f'Every message of the topic must be a {IMU_TYPE}')
 
 
 def measured_vector(vector: Any, covariance: Sequence[float]) -> Optional[Vector]:
@@ -266,9 +267,16 @@ def recorded_samples(bag: Any, topic: str) -> List[ImuSample]:
     publisher on the same clock then stamps its messages earlier too, and in the reader's order
     its stamps would seem to advance. Each message is converted when it is read, so the messages
     themselves aren't kept.
+
+    A bag whose index is intact opens, also when the messages' data is damaged. Reading then
+    fails, with an error of rosbag's or of the chunk's decompression, which becomes the reason
+    of a MessageError.
     """
-    stored_samples = [to_stored_sample(record)
-                      for _, record, _ in bag.read_messages(topics=[topic], raw=True)]
+    try:
+        stored_samples = [to_stored_sample(record)
+                          for _, record, _ in bag.read_messages(topics=[topic], raw=True)]
+    except (OSError, rosbag.ROSBagException) as error:
+        raise MessageError(f"a message can't be read from the bag: {error}") from error
     stored_samples.sort(key=operator.attrgetter('position'))
     return [stored.sample for stored in stored_samples]
 

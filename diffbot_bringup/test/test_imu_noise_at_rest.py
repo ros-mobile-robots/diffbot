@@ -12,6 +12,7 @@ import math
 import os
 import shutil
 import statistics
+import struct
 import subprocess
 import sys
 import tempfile
@@ -40,6 +41,7 @@ from imu_noise_at_rest import check_named_frame  # noqa: E402
 from imu_noise_at_rest import check_one_frame  # noqa: E402
 from imu_noise_at_rest import check_reading_count  # noqa: E402
 from imu_noise_at_rest import check_samples  # noqa: E402
+from imu_noise_at_rest import check_topic_type  # noqa: E402
 from imu_noise_at_rest import DEFAULT_TOPIC  # noqa: E402
 from imu_noise_at_rest import field_statistics  # noqa: E402
 from imu_noise_at_rest import FieldStatistics  # noqa: E402
@@ -273,6 +275,41 @@ class TestStampStatistics(unittest.TestCase):
         self.assertEqual(stamps.repeated_stamp_count, 2)
 
 
+class BagWithConnections:
+    """A stand-in for a bag that has only the connections of one topic, and no messages."""
+
+    def __init__(self, connection_types: Sequence[str]) -> None:
+        """Remember the message type of each of the topic's connections."""
+        self.connection_types = connection_types
+
+    def read_messages(self, topics: Sequence[str], connection_filter: Any) -> List[Any]:
+        """Ask the filter about each connection, as rosbag does, and return no message."""
+        for connection_type in self.connection_types:
+            connection_filter(topics[0], connection_type, 'checksum', 'definition', {})
+        return []
+
+
+class TestTopicType(unittest.TestCase):
+    """check_topic_type() refuses a topic with messages that aren't sensor_msgs/Imu."""
+
+    def test_check_topic_type_passes_a_topic_of_imu_messages(self) -> None:
+        """Check that a topic with one connection of sensor_msgs/Imu raises nothing."""
+        check_topic_type(BagWithConnections(['sensor_msgs/Imu']), DEFAULT_TOPIC)
+
+    def test_check_topic_type_fails_for_a_topic_with_several_types_and_names_them_all(
+            self) -> None:
+        """Check that an IMU topic with two more types is refused, with all three names.
+
+        rosbag info shows such a topic with one type only, here sensor_msgs/Imu.
+        """
+        bag = BagWithConnections(['sensor_msgs/Imu', 'std_msgs/String', 'std_msgs/UInt32'])
+        with self.assertRaises(MessageError) as error:
+            check_topic_type(bag, DEFAULT_TOPIC)
+        self.assertEqual(message_of(error),
+                         'the topic holds sensor_msgs/Imu, std_msgs/String, std_msgs/UInt32. '
+                         'Every message of the topic must be a sensor_msgs/Imu')
+
+
 class TestSampleChecks(unittest.TestCase):
     """The checks raise a MessageError for samples that the statistics can't use."""
 
@@ -498,14 +535,36 @@ def messages_one_step_apart() -> List[Imu]:
 
 
 def write_bag(bag_path: str, topic: str, messages: Sequence[Any],
-              arrival_stamps: Sequence[int] = REGULAR_STAMPS) -> None:
+              arrival_stamps: Sequence[int] = REGULAR_STAMPS,
+              compression: str = rosbag.Compression.NONE) -> None:
     """Write the messages to a new bag in their order, as a recorder stores them.
 
     Each message gets the time at which the recorder got it, by the recorder's clock.
     """
-    with rosbag.Bag(bag_path, 'w') as bag:
+    with rosbag.Bag(bag_path, 'w', compression=compression) as bag:
         for message, arrival_stamp in zip(messages, arrival_stamps):
             bag.write(topic, message, to_ros_time(arrival_stamp))
+
+
+def damage_first_chunk(bag_path: str) -> None:
+    """Invert one byte in the middle of the data of the bag's first chunk.
+
+    A chunk is a record of the bag file: the length of its header, the header, the length of
+    its data and the data, which holds the messages. The bag's index lies behind the chunk and
+    stays intact, so the bag still opens.
+    """
+    with rosbag.Bag(bag_path) as bag:
+        _, first_record, _ = next(iter(bag.read_messages(raw=True)))
+    chunk_position, _ = first_record[3]
+    with open(bag_path, 'r+b') as bag_file:
+        bag_file.seek(chunk_position)
+        header_length, = struct.unpack('<L', bag_file.read(4))
+        bag_file.seek(header_length, os.SEEK_CUR)
+        data_length, = struct.unpack('<L', bag_file.read(4))
+        bag_file.seek(data_length // 2, os.SEEK_CUR)
+        damaged_byte = bag_file.read(1)[0] ^ 0xFF
+        bag_file.seek(-1, os.SEEK_CUR)
+        bag_file.write(bytes([damaged_byte]))
 
 
 def run_tool(arguments: Sequence[str]) -> Tuple[int, str, str]:
@@ -670,8 +729,8 @@ class TestToolOnBags(unittest.TestCase):
         """Check that std_msgs/String messages are refused by their type's name."""
         write_bag(self.bag_path, DEFAULT_TOPIC, [String('not an IMU'), String('message')])
         self.assert_tool_ends_with(
-            f'{self.bag_path}, {DEFAULT_TOPIC}: the messages have the type std_msgs/String, '
-            'the tool reads sensor_msgs/Imu')
+            f'{self.bag_path}, {DEFAULT_TOPIC}: the topic holds std_msgs/String. Every message '
+            'of the topic must be a sensor_msgs/Imu')
 
     def test_tool_ends_with_a_message_when_the_topic_has_one_message(self) -> None:
         """Check that one message is refused: the statistics need two."""
@@ -705,6 +764,22 @@ class TestToolOnBags(unittest.TestCase):
             shutil.copyfileobj(unpacked, packed)
         self.assert_tool_ends_with(f"{self.bag_path} can't be read as a rosbag: "
                                    "its first line isn't a bag's header")
+
+    def test_tool_ends_with_a_message_when_the_messages_data_is_damaged(self) -> None:
+        """Check that a bag which opens, but whose compressed messages are damaged, is refused.
+
+        The reason after the colon is the decompression's, so the test compares the line up to
+        there.
+        """
+        write_bag(self.bag_path, DEFAULT_TOPIC, messages_one_step_apart(),
+                  compression=rosbag.Compression.BZ2)
+        damage_first_chunk(self.bag_path)
+        status, stdout, stderr = run_tool([self.bag_path])
+        self.assertEqual((status, stdout), (1, ''))
+        self.assertEqual(stderr.count('\n'), 1)
+        self.assertTrue(
+            stderr.startswith(f"{self.bag_path}, {DEFAULT_TOPIC}: a message can't be read from "
+                              'the bag: '), stderr)
 
 
 if __name__ == '__main__':
