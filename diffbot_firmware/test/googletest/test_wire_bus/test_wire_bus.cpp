@@ -5,9 +5,11 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include <array>
 #include <deque>
+#include <numeric>
 #include <ostream>
 #include <string>
 #include <vector>
@@ -26,37 +28,70 @@ constexpr uint8_t READ_REGISTER = 0x08;
 // acknowledged the address
 constexpr uint8_t ADDRESS_NOT_ACKNOWLEDGED = 2;
 
+// The two values of endTransmission()'s argument. A stop ends the transfer and frees the bus. A
+// repeated start keeps the bus, so that the read follows the register write directly
+constexpr bool WITH_STOP = true;
+constexpr bool WITH_REPEATED_START = false;
+
 // The first byte that FakeWire delivers to a read. Each further byte is one higher
 constexpr uint8_t FIRST_DELIVERED_BYTE = 0x10;
 
 // The length of the reads that get all their bytes: three bytes have a first, a middle and a
 // last one
 constexpr size_t READ_LENGTH_BYTES = 3;
+// The length of a whole sample: the 18 data bytes that the BNO055 driver reads in one transfer
+constexpr int SAMPLE_LENGTH_BYTES = 18;
 
-// The calls of Arduino's TwoWire that WireBusT makes, with results a test can choose
+// A byte as text, such as 0x28
+std::string hexByte(uint8_t value)
+{
+    char text[sizeof("0xFF")];
+    snprintf(text, sizeof(text), "0x%02X", value);
+    return text;
+}
+
+// Each Wire call as text, such as beginTransmission(0x28). FakeWire records its calls with these
+// functions, and the tests write the calls that they expect with the same functions
+std::string beginTransmissionCall(uint8_t address)
+{
+    return "beginTransmission(" + hexByte(address) + ")";
+}
+std::string writeCall(uint8_t value) { return "write(" + hexByte(value) + ")"; }
+std::string endTransmissionCall(bool stop)
+{
+    return std::string("endTransmission(") + (stop ? "true" : "false") + ")";
+}
+std::string requestFromCall(uint8_t address, uint8_t length)
+{
+    return "requestFrom(" + hexByte(address) + ", " + std::to_string(length) + ")";
+}
+
+// The calls of Arduino's TwoWire that WireBusT makes, with results a test can choose. FakeWire
+// records the calls that start, fill and end a transfer, in their order. available() and read()
+// only hand out the received bytes
 class FakeWire
 {
 public:
-    std::vector<uint8_t> sent;
+    std::vector<std::string> calls;  ///< such as beginTransmission(0x28), write(0x3D)
     std::deque<uint8_t> received;
     uint8_t end_result = 0;        ///< endTransmission(): 0 is success
     int reported_count = -1;       ///< requestFrom()'s result; -1: the requested length
     int delivered_count = -1;      ///< bytes really received; -1: the requested length
-    bool stop_after_write = true;  ///< the last endTransmission's argument
 
-    void beginTransmission(uint8_t) { sent.clear(); }
+    void beginTransmission(uint8_t address) { calls.push_back(beginTransmissionCall(address)); }
     size_t write(uint8_t value)
     {
-        sent.push_back(value);
+        calls.push_back(writeCall(value));
         return 1;
     }
     uint8_t endTransmission(bool stop = true)
     {
-        stop_after_write = stop;
+        calls.push_back(endTransmissionCall(stop));
         return end_result;
     }
-    uint8_t requestFrom(uint8_t, uint8_t length)
+    uint8_t requestFrom(uint8_t address, uint8_t length)
     {
+        calls.push_back(requestFromCall(address, length));
         received.clear();
         int n = delivered_count < 0 ? length : delivered_count;
         for (int i = 0; i < n; ++i)
@@ -87,7 +122,10 @@ TEST_F(WireBusTest, WriteRegisterSendsRegisterAndValue)
 {
     EXPECT_TRUE(bus_.writeRegister(DEVICE_ADDRESS, WRITTEN_REGISTER, WRITTEN_VALUE));
 
-    EXPECT_EQ(wire_.sent, (std::vector<uint8_t>{WRITTEN_REGISTER, WRITTEN_VALUE}));
+    const std::vector<std::string> expected_calls{
+        beginTransmissionCall(DEVICE_ADDRESS), writeCall(WRITTEN_REGISTER),
+        writeCall(WRITTEN_VALUE), endTransmissionCall(WITH_STOP)};
+    EXPECT_EQ(wire_.calls, expected_calls);
 }
 
 TEST_F(WireBusTest, WriteRegisterFailsWhenTheAddressIsNotAcknowledged)
@@ -97,29 +135,59 @@ TEST_F(WireBusTest, WriteRegisterFailsWhenTheAddressIsNotAcknowledged)
     EXPECT_FALSE(bus_.writeRegister(DEVICE_ADDRESS, WRITTEN_REGISTER, WRITTEN_VALUE));
 }
 
+// The result of each write is its own: a successful write before doesn't hide a failure
+TEST_F(WireBusTest, WriteRegisterFailsWhenTheAddressIsNotAcknowledgedAfterASuccessfulWrite)
+{
+    // 1. A write that the device acknowledges
+    ASSERT_TRUE(bus_.writeRegister(DEVICE_ADDRESS, WRITTEN_REGISTER, WRITTEN_VALUE));
+
+    // 2. The next write on the same bus, which no device acknowledges
+    wire_.end_result = ADDRESS_NOT_ACKNOWLEDGED;
+    EXPECT_FALSE(bus_.writeRegister(DEVICE_ADDRESS, WRITTEN_REGISTER, WRITTEN_VALUE));
+}
+
 TEST_F(WireBusTest, ReadRegistersUsesARepeatedStart)
 {
     std::array<uint8_t, READ_LENGTH_BYTES> data{};
 
     EXPECT_TRUE(bus_.readRegisters(DEVICE_ADDRESS, READ_REGISTER, data.data(), data.size()));
 
-    EXPECT_FALSE(wire_.stop_after_write) << "the register write ended with a stop";
-    EXPECT_EQ(wire_.sent, (std::vector<uint8_t>{READ_REGISTER}));
+    // The register write ends with a repeated start, and the read request comes after it
+    const std::vector<std::string> expected_calls{
+        beginTransmissionCall(DEVICE_ADDRESS), writeCall(READ_REGISTER),
+        endTransmissionCall(WITH_REPEATED_START),
+        requestFromCall(DEVICE_ADDRESS, READ_LENGTH_BYTES)};
+    EXPECT_EQ(wire_.calls, expected_calls);
     const std::array<uint8_t, READ_LENGTH_BYTES> delivered_bytes{
         FIRST_DELIVERED_BYTE, FIRST_DELIVERED_BYTE + 1, FIRST_DELIVERED_BYTE + 2};
     EXPECT_EQ(data, delivered_bytes);
 }
 
-TEST_F(WireBusTest, ReadRegistersFailsWhenTheRegisterWriteFails)
+TEST_F(WireBusTest, ReadRegistersReturnsAllBytesOfASample)
+{
+    std::array<uint8_t, SAMPLE_LENGTH_BYTES> data{};
+
+    EXPECT_TRUE(bus_.readRegisters(DEVICE_ADDRESS, READ_REGISTER, data.data(), data.size()));
+
+    // FIRST_DELIVERED_BYTE, and each further byte one higher
+    std::array<uint8_t, SAMPLE_LENGTH_BYTES> delivered_bytes{};
+    std::iota(delivered_bytes.begin(), delivered_bytes.end(), FIRST_DELIVERED_BYTE);
+    EXPECT_EQ(data, delivered_bytes);
+}
+
+TEST_F(WireBusTest, ReadRegistersFailsWithoutAReadRequestWhenTheRegisterWriteFails)
 {
     wire_.end_result = ADDRESS_NOT_ACKNOWLEDGED;
     std::array<uint8_t, READ_LENGTH_BYTES> data{};
 
     EXPECT_FALSE(bus_.readRegisters(DEVICE_ADDRESS, READ_REGISTER, data.data(), data.size()));
+
+    const std::vector<std::string> expected_calls{
+        beginTransmissionCall(DEVICE_ADDRESS), writeCall(READ_REGISTER),
+        endTransmissionCall(WITH_REPEATED_START)};
+    EXPECT_EQ(wire_.calls, expected_calls) << "a read request followed the failed register write";
 }
 
-// The length of the short reads' requests: the 18 data bytes of a BNO055 sample
-constexpr int SAMPLE_LENGTH_BYTES = 18;
 // A count that the Teensy 4's Wire can report after a failed bus acquisition, with or without
 // data
 constexpr int COUNT_AFTER_FAILED_BUS_ACQUISITION = 4;
@@ -155,6 +223,12 @@ TEST_P(WireBusShortReadTest, ReadRegistersFailsAndDrainsTheBytes)
 
     EXPECT_FALSE(bus_.readRegisters(DEVICE_ADDRESS, READ_REGISTER, data.data(), data.size()));
 
+    // The read request asked for the whole sample, so the bus came back short of it
+    const std::vector<std::string> expected_calls{
+        beginTransmissionCall(DEVICE_ADDRESS), writeCall(READ_REGISTER),
+        endTransmissionCall(WITH_REPEATED_START),
+        requestFromCall(DEVICE_ADDRESS, SAMPLE_LENGTH_BYTES)};
+    EXPECT_EQ(wire_.calls, expected_calls);
     EXPECT_EQ(wire_.available(), 0) << "bytes of the short read are left in the Wire library";
 }
 
