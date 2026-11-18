@@ -585,6 +585,9 @@ class TestEkfAtTheRobotRates(SteppedClockTestCase):
         end_of_last_period = wheel_stamps[-1] + ROBOT_WHEEL_ODOMETRY_PERIOD
         outputs = [message for message in self.ekf_outputs.since(output_count_before)
                    if message.header.stamp < end_of_last_period]
+        if not outputs:
+            self.fail('phase 2: no EKF output in the {} wheel periods without the IMU'.format(
+                len(wheel_stamps)))
         stamped_at_a_wheel_message = [message for message in outputs
                                       if message.header.stamp in wheel_stamps]
         print('IMU stopped: {} outputs for {} wheel messages, {} of them stamped at a wheel '
