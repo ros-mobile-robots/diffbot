@@ -58,9 +58,18 @@
   <!-- The simulated IMU's Gazebo plugin, libdiffbot_gazebo_ros_imu_sensor.so -->
   <exec_depend>diffbot_gazebo_plugins</exec_depend>
   <exec_depend>xacro</exec_depend>
-  <!-- scripts/imu_raw_adapter.py -->
+  <!-- scripts/imu_raw_adapter.py and the video recorder (scripts/record_drive_video.sh) -->
   <exec_depend>rospy</exec_depend>
+  <!-- scripts/imu_raw_adapter.py -->
   <exec_depend>sensor_msgs</exec_depend>
+  <!-- The video recorder. It also needs Xvfb, xauth and ffmpeg, which the dev container
+       installs. They aren't declared here, so the package doesn't bring them to every computer
+       that only simulates -->
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>rosgraph</exec_depend>
+  <exec_depend>rosgraph_msgs</exec_depend>
+  <exec_depend>roslaunch</exec_depend>
   <test_depend>rostest</test_depend>
   <test_depend>geometry_msgs</test_depend>
   <test_depend>gazebo_msgs</test_depend>

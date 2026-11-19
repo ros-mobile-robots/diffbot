@@ -1,6 +1,6 @@
 # Workflows
 
-The five workflows are independent: each runs on its own runner, they run in parallel, and none uses the result of another.
+The six workflows are independent: each runs on its own runner, they run in parallel, and none uses the result of another.
 
 | Workflow | File | Runs on | What it checks |
 |:---------|:-----|:--------|:---------------|
@@ -9,5 +9,6 @@ The five workflows are independent: each runs on its own runner, they run in par
 | Firmware | [`firmware.yml`](firmware.yml) | Every push and pull request | Builds the Teensy firmware in [`diffbot_firmware`](../../diffbot_firmware) with PlatformIO, in the firmware's container ([`.docker/firmware`](../../.docker/firmware)), for Teensy 4.0 and Teensy 3.1/3.2, and runs its unit tests on the PC (`pio test -e native`) in the same container |
 | PR description | [`pr_description.yml`](pr_description.yml) | Pull requests: opened, reopened, edited, and new commits | Checks that the description's `## Documentation` section, a placeholder in the [pull request template](../pull_request_template.md), names the docs pull request or a page on ros-mobile-robots.com, or says `None` |
 | Robot container | [`robot_container.yml`](robot_container.yml) | Pushes and pull requests that change the robot image or its packages | Checks the settings template, builds the [robot image](../../.docker/robot) natively on GitHub's arm64 and amd64 runners and runs its smoke test, without hardware |
+| Simulation video | [`sim_video.yml`](sim_video.yml) | Only on request: the label `sim-video` added to a pull request, or **Run workflow** in the Actions tab | Records a video of DiffBot driving in Gazebo with diffbot_gazebo's recorder ([`record_drive_video.sh`](../../diffbot_gazebo/scripts/record_drive_video.sh)), in the dev container, and uploads the MP4, its JSON file and the logs as an artifact, kept for 14 days. It's a new drive with the simulation test's commands, not a recording of the tests. A failed recording shows in the log and the run's summary, but doesn't fail the run. To record again, remove the label and add it again |
 
 How they work, and how to run the checks locally: [Testing and CI](https://ros-mobile-robots.com/development/ci/).
