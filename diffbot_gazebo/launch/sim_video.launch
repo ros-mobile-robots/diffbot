@@ -18,10 +18,14 @@
         <arg name="extra_gazebo_args" value="$(arg extra_gazebo_args)"/>
     </include>
 
-    <!-- The robot's URDF and where it starts, as in diffbot_view.launch -->
+    <!-- The robot's URDF and where it starts, as in diffbot_view.launch. imu_plugin selects the
+         simulated IMU's Gazebo plugin in Remo's model as there: diffbot_gazebo_plugins' copy of
+         gazebo_plugins' IMU plugin, which doesn't run ROS callbacks in Gazebo's physics thread
+         (#185) -->
     <arg name="description_package" default="$(eval find(arg('model') + '_description'))"/>
     <arg name="urdf_file" default="$(arg description_package)/urdf/$(arg model).urdf.xacro"/>
-    <param name="diffbot/robot_description" command="$(find xacro)/xacro '$(arg urdf_file)'"/>
+    <param name="diffbot/robot_description"
+           command="$(find xacro)/xacro '$(arg urdf_file)' imu_plugin:=libdiffbot_gazebo_ros_imu_sensor.so"/>
     <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
           args="-urdf -model diffbot -param /diffbot/robot_description -x -2.0 -y -0.5 -z 0.0"/>
 
