@@ -226,7 +226,9 @@ catkin_install_python(PROGRAMS
 if(CATKIN_ENABLE_TESTING)
   # The IMU sample validator's checks, without a ROS master
   catkin_add_nosetests(test/test_imu_validator.py)
-  # The EKF with the validator, on a stepped simulated clock (test/test_ekf_synthetic.py)
+  # The EKF with the validator, on a stepped simulated clock (test/test_ekf_synthetic.py). Each
+  # .test file runs one of the test's scenarios on a fresh EKF
   find_package(rostest REQUIRED)
   add_rostest(test/ekf_synthetic.test)
+  add_rostest(test/ekf_synthetic_robot_rates.test)
 endif()
