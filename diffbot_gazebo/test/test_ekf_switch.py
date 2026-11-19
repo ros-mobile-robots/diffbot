@@ -4,10 +4,10 @@
 roslaunch's loader reads each launch file with its includes, as roslaunch would, and the test
 looks at the nodes, parameters and remappings it would start.
 
-- On the robot (diffbot_bringup) and in the simulation (diffbot_gazebo), ekf:=true starts the IMU
-  sample validator and the EKF in /diffbot, with ekf.yaml's parameters, and sets the drive
-  controller's enable_odom_tf to false, so that only the EKF publishes the transform
-  odom → base_footprint on the topic /tf.
+- On the robot (diffbot_bringup) and in the simulation (diffbot_gazebo, and diffbot_control's
+  diffbot.launch with RViz), ekf:=true starts the IMU sample validator and the EKF in /diffbot,
+  with ekf.yaml's parameters, and sets the drive controller's enable_odom_tf to false, so that
+  only the EKF publishes the transform odom → base_footprint on the topic /tf.
   ekf:=false, the default, starts neither and leaves the controller's transform on.
 - The launch files to start with ekf:=true also start robot_state_publisher. The EKF needs its
   transform imu_link → base_footprint and drops every IMU sample without it.
@@ -169,6 +169,7 @@ class TestEkfSwitch(unittest.TestCase):
 
     def test_simulation_starts_the_ekf_and_the_validator_only_with_ekf_true(self) -> None:
         self.assert_ekf_switch('diffbot_gazebo', 'diffbot.launch')
+        self.assert_ekf_switch('diffbot_control', 'diffbot.launch')
 
     def test_planners_read_the_filtered_odometry_only_with_ekf_true(self) -> None:
         self.assert_planner_follows_the_switch('diffbot_navigation', 'move_base.launch',
