@@ -1,0 +1,9 @@
+<launch>
+    <!-- The EKF of ekf_synthetic.launch with the wheel odometry and the IMU at 50 Hz, as in the
+         simulation, and IMU samples that the validator has to drop: test_ekf_synthetic.py's
+         scenario invalid_imu_samples -->
+    <include file="$(find diffbot_control)/test/ekf_synthetic.launch"/>
+
+    <test test-name="ekf_synthetic" pkg="diffbot_control" type="test_ekf_synthetic.py"
+          args="--scenario invalid_imu_samples" time-limit="120"/>
+</launch>

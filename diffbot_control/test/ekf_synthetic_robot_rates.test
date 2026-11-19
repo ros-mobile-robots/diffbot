@@ -1,0 +1,9 @@
+<launch>
+    <!-- The EKF of ekf_synthetic.launch at the robot's rates, the IMU at 50 Hz and the wheel
+         odometry at 10 Hz, and with the IMU stopped: test_ekf_synthetic.py's scenario
+         robot_rates. A .test file of its own starts the scenario on a fresh EKF -->
+    <include file="$(find diffbot_control)/test/ekf_synthetic.launch"/>
+
+    <test test-name="ekf_synthetic_robot_rates" pkg="diffbot_control" type="test_ekf_synthetic.py"
+          args="--scenario robot_rates" time-limit="120"/>
+</launch>

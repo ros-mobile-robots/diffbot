@@ -35,6 +35,7 @@ It provides mounts for different camera modules, such as Raspi Cam v2, OAK-1, OA
 - [`diffbot_control`](./diffbot_control): Configurations for the [`diff_drive_controller`](http://wiki.ros.org/diff_drive_controller) of ROS Control used in Gazebo simulation and the real robot.
 - [`diffbot_description`](./diffbot_description): URDF description of DiffBot including its sensors.
 - [`diffbot_gazebo`](./diffbot_gazebo): Simulation specific launch and configuration files for DiffBot.
+- [`diffbot_gazebo_plugins`](./diffbot_gazebo_plugins): Gazebo plugins for the simulation: the simulated IMU's plugin, a copy of the one in [`gazebo_plugins`](http://wiki.ros.org/gazebo_plugins) that doesn't run ROS callbacks in Gazebo's physics thread.
 - [`diffbot_msgs`](./diffbot_msgs): Message definitions specific to DiffBot, for example the message for encoder data.
 - [`diffbot_navigation`](./diffbot_navigation): Navigation based on [`move_base` package](http://wiki.ros.org/move_base); launch and configuration files.
 - [`diffbot_slam`](./diffbot_slam): Simultaneous localization and mapping using different implementations (e.g., [gmapping](http://wiki.ros.org/gmapping)) to create a map of the environment
@@ -400,6 +401,7 @@ Your contributions are most welcome. These can be in the form of raising issues,
 ## :pencil: License
 
 `diffbot` is licenses under the [BSD 3-Clause](./LICENSE).
+The wheel meshes are the exception: GrabCAD's terms apply to them, see [the notice next to `wheel.stl`](diffbot_description/meshes/components/wheel.LICENSE.md).
 See also [open-source-license-acknowledgements-and-third-party-copyrights.md](open-source-license-acknowledgements-and-third-party-copyrights.md).
 The [documentation](https://ros-mobile-robots.com/) is licensed differently,
 visit its [license text](https://github.com/ros-mobile-robots/ros-mobile-robots.github.io#license) to learn more.

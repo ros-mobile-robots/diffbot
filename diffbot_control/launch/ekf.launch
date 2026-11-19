@@ -1,0 +1,40 @@
+<launch>
+    <!-- The EKF: fuses the wheel odometry with the IMU's yaw rate (config/ekf.yaml), for the robot
+         and the simulation alike. The EKF publishes its estimate on the topic
+         /diffbot/odometry/filtered, and the transform odom → base_footprint on the topic /tf.
+         Included, if ekf is true, by diffbot_base/launch/diffbot.launch on the robot and by
+         diffbot_control.launch in the simulation. Both also turn off the drive controller's own
+         transform odom → base_footprint, so that only one node publishes it.
+         A figure of which launch file includes which:
+         https://ros-mobile-robots.com/packages/imu/robot_localization/#which-launch-file-starts-what -->
+    <group ns="diffbot">
+        <!-- The IMU sample validator (scripts/imu_validator.py) forwards a sample from the topic
+             imu/data_raw to the topic imu/data_validated, unchanged, only if the sample passes
+             all five checks of the list below. The validator drops every other sample and
+             counts the dropped samples on the topic /diagnostics. The script's docstring says
+             more about each check.
+             1. The sample's frame is frame_id, the IMU's frame in the URDF.
+             2. Its angular velocity and its linear acceleration are finite numbers.
+             3. The variances of its angular velocity are positive.
+             4. Its stamp fits the ROS time, the validator's clock when the sample arrives:
+                - The stamp is not more than max_age (0.1 s, five samples at the IMU's 50 Hz)
+                  older than the ROS time. A sample takes time to travel from the Teensy
+                  through rosserial, so its stamp is normally a little older. A sample that
+                  waited long in a buffer is older than max_age.
+                - The stamp is not more than max_future (0.02 s, one sample) ahead of the ROS
+                  time. The Teensy stamps a sample with its own clock, which rosserial keeps
+                  only roughly in step with the SBC's. The remaining offset between the two
+                  clocks can put a stamp ahead.
+             5. Its stamp is later than the stamp of the last sample that the validator
+                forwarded -->
+        <node name="imu_validator" pkg="diffbot_control" type="imu_validator.py" output="screen">
+            <param name="frame_id" value="imu_link"/>
+            <param name="max_age" value="0.1"/>
+            <param name="max_future" value="0.02"/>
+        </node>
+
+        <node name="ekf_localization" pkg="robot_localization" type="ekf_localization_node" output="screen">
+            <rosparam command="load" file="$(find diffbot_control)/config/ekf.yaml"/>
+        </node>
+    </group>
+</launch>

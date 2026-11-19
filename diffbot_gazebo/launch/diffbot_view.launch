@@ -3,7 +3,12 @@
   <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
   <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
   <arg name="description_package" default="$(eval find(arg('model') + '_description'))" />
-  <arg name="urdf_file" default="$(find xacro)/xacro '$(arg description_package)/urdf/$(arg model).urdf.xacro'" />
+  <!-- imu_plugin selects the simulated IMU's Gazebo plugin in Remo's model (remo_description
+       2.5.0 and newer): diffbot_gazebo_plugins' copy of gazebo_plugins' IMU plugin, which doesn't
+       run ROS callbacks in Gazebo's physics thread (#185). DiffBot's model names that library
+       itself. xacro ignores an argument that a model doesn't declare, so DiffBot's model and
+       Remo's older versions expand without it -->
+  <arg name="urdf_file" default="$(find xacro)/xacro '$(arg description_package)/urdf/$(arg model).urdf.xacro' imu_plugin:=libdiffbot_gazebo_ros_imu_sensor.so" />
 
   <arg name="paused" default="false"/>
   <arg name="use_sim_time" default="true"/>
@@ -28,6 +33,10 @@
 
   <!-- Load the URDF into the ROS Parameter Server -->
   <param name="diffbot/robot_description" command="$(arg urdf_file)"/>
+
+  <!-- The simulated IMU publishes imu/gazebo; this node republishes it as imu/data_raw, without
+       the orientation, as the real robot's firmware publishes it (scripts/imu_raw_adapter.py) -->
+  <node name="imu_raw_adapter" pkg="diffbot_gazebo" type="imu_raw_adapter.py" ns="diffbot" output="screen"/>
 
   <!-- Run a python script to the send a service call to gazebo_ros to spawn a URDF robot -->
   <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
