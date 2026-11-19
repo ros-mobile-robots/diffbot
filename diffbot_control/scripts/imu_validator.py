@@ -256,7 +256,7 @@ class ImuValidator:
         self.last_valid_arrival_time = None
 
     def drop_reason_or_record(self, message: Imu, now: rospy.Time) -> Optional[DropReason]:
-        """Return the first reason to drop message, or record its two times and return None.
+        """Return the first reason to drop message, or None for a valid sample.
 
         now is the ROS time at which message arrives. None means that the sample is valid. Only
         then, the method stores the sample's stamp in last_valid_stamp and now, the ROS time of

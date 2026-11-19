@@ -227,15 +227,16 @@ class TestSecondsSinceLastValidSample(ValidatorTestCase):
         self.assertIsNone(self.validator.seconds_since_last_valid_sample(NOW))
 
     def test_silence_is_the_time_since_the_last_valid_sample(self) -> None:
-        # The sample arrives SHORTLY_BEFORE after its stamp: the silence counts from its arrival
+        # Stamped SHORTLY_BEFORE its arrival, so that a silence counted from the stamp differs from
+        # one counted from the arrival
         self.assert_accepted(make_imu_sample(NOW - seconds(SHORTLY_BEFORE)), NOW)
         self.assert_silence(SILENCE, NOW + seconds(SILENCE))
 
     def test_silence_keeps_growing_while_samples_are_rejected(self) -> None:
         self.assert_accepted(make_imu_sample(), NOW)
         later = NOW + seconds(SILENCE)
-        # Later than the accepted sample's stamp, so that check 5 lets it through, but more than
-        # MAX_AGE before the ROS time later
+        # Later than the accepted sample's stamp, which meets check 5's condition, but more than
+        # MAX_AGE before the ROS time later: check 4 rejects it as TOO_OLD before check 5 runs
         self.assert_rejected(imu_validator.DropReason.TOO_OLD,
                              make_imu_sample(NOW + seconds(ONE_SECOND)), later)
         self.assert_silence(SILENCE, later)
@@ -264,7 +265,8 @@ class TestSecondsSinceLastValidSample(ValidatorTestCase):
 
     def test_silence_is_none_after_the_clock_goes_back_less_than_the_silence(self) -> None:
         # The clock goes back by less than the time since the last valid sample, to a ROS time
-        # at which that sample would be RECENT: still no health. Then the clock goes on
+        # at which that sample would be RECENT: the silence is None all the same, which health()
+        # reports as an error. Then the clock goes on
         self.assert_accepted(make_imu_sample(), NOW)
         self.assert_silence(SILENCE, NOW + seconds(SILENCE))
         self.assertIsNone(self.validator.seconds_since_last_valid_sample(NOW + seconds(RECENT)))
