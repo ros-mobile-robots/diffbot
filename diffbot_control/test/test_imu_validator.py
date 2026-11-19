@@ -43,8 +43,9 @@ ROS_TIME_ZERO = rospy.Time(0)
 # /gazebo/reset_simulation, and a time that leaves room for a stamp ONE_SECOND before it
 RESTART_NEAR_ZERO = rospy.Time(0, 20000000)  # 0.02 s
 RESTART = rospy.Time(50, 0)
-# A time without valid samples, longer than ONE_SECOND plus MAX_AGE
-SILENCE = 3.0  # s
+# A time without valid samples, longer than ONE_SECOND plus MAX_AGE, with a fraction of a second
+# that a silence counted in whole seconds would lose
+SILENCE = 3.5  # s
 # A time since the last valid sample, well within the silence limit, and a number of new drops
 RECENT = 0.1  # s
 NEW_DROP_COUNT = 3
