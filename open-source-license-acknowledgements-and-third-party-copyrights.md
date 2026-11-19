@@ -16,6 +16,12 @@ License: Apache License 2.0
 https://github.com/ROBOTIS-GIT/turtlebot3/blob/master/LICENSE
 
 
+### GAZEBO_ROS_PKGS
+License: Apache License 2.0  
+https://github.com/ros-simulation/gazebo_ros_pkgs/tree/2.9.3/gazebo_plugins  
+`diffbot_gazebo_plugins` has a modified copy of gazebo_plugins' IMU sensor plugin. Its license text is in [`diffbot_gazebo_plugins/LICENSE`](./diffbot_gazebo_plugins/LICENSE).
+
+
 ### ROS CONTROL
 License: BSD 3-Clause
 https://github.com/ros-controls/ros_control/blob/noetic-devel/LICENSE
@@ -54,3 +60,9 @@ https://github.com/UbiquityRobotics/raspicam_node/blob/kinetic/LICENSE
 ### Dirk Thomas/vcstool
 License: Apache
 https://github.com/dirk-thomas/vcstool/blob/master/LICENSE
+
+
+### WHEEL D65X25
+Model by KlimukVI on GrabCAD, used for `diffbot_description/meshes/components/wheel.stl`, `diffbot_description/meshes/diffbot/wheel_rim.stl` and `diffbot_description/meshes/diffbot/wheel_tire.stl`  
+License: GrabCAD's terms, not the BSD 3-Clause License, see [the notice next to wheel.stl](diffbot_description/meshes/components/wheel.LICENSE.md)  
+https://grabcad.com/library/wheel-d65x25-1

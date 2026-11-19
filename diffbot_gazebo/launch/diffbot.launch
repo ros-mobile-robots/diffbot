@@ -1,6 +1,13 @@
 <launch>
+    <!-- The launch file to start for the simulation. Includes diffbot_view.launch, which starts
+         Gazebo with the robot, and diffbot_control/launch/diffbot_control.launch, which starts the
+         robot's controllers. Included by diffbot_navigation/launch/diffbot.launch and by
+         diffbot_gazebo/launch/diffbot_base.launch.
+         A figure of which launch file includes which:
+         https://ros-mobile-robots.com/packages/imu/robot_localization/#which-launch-file-starts-what -->
     <!--arg name="model" default="$(env DIFFBOT_MODEL)" doc="model type [diffbot, remo]"/-->
     <arg name="model" default="diffbot" doc="model type [diffbot, remo]"/>
+    <arg name="ekf" default="false" doc="fuse the IMU's yaw rate with the wheel odometry in an EKF (diffbot_control/launch/ekf.launch)"/>
 
     <arg name="rvizconfig" default="$(find diffbot_control)/rviz/diffbot.rviz" />
     <arg name="world_name" default="$(find diffbot_gazebo)/worlds/db_world.world"/>
@@ -12,6 +19,7 @@
 
     <include file="$(find diffbot_control)/launch/diffbot_control.launch">
         <arg name="model" value="$(arg model)" />
+        <arg name="ekf" value="$(arg ekf)" />
     </include>
 
 </launch>

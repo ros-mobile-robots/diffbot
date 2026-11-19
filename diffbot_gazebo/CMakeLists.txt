@@ -155,10 +155,10 @@ include_directories(
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
-# catkin_install_python(PROGRAMS
-#   scripts/my_python_script
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+catkin_install_python(PROGRAMS
+  scripts/imu_raw_adapter.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
@@ -235,4 +235,9 @@ if(CATKIN_ENABLE_TESTING)
   # the simulation's and the real robot's launch files load them, and that the controller's wheel
   # joints are in the URDF, each with a velocity interface (test/test_geometry_consistency.py)
   catkin_add_nosetests(test/test_geometry_consistency.py)
+  # The ekf switch in the launch files, both ways, without starting them
+  catkin_add_nosetests(test/test_ekf_switch.py)
+  # The same robots with the EKF and a wrong wheel separation (test/test_ekf.py)
+  add_rostest(test/sim_ekf_diffbot.test)
+  add_rostest(test/sim_ekf_remo.test)
 endif()

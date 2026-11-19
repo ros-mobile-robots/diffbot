@@ -55,24 +55,35 @@
   <exec_depend>gazebo_ros_control</exec_depend>
   <exec_depend>diffbot_control</exec_depend>
   <exec_depend>diffbot_description</exec_depend>
+  <!-- The simulated IMU's Gazebo plugin, libdiffbot_gazebo_ros_imu_sensor.so -->
+  <exec_depend>diffbot_gazebo_plugins</exec_depend>
   <exec_depend>xacro</exec_depend>
-  <!-- The video recorder (scripts/record_drive_video.sh). It also needs Xvfb, xauth and ffmpeg,
-       which the dev container installs. They aren't declared here, so the package doesn't
-       bring them to every computer that only simulates -->
+  <!-- scripts/imu_raw_adapter.py and the video recorder (scripts/record_drive_video.sh) -->
+  <exec_depend>rospy</exec_depend>
+  <!-- scripts/imu_raw_adapter.py -->
+  <exec_depend>sensor_msgs</exec_depend>
+  <!-- The video recorder. It also needs Xvfb, xauth and ffmpeg, which the dev container
+       installs. They aren't declared here, so the package doesn't bring them to every computer
+       that only simulates -->
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>rosgraph</exec_depend>
   <exec_depend>rosgraph_msgs</exec_depend>
   <exec_depend>roslaunch</exec_depend>
-  <exec_depend>rospy</exec_depend>
   <test_depend>rostest</test_depend>
-  <test_depend>rospy</test_depend>
   <test_depend>geometry_msgs</test_depend>
   <test_depend>gazebo_msgs</test_depend>
   <test_depend>nav_msgs</test_depend>
+  <!-- test_imu_reset.py calls /gazebo/reset_simulation, a std_srvs/Empty service -->
+  <test_depend>std_srvs</test_depend>
   <test_depend>tf</test_depend>
+  <test_depend>tf2_msgs</test_depend>
   <!-- test_geometry_consistency.py reads the real robot's launch file and the parameters as YAML -->
   <test_depend>diffbot_base</test_depend>
+  <!-- test_ekf_switch.py loads their launch files -->
+  <test_depend>diffbot_bringup</test_depend>
+  <test_depend>diffbot_navigation</test_depend>
+  <test_depend>diffbot_mbf</test_depend>
   <test_depend>python3-nose</test_depend>
   <test_depend>python3-yaml</test_depend>
   <!-- The Remo test also needs remo_description. It isn't declared here: it isn't a released ROS
