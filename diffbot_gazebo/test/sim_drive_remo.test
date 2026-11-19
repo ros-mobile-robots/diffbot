@@ -32,7 +32,7 @@
     <test test-name="drive_remo" pkg="diffbot_gazebo" type="test_drive.py" time-limit="180"/>
 
     <!-- The simulated IMU (test_imu.py): rate, frame, the orientation marked unavailable, gravity
-         at rest, and the yaw rate's sign in a left turn -->
+         and a yaw rate of about zero at rest, and a positive yaw rate in a left turn -->
     <test test-name="imu_remo" pkg="diffbot_gazebo" type="test_imu.py" time-limit="120"/>
 
     <!-- The simulated IMU after /gazebo/reset_simulation (test_imu_reset.py): samples with stamps
