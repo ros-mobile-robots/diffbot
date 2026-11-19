@@ -46,9 +46,11 @@ jobs:
       - name: Build the firmware
         run: .docker/firmware/run.sh pio run -e ${{ matrix.env }}
 
-  # The firmware's unit tests that run on the PC, without a Teensy (the native environment in
-  # platformio.ini), for example the BNO055 driver with a fake I2C bus. They run in the same
-  # firmware container as the builds, with a cache of their own for the native platform.
+  # The firmware's unit tests that run on the PC, without a Teensy, for example the BNO055 driver
+  # with a fake I2C bus. platformio.ini has one environment for each test framework: native runs
+  # the Unity suites and native_googletest the GoogleTest suites. Both build for PlatformIO's
+  # native platform, which the job's name stands for. They run in the same firmware container as
+  # the builds, with a cache of their own for the native platform.
   unit_tests:
     name: unit tests (native)
     runs-on: ubuntu-latest
@@ -64,5 +66,23 @@ jobs:
           key: pio-core-${{ runner.os }}-${{ runner.arch }}-native-${{ hashFiles('.docker/firmware/requirements.txt', 'diffbot_firmware/platformio.ini') }}
           restore-keys: |
             pio-core-${{ runner.os }}-${{ runner.arch }}-native-
+      # pio test also passes when no test of an environment passed, for example when PlatformIO
+      # finds no suite folder for it, or when every test is skipped. So the step has PlatformIO
+      # write its JSON report, which lists each suite with its environment (env_name) and each
+      # test case with its status. jq counts each environment's test cases with the status
+      # PASSED, and the step fails when one of the two environments has none.
       - name: Run the unit tests
-        run: .docker/firmware/run.sh pio test -e native
+        run: |
+          .docker/firmware/run.sh pio test -e native -e native_googletest \
+            --json-output-path .pio/unit-test-report.json
+          for environment in native native_googletest; do
+            passed="$(jq --arg environment "$environment" \
+              '[.test_suites[] | select(.env_name == $environment) | .test_cases[]
+                | select(.status == "PASSED")] | length' \
+              diffbot_firmware/.pio/unit-test-report.json)"
+            echo "$environment: $passed test cases passed"
+            if [ "$passed" -eq 0 ]; then
+              echo "::error::No test case of the environment $environment passed"
+              exit 1
+            fi
+          done
