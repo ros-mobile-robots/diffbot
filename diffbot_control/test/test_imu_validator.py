@@ -242,17 +242,20 @@ class TestSecondsSinceLastValidSample(ValidatorTestCase):
         self.assert_silence(SILENCE, later)
 
     def test_silence_keeps_growing_after_a_sample_at_ros_time_zero(self) -> None:
-        # A sample at the ROS time 0 leaves last_valid_arrival_time as it is. RECENT later, the
-        # silence counts from the valid sample's arrival at NOW
+        # A sample at the ROS time 0 leaves last_valid_arrival_time as it is. Its stamp is earlier
+        # than NOW, so that the silence would show it if the validator stored it. RECENT later,
+        # the silence counts from the valid sample's arrival at NOW
         self.assert_accepted(make_imu_sample(), NOW)
-        self.assert_rejected(imu_validator.DropReason.NO_CLOCK, make_imu_sample(), ROS_TIME_ZERO)
+        self.assert_rejected(imu_validator.DropReason.NO_CLOCK,
+                             make_imu_sample(NOW - seconds(SHORTLY_BEFORE)), ROS_TIME_ZERO)
         self.assert_silence(RECENT, NOW + seconds(RECENT))
 
     def test_silence_is_none_before_the_last_check_after_a_sample_at_ros_time_zero(self) -> None:
         # A sample at the ROS time 0 leaves last_checked_ros_time at NOW. So a ROS time 1 ms before
-        # NOW, but after 0, is a clock that went back
+        # NOW, but after 0 and after the sample's stamp, is a clock that went back
         self.assert_accepted(make_imu_sample(), NOW)
-        self.assert_rejected(imu_validator.DropReason.NO_CLOCK, make_imu_sample(), ROS_TIME_ZERO)
+        self.assert_rejected(imu_validator.DropReason.NO_CLOCK,
+                             make_imu_sample(NOW - seconds(SHORTLY_BEFORE)), ROS_TIME_ZERO)
         self.assertIsNone(self.validator.seconds_since_last_valid_sample(
             NOW - seconds(ONE_MILLISECOND)))
 
