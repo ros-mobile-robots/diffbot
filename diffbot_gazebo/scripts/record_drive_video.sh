@@ -40,7 +40,8 @@ readonly RATE=30
 # Simulation time (s) with the robot at rest, before and after the drive
 readonly PAD=0.5
 # The ROS master's and the Gazebo server's ports. Not the defaults (11311 and 11345), which a
-# simulation open in the dev container may use, nor the simulation tests' (11351 and 11352)
+# simulation open in the dev container may use, nor the simulation tests' Gazebo ports (11351 to
+# 11354, in test/sim_drive_*.test and test/sim_ekf_*.test)
 readonly ROS_PORT=11361
 readonly GAZEBO_PORT=11362
 # Wall time limits (s)
