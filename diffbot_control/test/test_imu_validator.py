@@ -9,6 +9,7 @@ reset.
 import math
 import os
 import sys
+from typing import Optional
 import unittest
 
 from diagnostic_msgs.msg import DiagnosticStatus
@@ -23,13 +24,30 @@ NOW = rospy.Time(100, 0)  # the ROS time of most checks
 FRAME = 'imu_link'
 MAX_AGE = 0.1  # s
 MAX_FUTURE = 0.02  # s
-# Just beyond the limits: 1 µs more than MAX_AGE and MAX_FUTURE
+# Steps between two times. A comment where a test uses a step says which condition it meets
+ONE_NANOSECOND = rospy.Duration(0, 1)  # the smallest step between two stamps
 ONE_MICROSECOND = 1e-6  # s
+ONE_MILLISECOND = 0.001  # s
+ONE_SECOND = 1.0  # s, more than MAX_AGE
+# Just beyond the limits: 1 µs more than MAX_AGE and MAX_FUTURE
 JUST_TOO_OLD = MAX_AGE + ONE_MICROSECOND  # s
 JUST_TOO_FAR_AHEAD = MAX_FUTURE + ONE_MICROSECOND  # s
-# For health(): 1 ms beyond the silence limit, a time well within it, and a number of new drops
-JUST_BEYOND = 0.001  # s
-RECENT = 0.1  # s since the last valid sample
+# Within MAX_AGE, so that check 4 lets a stamp this old through
+SHORTLY_BEFORE = MAX_AGE / 10  # s
+# More than MAX_FUTURE, so that check 4 rejects a stamp this far ahead
+FAR_AHEAD = 5.0  # s
+# With simulated time, the ROS time before the first message on /clock: the validator has no
+# clock
+ROS_TIME_ZERO = rospy.Time(0)
+# ROS times after the clock went back from NOW, neither of them 0: near 0 as after
+# /gazebo/reset_simulation, and a time that leaves room for a stamp ONE_SECOND before it
+RESTART_NEAR_ZERO = rospy.Time(0, 20000000)  # 0.02 s
+RESTART = rospy.Time(50, 0)
+# A time without valid samples, longer than ONE_SECOND plus MAX_AGE, with a fraction of a second
+# that a silence counted in whole seconds would lose
+SILENCE = 3.5  # s
+# A time since the last valid sample, well within the silence limit, and a number of new drops
+RECENT = 0.1  # s
 NEW_DROP_COUNT = 3
 
 # A sample like the firmware's: no orientation (REP 145: orientation_covariance[0] = -1), a left
@@ -47,8 +65,13 @@ YAW_RATE_VARIANCE_INDEX = 8  # z-z
 OFF_DIAGONAL_INDEX = 1  # x-y
 
 
-def sample(stamp: rospy.Time = NOW, frame_id: str = FRAME, yaw_rate: float = YAW_RATE) -> Imu:
-    """Return a valid sample, like the firmware's."""
+def make_imu_sample(stamp: rospy.Time = NOW, frame_id: str = FRAME,
+                    yaw_rate: float = YAW_RATE) -> Imu:
+    """Return an IMU sample like the firmware's, with defaults valid at NOW for a new validator.
+
+    Tests override stamp, frame_id or yaw_rate, or change a field of the returned message, to
+    build valid and invalid samples.
+    """
     message = Imu()
     message.header.stamp = stamp
     message.header.frame_id = frame_id
@@ -66,109 +89,132 @@ def seconds(value: float) -> rospy.Duration:
     return rospy.Duration.from_sec(value)
 
 
-class TestImuValidator(unittest.TestCase):
-    """Test validate_and_record(): None for a sample to forward, else the reason to drop it."""
+class ValidatorTestCase(unittest.TestCase):
+    """A new validator for each test, and assertions about its decision on one sample.
+
+    Each assertion calls drop_reason_or_record() once, as the node does for each sample. Only
+    for an accepted sample, the validator stores the sample's stamp in its attribute
+    last_valid_stamp and the ROS time of its arrival in last_valid_arrival_time.
+    """
 
     def setUp(self) -> None:
         self.validator = imu_validator.ImuValidator(FRAME, max_age=MAX_AGE, max_future=MAX_FUTURE)
 
-    def test_validator_forwards_valid_samples(self) -> None:
-        self.assertIsNone(self.validator.validate_and_record(sample(), NOW))
-        self.assertIsNone(self.validator.validate_and_record(sample(NOW + seconds(MAX_FUTURE)),
-                                                             NOW + seconds(MAX_FUTURE)))
+    def assert_accepted(self, message: Imu, now: rospy.Time, msg: Optional[str] = None) -> None:
+        """Assert that the validator accepts message at ROS time now: no drop reason."""
+        self.assertIsNone(self.validator.drop_reason_or_record(message, now), msg)
 
-    def test_validator_drops_a_sample_at_ros_time_zero(self) -> None:
-        # With simulated time, before the first /clock message
-        self.assertEqual(imu_validator.DropReason.NO_CLOCK,
-                         self.validator.validate_and_record(sample(), rospy.Time(0)))
+    def assert_rejected(self, reason: imu_validator.DropReason, message: Imu, now: rospy.Time,
+                        msg: Optional[str] = None) -> None:
+        """Assert that the validator rejects message at ROS time now, for reason."""
+        self.assertEqual(reason, self.validator.drop_reason_or_record(message, now), msg)
 
-    def test_validator_drops_a_sample_with_a_wrong_or_empty_frame(self) -> None:
+
+class TestImuValidator(ValidatorTestCase):
+    """Test which samples the validator accepts, and the reason for each one it rejects."""
+
+    def test_validator_accepts_valid_samples(self) -> None:
+        self.assert_accepted(make_imu_sample(), NOW)
+        self.assert_accepted(make_imu_sample(NOW + seconds(MAX_FUTURE)), NOW + seconds(MAX_FUTURE))
+
+    def test_validator_rejects_a_sample_at_ros_time_zero(self) -> None:
+        self.assert_rejected(imu_validator.DropReason.NO_CLOCK, make_imu_sample(), ROS_TIME_ZERO)
+
+    def test_validator_rejects_the_same_stamp_again_after_a_sample_at_ros_time_zero(self) -> None:
+        # A sample at the ROS time 0 returns NO_CLOCK before the clock check and leaves
+        # last_valid_stamp as it is. Its stamp is earlier than NOW, so that last_valid_stamp would
+        # show it if the validator stored it
+        self.assert_accepted(make_imu_sample(NOW), NOW)
+        self.assert_rejected(imu_validator.DropReason.NO_CLOCK,
+                             make_imu_sample(NOW - seconds(SHORTLY_BEFORE)), ROS_TIME_ZERO)
+        # The same stamp again, 1 ms after NOW: not before NOW, so this call's own clock check
+        # finds no clock that went back, and only the call at ROS_TIME_ZERO could have changed
+        # last_valid_stamp
+        self.assert_rejected(imu_validator.DropReason.NOT_NEWER, make_imu_sample(NOW),
+                             NOW + seconds(ONE_MILLISECOND))
+
+    def test_validator_rejects_a_sample_with_a_wrong_or_empty_frame(self) -> None:
         for frame_id in ('base_link', ''):
-            self.assertEqual(imu_validator.DropReason.WRONG_FRAME,
-                             self.validator.validate_and_record(sample(frame_id=frame_id), NOW),
-                             'frame "{}"'.format(frame_id))
+            self.assert_rejected(imu_validator.DropReason.WRONG_FRAME,
+                                 make_imu_sample(frame_id=frame_id), NOW,
+                                 'frame "{}"'.format(frame_id))
 
-    def test_validator_drops_a_sample_with_a_nan_or_infinite_value(self) -> None:
+    def test_validator_rejects_a_sample_with_a_nan_or_infinite_value(self) -> None:
         for value in (math.nan, math.inf, -math.inf):
-            message = sample()
+            message = make_imu_sample()
             message.angular_velocity.z = value
-            self.assertEqual(imu_validator.DropReason.NOT_FINITE,
-                             self.validator.validate_and_record(message, NOW),
-                             'angular velocity z = {}'.format(value))
-            message = sample()
+            self.assert_rejected(imu_validator.DropReason.NOT_FINITE, message, NOW,
+                                 'angular velocity z = {}'.format(value))
+            message = make_imu_sample()
             message.linear_acceleration.x = value
-            self.assertEqual(imu_validator.DropReason.NOT_FINITE,
-                             self.validator.validate_and_record(message, NOW),
-                             'linear acceleration x = {}'.format(value))
+            self.assert_rejected(imu_validator.DropReason.NOT_FINITE, message, NOW,
+                                 'linear acceleration x = {}'.format(value))
 
-    def test_validator_drops_a_sample_with_an_invalid_angular_velocity_covariance(self) -> None:
-        unavailable = sample()
+    def test_validator_rejects_a_sample_with_an_invalid_angular_velocity_covariance(self) -> None:
+        unavailable = make_imu_sample()
         unavailable.angular_velocity_covariance = list(ANGULAR_VELOCITY_UNAVAILABLE)
-        zero_variance = sample()
+        zero_variance = make_imu_sample()
         zero_variance.angular_velocity_covariance[YAW_RATE_VARIANCE_INDEX] = 0.0
-        nan_off_the_diagonal = sample()
+        nan_off_the_diagonal = make_imu_sample()
         nan_off_the_diagonal.angular_velocity_covariance[OFF_DIAGONAL_INDEX] = math.nan
         cases = (('marked unavailable', unavailable), ('a variance of zero', zero_variance),
                  ('NaN off the diagonal', nan_off_the_diagonal))
         for case, message in cases:
-            self.assertEqual(imu_validator.DropReason.INVALID_ANGULAR_VELOCITY_COVARIANCE,
-                             self.validator.validate_and_record(message, NOW), case)
+            self.assert_rejected(imu_validator.DropReason.INVALID_ANGULAR_VELOCITY_COVARIANCE,
+                                 message, NOW, case)
 
-    def test_validator_forwards_a_sample_max_age_old_and_drops_an_older_one(self) -> None:
-        self.assertIsNone(self.validator.validate_and_record(sample(NOW - seconds(MAX_AGE)), NOW))
-        self.assertEqual(
-            imu_validator.DropReason.TOO_OLD,
-            self.validator.validate_and_record(sample(NOW - seconds(JUST_TOO_OLD)), NOW))
+    def test_validator_accepts_a_sample_max_age_old_and_rejects_an_older_one(self) -> None:
+        self.assert_accepted(make_imu_sample(NOW - seconds(MAX_AGE)), NOW)
+        self.assert_rejected(imu_validator.DropReason.TOO_OLD,
+                             make_imu_sample(NOW - seconds(JUST_TOO_OLD)), NOW)
 
-    def test_validator_forwards_a_sample_max_future_ahead_and_drops_a_later_one(self) -> None:
-        self.assertEqual(
-            imu_validator.DropReason.FROM_THE_FUTURE,
-            self.validator.validate_and_record(sample(NOW + seconds(JUST_TOO_FAR_AHEAD)), NOW))
-        self.assertIsNone(
-            self.validator.validate_and_record(sample(NOW + seconds(MAX_FUTURE)), NOW))
+    def test_validator_accepts_a_sample_max_future_ahead_and_rejects_a_later_one(self) -> None:
+        self.assert_rejected(imu_validator.DropReason.FROM_THE_FUTURE,
+                             make_imu_sample(NOW + seconds(JUST_TOO_FAR_AHEAD)), NOW)
+        self.assert_accepted(make_imu_sample(NOW + seconds(MAX_FUTURE)), NOW)
 
-    def test_validator_drops_a_sample_not_later_than_the_last_valid_one(self) -> None:
-        self.assertIsNone(self.validator.validate_and_record(sample(NOW), NOW))
-        self.assertEqual(imu_validator.DropReason.NOT_NEWER,
-                         self.validator.validate_and_record(sample(NOW), NOW))
-        self.assertEqual(imu_validator.DropReason.NOT_NEWER,
-                         self.validator.validate_and_record(sample(NOW - seconds(0.01)), NOW))
-        self.assertIsNone(self.validator.validate_and_record(sample(NOW + rospy.Duration(0, 1)),
-                                                             NOW + seconds(0.001)))
+    def test_validator_rejects_a_sample_not_later_than_the_last_valid_one(self) -> None:
+        self.assert_accepted(make_imu_sample(NOW), NOW)
+        # The same stamp again
+        self.assert_rejected(imu_validator.DropReason.NOT_NEWER, make_imu_sample(NOW), NOW)
+        # An earlier stamp within MAX_AGE, so that check 5 drops it and not check 4
+        self.assert_rejected(imu_validator.DropReason.NOT_NEWER,
+                             make_imu_sample(NOW - seconds(SHORTLY_BEFORE)), NOW)
+        # The smallest later stamp is enough. The sample arrives 1 ms after NOW, after its stamp:
+        # an arrival before NOW would clear last_valid_stamp
+        self.assert_accepted(make_imu_sample(NOW + ONE_NANOSECOND),
+                             NOW + seconds(ONE_MILLISECOND))
 
-    def test_validator_forwards_a_new_sample_after_dropping_a_future_one(self) -> None:
-        # The order check compares with the last valid sample, not with a dropped one
-        self.assertIsNone(self.validator.validate_and_record(sample(NOW), NOW))
-        self.assertEqual(imu_validator.DropReason.FROM_THE_FUTURE,
-                         self.validator.validate_and_record(sample(NOW + seconds(5)), NOW))
-        self.assertIsNone(self.validator.validate_and_record(sample(NOW + seconds(MAX_FUTURE)),
-                                                             NOW + seconds(MAX_FUTURE)))
+    def test_validator_accepts_a_new_sample_after_rejecting_a_future_one(self) -> None:
+        # The order check compares with last_valid_stamp, the stamp of the last accepted sample,
+        # not with a rejected one's. The rejected stamp is later than the next valid one
+        self.assert_accepted(make_imu_sample(NOW), NOW)
+        self.assert_rejected(imu_validator.DropReason.FROM_THE_FUTURE,
+                             make_imu_sample(NOW + seconds(FAR_AHEAD)), NOW)
+        self.assert_accepted(make_imu_sample(NOW + seconds(MAX_FUTURE)), NOW + seconds(MAX_FUTURE))
 
-    def test_validator_forwards_new_samples_after_the_clock_goes_back(self) -> None:
-        # For example a reset of Gazebo's world: the clock and the stamps start again near 0.
+    def test_validator_accepts_a_stamp_once_after_the_clock_goes_back(self) -> None:
+        # For example after /gazebo/reset_simulation: the clock and the stamps start again near 0.
         # The order check starts over there, and works again from the first valid sample on
-        self.assertIsNone(self.validator.validate_and_record(sample(NOW), NOW))
-        restart = rospy.Time(0, 20000000)
-        self.assertIsNone(self.validator.validate_and_record(sample(restart), restart))
-        self.assertEqual(
-            imu_validator.DropReason.NOT_NEWER,
-            self.validator.validate_and_record(sample(restart), restart + seconds(0.001)))
+        self.assert_accepted(make_imu_sample(NOW), NOW)
+        self.assert_accepted(make_imu_sample(RESTART_NEAR_ZERO), RESTART_NEAR_ZERO)
+        # The same stamp again, 1 ms later
+        self.assert_rejected(imu_validator.DropReason.NOT_NEWER,
+                             make_imu_sample(RESTART_NEAR_ZERO),
+                             RESTART_NEAR_ZERO + seconds(ONE_MILLISECOND))
 
-    def test_validator_still_drops_old_and_future_samples_after_the_clock_goes_back(self) -> None:
-        self.assertIsNone(self.validator.validate_and_record(sample(NOW), NOW))
-        restart = rospy.Time(50, 0)
-        self.assertEqual(
-            imu_validator.DropReason.FROM_THE_FUTURE,
-            self.validator.validate_and_record(sample(NOW + seconds(MAX_FUTURE)), restart))
-        self.assertEqual(imu_validator.DropReason.TOO_OLD,
-                         self.validator.validate_and_record(sample(restart - seconds(1)), restart))
+    def test_validator_rejects_stamps_outside_time_limits_after_the_clock_goes_back(self) -> None:
+        self.assert_accepted(make_imu_sample(NOW), NOW)
+        # A stamp that was valid at NOW, ahead of RESTART by more than MAX_FUTURE
+        self.assert_rejected(imu_validator.DropReason.FROM_THE_FUTURE,
+                             make_imu_sample(NOW + seconds(MAX_FUTURE)), RESTART)
+        # More than MAX_AGE before RESTART
+        self.assert_rejected(imu_validator.DropReason.TOO_OLD,
+                             make_imu_sample(RESTART - seconds(ONE_SECOND)), RESTART)
 
 
-class TestSecondsSinceLastValidSample(unittest.TestCase):
+class TestSecondsSinceLastValidSample(ValidatorTestCase):
     """Test seconds_since_last_valid_sample(), the silence that the diagnostics report."""
-
-    def setUp(self) -> None:
-        self.validator = imu_validator.ImuValidator(FRAME, max_age=MAX_AGE, max_future=MAX_FUTURE)
 
     def assert_silence(self, expected: float, now: rospy.Time) -> None:
         """Assert that seconds_since_last_valid_sample(now) is about expected."""
@@ -181,49 +227,80 @@ class TestSecondsSinceLastValidSample(unittest.TestCase):
         self.assertIsNone(self.validator.seconds_since_last_valid_sample(NOW))
 
     def test_silence_is_the_time_since_the_last_valid_sample(self) -> None:
-        self.assertIsNone(self.validator.validate_and_record(sample(), NOW))
-        self.assert_silence(1.5, NOW + seconds(1.5))
+        # Stamped SHORTLY_BEFORE its arrival, so that a silence counted from the stamp differs from
+        # one counted from the arrival
+        self.assert_accepted(make_imu_sample(NOW - seconds(SHORTLY_BEFORE)), NOW)
+        self.assert_silence(SILENCE, NOW + seconds(SILENCE))
 
-    def test_silence_keeps_growing_while_samples_are_dropped(self) -> None:
-        self.assertIsNone(self.validator.validate_and_record(sample(), NOW))
-        later = NOW + seconds(3)
-        self.assertEqual(imu_validator.DropReason.TOO_OLD,
-                         self.validator.validate_and_record(sample(NOW + seconds(1)), later))
-        self.assert_silence(3.0, later)
+    def test_silence_keeps_growing_while_samples_are_rejected(self) -> None:
+        self.assert_accepted(make_imu_sample(), NOW)
+        later = NOW + seconds(SILENCE)
+        # Later than the accepted sample's stamp, which meets check 5's condition, but more than
+        # MAX_AGE before the ROS time later: check 4 rejects it as TOO_OLD before check 5 runs
+        self.assert_rejected(imu_validator.DropReason.TOO_OLD,
+                             make_imu_sample(NOW + seconds(ONE_SECOND)), later)
+        self.assert_silence(SILENCE, later)
+
+    def test_silence_keeps_growing_after_a_sample_at_ros_time_zero(self) -> None:
+        # A sample at the ROS time 0 leaves last_valid_arrival_time as it is. Its stamp is earlier
+        # than NOW, so that the silence would show it if the validator stored it. RECENT later,
+        # the silence counts from the valid sample's arrival at NOW
+        self.assert_accepted(make_imu_sample(), NOW)
+        self.assert_rejected(imu_validator.DropReason.NO_CLOCK,
+                             make_imu_sample(NOW - seconds(SHORTLY_BEFORE)), ROS_TIME_ZERO)
+        self.assert_silence(RECENT, NOW + seconds(RECENT))
+
+    def test_silence_is_none_before_the_last_check_after_a_sample_at_ros_time_zero(self) -> None:
+        # A sample at the ROS time 0 leaves last_checked_ros_time at NOW. So a ROS time 1 ms before
+        # NOW, but after 0 and after the sample's stamp, is a clock that went back
+        self.assert_accepted(make_imu_sample(), NOW)
+        self.assert_rejected(imu_validator.DropReason.NO_CLOCK,
+                             make_imu_sample(NOW - seconds(SHORTLY_BEFORE)), ROS_TIME_ZERO)
+        self.assertIsNone(self.validator.seconds_since_last_valid_sample(
+            NOW - seconds(ONE_MILLISECOND)))
 
     def test_silence_is_none_after_the_clock_goes_back_without_samples(self) -> None:
-        self.assertIsNone(self.validator.validate_and_record(sample(), NOW))
-        self.assertIsNone(self.validator.seconds_since_last_valid_sample(rospy.Time(50, 0)))
-        self.assertIsNone(self.validator.seconds_since_last_valid_sample(rospy.Time(55, 0)))
+        self.assert_accepted(make_imu_sample(), NOW)
+        self.assertIsNone(self.validator.seconds_since_last_valid_sample(RESTART))
+        # Still None while the clock goes on
+        self.assertIsNone(self.validator.seconds_since_last_valid_sample(
+            RESTART + seconds(SILENCE)))
 
-    def test_silence_is_none_after_the_clock_goes_back_a_little(self) -> None:
-        # The clock goes back by less than the time since the last valid sample: still no health
-        self.assertIsNone(self.validator.validate_and_record(sample(), NOW))
-        self.assert_silence(3.3, NOW + seconds(3.3))
-        self.assertIsNone(self.validator.seconds_since_last_valid_sample(NOW + seconds(0.2)))
-        self.assertIsNone(self.validator.seconds_since_last_valid_sample(NOW + seconds(1.0)))
+    def test_silence_is_none_after_the_clock_goes_back_less_than_the_silence(self) -> None:
+        # The clock goes back by less than the time since the last valid sample, to a ROS time
+        # at which that sample would be RECENT: the silence is None all the same, which health()
+        # reports as an error. Then the clock goes on
+        self.assert_accepted(make_imu_sample(), NOW)
+        self.assert_silence(SILENCE, NOW + seconds(SILENCE))
+        self.assertIsNone(self.validator.seconds_since_last_valid_sample(NOW + seconds(RECENT)))
+        self.assertIsNone(self.validator.seconds_since_last_valid_sample(
+            NOW + seconds(ONE_SECOND)))
 
-    def test_silence_is_none_when_a_dropped_sample_shows_the_clock_went_back(self) -> None:
-        self.assertIsNone(self.validator.validate_and_record(sample(), NOW))
-        self.assert_silence(3.0, NOW + seconds(3))
-        self.assertEqual(
-            imu_validator.DropReason.TOO_OLD,
-            self.validator.validate_and_record(sample(NOW - seconds(1)), NOW + seconds(0.2)))
-        self.assertIsNone(self.validator.seconds_since_last_valid_sample(NOW + seconds(0.3)))
+    def test_silence_is_none_when_a_rejected_sample_shows_the_clock_went_back(self) -> None:
+        self.assert_accepted(make_imu_sample(), NOW)
+        self.assert_silence(SILENCE, NOW + seconds(SILENCE))
+        # The clock goes back to NOW + RECENT. The sample's stamp is more than MAX_AGE older
+        self.assert_rejected(imu_validator.DropReason.TOO_OLD,
+                             make_imu_sample(NOW - seconds(ONE_SECOND)), NOW + seconds(RECENT))
+        # Later than the call at NOW + SILENCE, so that this call sees no clock that went back:
+        # only the rejected sample's clock check can have cleared last_valid_arrival_time
+        self.assertIsNone(self.validator.seconds_since_last_valid_sample(
+            NOW + seconds(SILENCE + ONE_SECOND)))
 
     def test_silence_restarts_with_the_first_valid_sample_after_the_clock_goes_back(self) -> None:
-        self.assertIsNone(self.validator.validate_and_record(sample(), NOW))
-        restart = rospy.Time(50, 0)
-        self.assertEqual(
-            imu_validator.DropReason.FROM_THE_FUTURE,
-            self.validator.validate_and_record(sample(NOW + seconds(MAX_FUTURE)), restart))
-        self.assertEqual(
-            imu_validator.DropReason.WRONG_FRAME,
-            self.validator.validate_and_record(sample(restart, frame_id='base_link'), restart))
-        self.assertIsNone(self.validator.seconds_since_last_valid_sample(restart + seconds(1)))
-        self.assertIsNone(self.validator.validate_and_record(sample(restart + seconds(2)),
-                                                             restart + seconds(2)))
-        self.assert_silence(0.5, restart + seconds(2.5))
+        self.assert_accepted(make_imu_sample(), NOW)
+        # Two samples that the validator rejects at RESTART: one with a stamp from before the
+        # clock went back, one with a wrong frame
+        self.assert_rejected(imu_validator.DropReason.FROM_THE_FUTURE,
+                             make_imu_sample(NOW + seconds(MAX_FUTURE)), RESTART)
+        self.assert_rejected(imu_validator.DropReason.WRONG_FRAME,
+                             make_imu_sample(RESTART, frame_id='base_link'), RESTART)
+        self.assertIsNone(self.validator.seconds_since_last_valid_sample(
+            RESTART + seconds(ONE_SECOND)))
+        # The first valid sample after the clock went back, later than the call before
+        first_valid = RESTART + seconds(SILENCE)
+        self.assert_accepted(make_imu_sample(first_valid), first_valid)
+        self.assert_silence(RECENT, first_valid + seconds(RECENT))
 
 
 class TestHealth(unittest.TestCase):
@@ -234,7 +311,7 @@ class TestHealth(unittest.TestCase):
 
     def test_health_is_ok_at_the_silence_limit_and_an_error_beyond_it(self) -> None:
         at_the_limit = imu_validator.health(imu_validator.SILENCE_LIMIT, 0)
-        beyond_the_limit = imu_validator.health(imu_validator.SILENCE_LIMIT + JUST_BEYOND, 0)
+        beyond_the_limit = imu_validator.health(imu_validator.SILENCE_LIMIT + ONE_MILLISECOND, 0)
         self.assertEqual(DiagnosticStatus.OK, at_the_limit.level, at_the_limit.message)
         self.assertEqual(DiagnosticStatus.ERROR, beyond_the_limit.level, beyond_the_limit.message)
 
@@ -248,7 +325,8 @@ class TestHealth(unittest.TestCase):
 
     def test_health_is_an_error_for_silence_also_with_new_drops(self) -> None:
         never = imu_validator.health(None, NEW_DROP_COUNT)
-        silent = imu_validator.health(imu_validator.SILENCE_LIMIT + JUST_BEYOND, NEW_DROP_COUNT)
+        silent = imu_validator.health(imu_validator.SILENCE_LIMIT + ONE_MILLISECOND,
+                                      NEW_DROP_COUNT)
         self.assertEqual(DiagnosticStatus.ERROR, never.level, never.message)
         self.assertEqual(DiagnosticStatus.ERROR, silent.level, silent.message)
 
