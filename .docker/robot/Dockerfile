@@ -2,22 +2,38 @@
 # a Raspberry Pi 4 B (arm64) with a current host OS, for example Ubuntu Server 24.04, and
 # Docker Engine. It also builds on amd64, for CI and for trying it on a PC.
 # Unlike the dev container (.devcontainer/noetic), it holds only what the robot runs, already
-# built: the hardware interface, the controllers, rosserial for the Teensy, the robot model and
-# the lidar driver. No Gazebo, no navigation, no desktop tools.
-# Build it from the repository's root folder (compose.yaml does the same):
+# built: the hardware interface, the controllers, rosserial for the Teensy, the robot models and
+# the lidar driver. No Gazebo and no navigation. RViz is in the image although the robot never
+# opens it: the robot models' packages declare it as a dependency, so rosdep installs it.
+# CI publishes it as ghcr.io/ros-mobile-robots/diffbot-robot (.github/workflows/robot_container.yml).
+# Build it from the repository's root folder, as compose.build.yaml does:
 #   docker build -f .docker/robot/Dockerfile -t diffbot-robot:noetic .
+
+# The two base images: each FROM line names a tag and, after the @, a digest, which is a
+# checksum of the image's content. Docker then downloads exactly that content, whatever the tag
+# points to by now. So CI's two builds, one per architecture, start from the same Ubuntu and ROS
+# files, also when one of them runs again later. Each digest is the one of the image's index,
+# the list with the image of each architecture, from which Docker picks its own. To move to
+# newer base images, replace each digest with the one that this command prints as "Digest":
+#   docker buildx imagetools inspect ubuntu:20.04
+#   docker buildx imagetools inspect ros:noetic-ros-base
 
 # Stage 1, named manifests (ROS calls a package.xml the package manifest): copy only the
 # package.xml files out of the repository, as the dev container does. The step that installs
 # the dependencies then reruns only when a package.xml changes, not on every code change.
-FROM ubuntu:20.04 AS manifests
+FROM ubuntu:20.04@sha256:8feb4d8ca5354def3d8fce243717141ce31e2c428701f6682bd2fafe15388214 AS manifests
 COPY . /src
 RUN mkdir /manifests \
     && cd /src \
     && find . -name package.xml -exec cp --parents {} /manifests \;
 
 # Stage 2: the official ROS image with ROS Noetic's base packages, for arm64 and amd64
-FROM ros:noetic-ros-base
+FROM ros:noetic-ros-base@sha256:72b8bc59035dc0a5b8e07aae28c16caa84192971d72d207c72ed734fb1d5e97d
+
+# The image's repository, which links the published package to it on GitHub, and what the image
+# is. CI adds the commit (org.opencontainers.image.revision).
+LABEL org.opencontainers.image.source=https://github.com/ros-mobile-robots/diffbot \
+      org.opencontainers.image.description="ROS Noetic and the robot's packages for DiffBot and Remo, for the robot's Raspberry Pi"
 
 # Let apt install packages without asking questions
 ENV DEBIAN_FRONTEND=noninteractive
@@ -44,9 +60,10 @@ RUN groupadd --gid $USER_GID $USERNAME \
 ARG PACKAGES="diffbot_bringup diffbot_base diffbot_control diffbot_description diffbot_msgs remo_description rplidar_ros"
 ENV DIFFBOT_PACKAGES=$PACKAGES
 
-# Fetch the other repositories with vcstool: remo_robot.repos has the lidar driver and Remo's
-# model. (diffbot_robot.repos would add the legacy camera driver, which this image can't use,
-# see #111.) The paths in the file start with src/. This layer reruns only when it changes.
+# Fetch the other repositories with vcstool: remo_robot.repos has the lidar driver, at one
+# commit, and Remo's model, at one version. (diffbot_robot.repos would add the legacy camera
+# driver, which this image can't use, see #111.) The paths in the file start with src/. This
+# layer reruns only when the file changes.
 USER $USERNAME
 WORKDIR /home/$USERNAME/catkin_ws
 COPY --chown=$USERNAME remo_robot.repos /tmp/robot.repos
