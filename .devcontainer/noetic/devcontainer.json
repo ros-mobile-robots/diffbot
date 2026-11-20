@@ -33,7 +33,7 @@
     "XAUTHORITY": "/home/ros/catkin_ws/src/diffbot/.devcontainer/noetic/.x11/xauth",
     "QT_XCB_NO_MITSHM": "1"
   },
-  // Run setup.sh once per new container: clone rplidar_ros and remo_description, install missing
+  // Run setup.sh once per new container: clone the repositories of diffbot_dev.repos, install missing
   // dependencies, build the workspace
   "postCreateCommand": "bash .devcontainer/noetic/setup.sh",
   "customizations": {

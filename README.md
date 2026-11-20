@@ -56,7 +56,7 @@ The full guide is on the documentation site: [Use the Dev Container](https://ros
   devcontainer exec --workspace-folder . --config .devcontainer/noetic/devcontainer.json bash
   ```
 
-Creating the container clones `rplidar_ros` and `remo_description`, installs missing dependencies with rosdep and builds the workspace in `~/catkin_ws`. Your clone of this repository is mounted at `~/catkin_ws/src/diffbot`, so edits on the host show up in the container. The container uses the host network to reach the robot.
+Creating the container clones `rplidar_ros`, `remo_description` and `robot_component_models`, installs missing dependencies with rosdep and builds the workspace in `~/catkin_ws`. Your clone of this repository is mounted at `~/catkin_ws/src/diffbot`, so edits on the host show up in the container. The container uses the host network to reach the robot.
 
 RViz and Gazebo open on the host's display. On Windows, WSLg needs no setup. On a native Linux desktop (X11 or Wayland with Xwayland), install `xauth` on the host (`sudo apt install xauth`): before the container starts, [`host-x11.sh`](./.devcontainer/noetic/host-x11.sh) copies your display's X11 cookie to `.devcontainer/noetic/.x11/` (ignored by Git), where the container reads it. So `xhost +` isn't needed.
 
