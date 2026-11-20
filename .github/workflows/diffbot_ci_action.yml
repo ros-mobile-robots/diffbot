@@ -20,12 +20,9 @@ jobs:
     strategy:
       matrix:
         env:
-          # One job. Noetic reached its end of life in May 2025, so industrial_ci installs its
-          # packages from Noetic's final snapshot (snapshots.ros.org/noetic/final) with ROS_REPO
-          # main as with testing, and a job with testing would install the same packages. For the
-          # same reason, industrial_ci logs that ROS_REPO main is superfluous. The matrix keeps
-          # ROS_REPO main, so the job's name stays industrial_ci (noetic, main), a check that the
-          # default branch requires
+          # One job: for end-of-life Noetic, ROS_REPO main and testing both install the packages of
+          # Noetic's final snapshot (snapshots.ros.org/noetic/final). The entry keeps ROS_REPO main
+          # because the default branch requires the check industrial_ci (noetic, main)
           - {ROS_DISTRO: noetic, ROS_REPO: main}
     env:
       CCACHE_DIR: /github/home/.ccache # Directory for ccache (and how we enable ccache in industrial_ci)
