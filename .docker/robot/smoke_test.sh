@@ -26,6 +26,16 @@ for model in remo diffbot; do
     echo "$model: $(grep -c '<link ' /tmp/$model.urdf) links"
 done
 
+echo "== The meshes of Remo's purchased parts are in the image"
+# remo_description loads them from robot_component_models with package:// URIs. xacro doesn't
+# open mesh files, so look for each file the expanded model names: it exists and isn't empty.
+uris=$(grep -o 'package://robot_component_models/[^"]*' /tmp/remo.urdf | sort -u)
+for uri in $uris; do
+    path="$(rospack find robot_component_models)/${uri#package://robot_component_models/}"
+    test -s "$path"
+    echo "$path"
+done
+
 echo "== roscore starts"
 roscore > /tmp/roscore.log 2>&1 &
 for i in $(seq 1 30); do rosparam get /rosdistro > /dev/null 2>&1 && break; sleep 1; done

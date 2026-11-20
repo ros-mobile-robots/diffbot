@@ -9,8 +9,9 @@ source /opt/ros/noetic/setup.bash
 cd ~/catkin_ws
 
 # Clone the other repositories listed in diffbot_dev.repos with vcstool into src (the paths in
-# the file start with src/): rplidar_ros and remo_description (its STL meshes are empty
-# placeholders, see its README). Folders that already exist are kept.
+# the file start with src/): rplidar_ros, remo_description (its STL meshes are empty
+# placeholders, see its README) and robot_component_models, which has the meshes of Remo's
+# purchased parts. Folders that already exist are kept.
 vcs import --skip-existing < src/diffbot/diffbot_dev.repos
 
 # Install dependencies of packages that were added since the image was built

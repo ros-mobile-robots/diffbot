@@ -9,5 +9,16 @@ repositories:
     # Pinned to one version of Remo's model instead of main. A new version reaches this workspace
     # and the diffbot repository's CI only through a pull request in the diffbot repository that
     # moves the pin, so the diffbot packages are tested with it first. diffbot_dev.repos and
-    # remo_robot.repos pin the same version. 2.5.0 has the xacro argument imu_plugin.
-    version: "2.5.0"
+    # remo_robot.repos pin the same version. During review, this is the head commit of
+    # remo_description #24, which takes the meshes of Remo's purchased parts from
+    # robot_component_models. Before this pull request merges, the pin becomes that change's
+    # release 2.8.0.
+    version: fc2d87fd33a4a69dd79cb13939f042d949f1ef02
+  src/robot_component_models:
+    type: git
+    # The URL with .git, as in the clone command of remo_description's README, so that vcstool
+    # accepts a clone made with that command. remo_description's model takes the meshes of
+    # Remo's purchased parts, such as the Raspberry Pi and the laser scanner, from this package.
+    # diffbot_dev.repos and remo_robot.repos pin the same release.
+    url: https://github.com/ros-mobile-robots/robot_component_models.git
+    version: "1.0.0"
