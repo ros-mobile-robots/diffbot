@@ -124,6 +124,11 @@ The first comment below tells history, and nobody can say what its "it" is. The 
 # Send the command repeatedly, so the controller doesn't stop the robot (see COMMAND_RATE)
 ```
 
+### READMEs
+
+- **What a README holds:** what its folder contains, how to build, run and test it, and the facts a contributor looks up while changing the code, such as which class is a port. A design or a feature is explained in one place, its page on ros-mobile-robots.com, and the README links that page's section instead of explaining it again.
+- **Links:** between two headings, link each destination once, at its first name. Later names for the same destination stay inline code.
+
 ### Tests
 
 - **Names:** a test's name says what the test checks, as a sentence: the subject, the observable result, then the condition, for example `test_bno055_startup_fails_at_the_reset_deadline_without_another_poll` or `test_imu_publisher_publishes_nothing_before_the_time_sync`. Omit the condition when none is needed to identify the behavior (`test_wire_bus_read_registers_uses_a_repeated_start`). The form follows the article [Naming standards for unit tests](https://osherove.com/blog/2005/4/3/naming-standards-for-unit-tests.html) (`MethodName_StateUnderTest_ExpectedBehavior`), with the result before the condition so that the name reads as a sentence. No numbers that put tests in an order (`test_1_…`), no name without a result (`test_counts`), and no name that claims more than the test checks. The older Python tests with short names, such as `test_forward`, keep them until their test changes. Then that test gets a name after this rule, without renaming the others.
