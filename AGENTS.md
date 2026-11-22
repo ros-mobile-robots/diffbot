@@ -126,7 +126,7 @@ The first comment below tells history, and nobody can say what its "it" is. The 
 
 ### READMEs
 
-- **What a README holds:** what its folder contains, how to build, run and test it, and the facts a contributor looks up while changing the code, such as which class is a port. A design or a feature is explained in one place, its page on ros-mobile-robots.com, and the README links that page's section instead of explaining it again.
+- **What a README holds:** what its folder contains, how to build, run and test it, and the facts a contributor looks up while changing the code, such as which type or function fills each role of ports and adapters. A design or a feature is explained in one place, its page on ros-mobile-robots.com, and the README links that page's section instead of explaining it again.
 - **Links:** between two headings, link each destination once, at its first name. Later names for the same destination stay inline code.
 
 ### Tests
@@ -233,7 +233,7 @@ The last line of the output is `checked … files`. The exit status (`echo $?`) 
 The C++ of this repository is in three places: `diffbot_base`, `diffbot_gazebo_plugins` and the firmware in `diffbot_firmware`.
 
 - **Include what you use:** every file includes the header of each name it uses itself, and doesn't rely on another header to bring it in. A header that can't be included alone stays behind its entry header with `// IWYU pragma: keep` and a comment that says why, as `ros/node_handle.h` in `diffbot_firmware/lib/imu/imu_publisher.h`, and `Arduino.h` and `Wire.h` in `diffbot_firmware/src/main.cpp`. [Check the includes](#check-the-includes) has the commands.
-- **The firmware's core:** it includes no Arduino, rosserial or vendor header, and its comments name no adapter. `diffbot_firmware/README.md` says which class is core, port and adapter.
+- **The firmware's core:** it includes no Arduino, rosserial or vendor header, and its comments name no adapter. `diffbot_firmware/README.md` lists the cores, their ports and the adapters used on the robot.
 - **Words:** a command is valid or invalid, and the firmware receives or drops it. Ports are primary and secondary.
 - **Unit tests:** Unity tests in `diffbot_firmware/test/<suite>/`, named as above: `void test_<subject>_<result>_<condition>()`. A package that gets GoogleTest tests names them `TEST(Subject, ResultCondition)`, with the same three parts.
 - **Final newline:** every file ends with one.
