@@ -127,7 +127,7 @@ The first comment below tells history, and nobody can say what its "it" is. The 
 ### READMEs
 
 - **What a README holds:** what its folder contains, how to build, run and test it, and the facts a contributor looks up while changing the code, such as which type or function fills each role of ports and adapters. A design or a feature is explained in one place, its page on ros-mobile-robots.com, and the README links that page's section instead of explaining it again.
-- **Links:** between two headings, link each destination once, at its first name. Later names for the same destination stay inline code.
+- **Links:** between two headings, link the first code name that points to each destination. Later code names for the same destination stay inline code. The source link before each excerpt stays.
 
 ### Tests
 
