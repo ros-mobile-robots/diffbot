@@ -81,7 +81,7 @@ archive_of() {
 digest_of() {
   local digest
   if ! digest=$(docker buildx imagetools inspect "$1" --format '{{json .Manifest}}' |
-    jq -er '.digest | strings | select(test("^sha256:[0-9a-f]{64}$"))'); then
+    jq -er '.digest | strings | select(test("^sha256:[0-9a-f]{64}\\z"))'); then
     fail "The registry gives no sha256 digest for $1"
   fi
   echo "$digest"
