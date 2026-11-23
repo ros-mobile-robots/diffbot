@@ -41,6 +41,8 @@ logs
 
 # Python
 *.pyc
+# mypy's cache, which the Python style check in AGENTS.md writes
+.mypy_cache/
 
 # OS X
 .DS_Store
