@@ -2,8 +2,9 @@
 # Tests which tags publish_image.sh writes for each answer of the registry, without a registry and
 # without the images. Stand-ins take the place of skopeo, docker and sleep: they answer the
 # script's reads with texts recorded from skopeo 1.13.3, and they note every write that the
-# script makes (skopeo copy, docker buildx imagetools create) instead of doing it. A copy is noted
-# when it succeeds in the stand-in: the test of a failed arm64 copy expects only the amd64 copy. git is the
+# script makes (skopeo copy, docker buildx imagetools create) instead of doing it. A copy is
+# noted when it succeeds in the stand-in: the test of a failed arm64 copy expects only the amd64
+# copy. git is the
 # real one, in a small history of its own, so that "noetic only moves forward" is tested with
 # git's own answers. CI runs the tests in the workflow Robot container, before it builds the image
 # (.github/workflows/robot_container.yml). To run them, with jq and git, in the repository's root:
@@ -502,12 +503,14 @@ test_publisher_writes_nothing_when_the_registry_gives_no_digest() {
 
 test_publisher_writes_nothing_when_a_digest_is_too_short() {
   run_publisher present VERSION_DIGEST=sha256:1234
-  assert_exit_code_and_writes 1 ""
+  assert_exit_code_and_writes 1 "" &&
+    assert_output_contains "The registry gives no sha256 digest for $VERSION"
 }
 
 test_publisher_writes_nothing_when_a_digest_ends_with_a_line_feed() {
   run_publisher present "VERSION_DIGEST=$INDEX_DIGEST"$'\n'
-  assert_exit_code_and_writes 1 ""
+  assert_exit_code_and_writes 1 "" &&
+    assert_output_contains "The registry gives no sha256 digest for $VERSION"
 }
 
 # A copy that fails stops the job before any tag of its own. The rerun publishes everything.
