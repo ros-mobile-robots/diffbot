@@ -51,8 +51,8 @@ namespace diffbot
      * - LogTimeout: a callable with no arguments that logs the timeout.
      *
      * The unit tests supply fake implementations of the secondary ports. The firmware's README
-     * (diffbot_firmware/README.md) explains the pattern and names the implementations used on
-     * the robot.
+     * (diffbot_firmware/README.md) lists the implementations used on the robot and links to the
+     * explanation of the pattern.
      *
      * @tparam Controller Implements the controller operations listed above
      * @tparam LogTimeout Implements the timeout log operation listed above
