@@ -20,7 +20,9 @@ jobs:
     strategy:
       matrix:
         env:
-          - {ROS_DISTRO: noetic, ROS_REPO: testing}
+          # One job: for end-of-life Noetic, ROS_REPO main and testing both install the packages of
+          # Noetic's final snapshot (snapshots.ros.org/noetic/final). The entry keeps ROS_REPO main
+          # because the default branch requires the check industrial_ci (noetic, main)
           - {ROS_DISTRO: noetic, ROS_REPO: main}
     env:
       CCACHE_DIR: /github/home/.ccache # Directory for ccache (and how we enable ccache in industrial_ci)
