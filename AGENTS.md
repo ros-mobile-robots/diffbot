@@ -156,7 +156,7 @@ constexpr uint32_t DEADLINE_MS = ARRIVAL_MS + TEST_TIMEOUT_MS;
 PEP 8 with the settings of ROS 2's `ament_flake8` (99 columns, google import order, one import per line, single quotes), and type hints on every function and method (`-> None` on tests) that mypy checks for Python 3.8, Noetic's version. `diffbot_gazebo/test/test_drive.py` and `test_geometry_consistency.py` follow it. A script keeps its logic in functions that a test can import.
 
 - **Which files:** every `.py` file of the repository passes flake8 and mypy. The files of dynamic_reconfigure in a package's `cfg` folder, such as `diffbot_base/cfg/Parameters.cfg`, are Python too, but they keep the layout of dynamic_reconfigure's generator: a star import and a table with aligned columns, which flake8 and mypy reject. Their names don't end in `.py`, so the two tools leave them out. `catkin build` runs such a file and fails on an error in it.
-- **The settings:** [`setup.cfg`](setup.cfg) in the repository's root holds them, for flake8 the settings of `ament_flake8` and for mypy Python 3.8 and type hints on every function. [`scripts/requirements-lint.txt`](scripts/requirements-lint.txt) pins flake8 with the eight plugins of `ament_flake8`, mypy 1.10.1 and the PyYAML type stubs.
+- **The settings:** [`setup.cfg`](setup.cfg) in the repository's root holds them, for flake8 the settings of `ament_flake8` and for mypy Python 3.8 and type hints on every function. [`scripts/requirements-lint.txt`](scripts/requirements-lint.txt) pins flake8 with its eight plugins, mypy 1.10.1 and the PyYAML type stubs.
 - **The environment:** a virtual environment of Python 3.11 or newer, the versions that the pinned flake8 installs on. The check was run with Python 3.11, 3.12 and 3.14. On Ubuntu, `python3 -m venv` needs the package `python3-venv`. Keep the environment outside the checkout, or the two tools check its Python files too. CI doesn't check the style yet (#117).
 
 On the PC, in the repository's root:
@@ -228,7 +228,7 @@ On the PC, in the repository's root. The paths of the files are relative to `dif
 ```
 
 - **clang-tidy:** the script installs clang-tidy 18.1.8 into `diffbot_firmware/.pio/clang-tidy` on its first run, and again when the version there is another one. PlatformIO's own `pio check` brings clang-tidy 15, which doesn't have the check.
-- **Exit status:** 0 when clang-tidy could read every file, also when it printed warnings. 1 when it failed on a file or the board's flags couldn't be found, and 2 for wrong arguments.
+- **Exit status:** 0 when clang-tidy could read every file, also when it printed warnings. 1 when it failed on a file, couldn't be installed or the board's flags couldn't be found, and 2 for wrong arguments and missing libraries.
 - **Your files:** PlatformIO writes the board's compile commands into a build folder of the check's own, `.pio/check-includes`. The board's build in `.pio/build` and a `compile_commands.json` of your own stay as they are.
 - **One board is enough today:** the firmware's own files have no code for one board only, and both boards give the same warnings. A file that gets such code is checked with both boards.
 - **In CI:** the workflow Firmware runs the script on the files of the two lines above, with each board, to see that it works with the toolchains. It doesn't check the files of a pull request yet (#117).

@@ -7,7 +7,9 @@ The firmware workflow runs them in the firmware container, in diffbot_firmware:
 import json
 import unittest
 
-from board_flags import BoardFlagsError, clang_flags, main_source_command
+from board_flags import BoardFlagsError
+from board_flags import clang_flags
+from board_flags import main_source_command
 
 # A compile command of the shape that PlatformIO writes for a Teensy 3.2, shortened. The include
 # folder of the rosserial library has spaces in its name, so the command quotes it.

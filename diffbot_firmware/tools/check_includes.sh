@@ -20,7 +20,8 @@
 #
 # Exit status: 0 when clang-tidy could read every file. Its warnings don't change the status,
 # because older files have some (AGENTS.md, "Check the includes", says which ones count). 1 when
-# clang-tidy failed on a file or the flags couldn't be found, 2 for wrong arguments.
+# clang-tidy failed on a file, couldn't be installed or the flags couldn't be found. 2 for wrong
+# arguments and when the environment's libraries are missing.
 set -euo pipefail
 
 readonly CLANG_TIDY_VERSION=18.1.8
@@ -88,8 +89,11 @@ install_clang_tidy() {
         return
     fi
     echo "Installing clang-tidy $CLANG_TIDY_VERSION into $CLANG_TIDY_ENV${installed:+, instead of $installed}"
-    python3 -m venv "$CLANG_TIDY_ENV"
-    "$CLANG_TIDY_ENV/bin/pip" install --quiet --force-reinstall "clang-tidy==$CLANG_TIDY_VERSION"
+    if ! python3 -m venv "$CLANG_TIDY_ENV" ||
+       ! "$CLANG_TIDY_ENV/bin/pip" install --quiet --force-reinstall "clang-tidy==$CLANG_TIDY_VERSION"; then
+        echo "error: clang-tidy $CLANG_TIDY_VERSION couldn't be installed into $CLANG_TIDY_ENV" >&2
+        exit 1
+    fi
 }
 
 # 2. The compiler flags of the unit tests on the PC: the native environment's
