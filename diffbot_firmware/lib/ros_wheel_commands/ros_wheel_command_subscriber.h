@@ -39,8 +39,8 @@ namespace diffbot
      * 3. Calls Receiver::receiveCommand() with both speeds and the receipt time in milliseconds.
      *
      * This class is a primary adapter: the callback calls WheelControl's primary port
-     * receiveCommand(). The firmware's README (diffbot_firmware/README.md) explains ports and
-     * adapters. The unit tests supply fakes for both template parameters.
+     * receiveCommand(). The firmware's README lists the adapters and links to the explanation of
+     * the pattern. The unit tests supply fakes for both template parameters.
      *
      * @tparam Receiver Provides receiveCommand(WheelCommand, uint32_t). WheelControl on the robot
      * @tparam Clock Provides millis(), the wrapping millisecond counter. ArduinoClock on the robot

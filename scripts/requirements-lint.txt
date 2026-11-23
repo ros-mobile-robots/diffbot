@@ -1,0 +1,25 @@
+# The Python style check of this repository, pinned: flake8 with its eight plugins and the
+# settings of ROS 2's ament_flake8, and mypy for the type hints. setup.cfg holds their settings. Install into a
+# virtual environment of Python 3.11 or newer (checked with 3.11, 3.12 and 3.14), outside the
+# checkout (AGENTS.md, Python):
+#   python3 -m venv ~/.venvs/diffbot-lint
+#   ~/.venvs/diffbot-lint/bin/pip install -r scripts/requirements-lint.txt
+flake8==7.5.0
+flake8-blind-except==0.2.1
+flake8-builtins==3.2.0
+flake8-class-newline==1.6.0
+flake8-comprehensions==3.17.0
+flake8-deprecated==2.4.0
+flake8-docstrings==1.7.0
+flake8-import-order==0.19.2
+flake8-quotes==3.4.0
+mccabe==0.7.0
+pycodestyle==2.15.0
+pydocstyle==6.3.0
+pyflakes==4.1.0
+snowballstemmer==3.1.1
+setuptools==84.2.1
+mypy==1.10.1
+mypy-extensions==1.2.0
+typing-extensions==4.16.0
+types-PyYAML==6.0.12.20240311

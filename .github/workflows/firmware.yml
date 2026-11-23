@@ -45,6 +45,12 @@ jobs:
             pio-core-${{ runner.os }}-${{ runner.arch }}-${{ matrix.env }}-
       - name: Build the firmware
         run: .docker/firmware/run.sh pio run -e ${{ matrix.env }}
+      # The include check (diffbot_firmware/tools/check_includes.sh) on a fixed source and header
+      # with this board's flags, to see that the script still works with the board's toolchain.
+      # Older warnings in the two files don't fail the step, only an error of clang-tidy. Checking
+      # the files that a pull request changes is #117.
+      - name: Run the include check on two board files
+        run: .docker/firmware/run.sh tools/check_includes.sh ${{ matrix.env }} src/main.cpp lib/base_controller/base_controller.h
 
   # The firmware's unit tests that run on the PC, without a Teensy, for example the BNO055 driver
   # with a fake I2C bus. platformio.ini has one environment for each test framework: native runs
@@ -86,3 +92,11 @@ jobs:
               exit 1
             fi
           done
+      # The unit tests of tools/board_flags.py, which turns PlatformIO's compile command into
+      # clang's flags for the include check
+      - name: Test the include check's flag helper
+        run: .docker/firmware/run.sh python3 -m unittest discover -s tools
+      # The include check on a fixed source and header with the unit tests' flags, as in the
+      # build jobs above
+      - name: Run the include check on two PC files
+        run: .docker/firmware/run.sh tools/check_includes.sh native test/test_bno055/test_bno055.cpp lib/imu/bno055.h
