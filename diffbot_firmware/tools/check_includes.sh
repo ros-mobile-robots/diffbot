@@ -173,41 +173,53 @@ board_flags() {
 
 # 3. The include folders for one file, one per line, for a board its own folder. For the PC
 #    tests, as pio test adds them (ConfigureTestTarget() in PlatformIO 6.2.0's piotest.py), in
-#    the order in which the compiler searches them:
-#    - A file of a suite, the innermost folder test_* below test, such as
-#      test/googletest/test_wire_bus/test_wire_bus.cpp: the suite's folder, then the folders
-#      above it up to the next enclosing suite's, the outermost first, such as test/googletest,
-#      then test. PlatformIO prepends each of them, which reverses the order of the folders
-#      above the suite. A header in the suite's folder comes before one of the same name in
-#      test/googletest.
-#    - Another file below test, such as test/fakes/fake_bno055.h: its own folder, then test,
-#      for the suites that include it.
-#    - Any other file: its own folder, then the project's test folder.
-#    A path with a folder test outside diffbot_firmware's own, such as the samples in
-#    tools/include_check_samples/test, gets the same folders below that one.
+#    the order in which the compiler searches them. The test folder is the first folder named
+#    test in the file's path, test itself for the firmware's files and
+#    tools/include_check_samples/test for the samples. Below it:
+#    - A file of a suite, whose suite is the innermost folder test_* below the test folder, such
+#      as test/googletest/test_wire_bus/test_wire_bus.cpp: the suite's folder, then the
+#      grouping folders above it up to the next enclosing suite's, the outermost first, such as
+#      test/googletest, then the test folder. PlatformIO prepends each of them, which reverses
+#      the order of the grouping folders. A header in the suite's folder comes before one of
+#      the same name in test/googletest.
+#    - A shared file in no suite, such as test/fakes/fake_bno055.h: the grouping folders down to
+#      its own, the outermost first, then the test folder, as a suite below them gets them.
+#    - A file outside the test folder: its own folder, then the project's test folder.
 file_folders() {
-    local env=$1 file=$2 root=test suite folder
-    local -a above=()
+    local env=$1 file=$2 root='' suite='' path='' part folder
+    local -a parts above=()
     if [[ $env != native* ]]; then
         echo "-I$(dirname "$file")"
         return
     fi
-    if [[ $file =~ ^((.*/)?test)/ ]]; then
-        root=${BASH_REMATCH[1]}
+    IFS=/ read -r -a parts <<< "$(dirname "$file")"
+    for part in "${parts[@]}"; do
+        path=${path:+$path/}$part
+        if [ -z "$root" ]; then
+            if [ "$part" = test ]; then
+                root=$path
+            fi
+        elif [[ $part == test_* ]]; then
+            suite=$path
+        fi
+    done
+    if [ -z "$root" ]; then
+        echo "-I$(dirname "$file")"
+        echo "-Itest"
+        return
     fi
-    if [[ $file =~ ^((.*/)?test)/(([^/]+/)*test_[^/]+)/ ]]; then
-        suite=$root/${BASH_REMATCH[3]}
+    if [ -n "$suite" ]; then
         echo "-I$suite"
         folder=$(dirname "$suite")
-        while [ "$folder" != "$root" ] && [[ $(basename "$folder") != test_* ]]; do
-            above=("-I$folder" "${above[@]}")
-            folder=$(dirname "$folder")
-        done
-        if [ "${#above[@]}" -gt 0 ]; then
-            printf '%s\n' "${above[@]}"
-        fi
     else
-        echo "-I$(dirname "$file")"
+        folder=$(dirname "$file")
+    fi
+    while [ "$folder" != "$root" ] && [[ $(basename "$folder") != test_* ]]; do
+        above=("-I$folder" "${above[@]}")
+        folder=$(dirname "$folder")
+    done
+    if [ "${#above[@]}" -gt 0 ]; then
+        printf '%s\n' "${above[@]}"
     fi
     echo "-I$root"
 }
