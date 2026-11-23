@@ -100,3 +100,6 @@ jobs:
       # build jobs above
       - name: Run the include check on two PC files
         run: .docker/firmware/run.sh tools/check_includes.sh native test/test_bno055/test_bno055.cpp lib/imu/bno055.h
+      # The same check on the GoogleTest suite, with the flags of its environment native_googletest
+      - name: Run the include check on the GoogleTest suite
+        run: .docker/firmware/run.sh tools/check_includes.sh native_googletest test/googletest/test_wire_bus/test_wire_bus.cpp

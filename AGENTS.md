@@ -217,13 +217,15 @@ catkin build diffbot_base diffbot_gazebo_plugins --cmake-args -DCMAKE_EXPORT_COM
 
 **The firmware**, in the firmware container, with the script [`diffbot_firmware/tools/check_includes.sh`](diffbot_firmware/tools/check_includes.sh). Build both boards and run the unit tests first ([Commands](#commands)), so that PlatformIO has downloaded the libraries. The script's first argument is the PlatformIO environment whose compiler flags clang-tidy gets:
 
-- **`native`:** for the files that build on the PC: the libraries without Arduino, `test/fakes` and the `test_*` suites.
+- **`native`:** for the files that build on the PC: the libraries without Arduino, `test/fakes` and the Unity suites `test_*`.
+- **`native_googletest`:** for the GoogleTest suites in `test/googletest/test_*`.
 - **`teensy31` or `teensy40`:** for the board-only files: `src/main.cpp`, the libraries that use Arduino (`base_controller`, `config`, `encoder`, `motor_controllers`) and the tests that run on a Teensy. The script takes the flags that PlatformIO compiles `src/main.cpp` with, because that command names every include folder of the firmware.
 
 On the PC, in the repository's root. The paths of the files are relative to `diffbot_firmware`:
 
 ```bash
 .docker/firmware/run.sh tools/check_includes.sh native test/test_bno055/test_bno055.cpp lib/imu/bno055.h
+.docker/firmware/run.sh tools/check_includes.sh native_googletest test/googletest/test_wire_bus/test_wire_bus.cpp
 .docker/firmware/run.sh tools/check_includes.sh teensy31 src/main.cpp lib/base_controller/base_controller.h
 ```
 
@@ -231,7 +233,7 @@ On the PC, in the repository's root. The paths of the files are relative to `dif
 - **Exit status:** 0 when clang-tidy could read every file, also when it printed warnings. 1 when it failed on a file, couldn't be installed or the board's flags couldn't be found, and 2 for wrong arguments and missing libraries.
 - **Your files:** PlatformIO writes the board's compile commands into a build folder of the check's own, `.pio/check-includes`. The board's build in `.pio/build` and a `compile_commands.json` of your own stay as they are.
 - **One board is enough today:** the firmware's own files have no code for one board only, and both boards give the same warnings. A file that gets such code is checked with both boards.
-- **In CI:** the workflow Firmware runs the script on the files of the two lines above, with each board, to see that it works with the toolchains. It doesn't check the files of a pull request yet (#117).
+- **In CI:** the workflow Firmware runs the script on the files of the three lines above, the board line with each board, to see that it works with the toolchains. It doesn't check the files of a pull request yet (#117).
 
 ### Launch files, shell scripts and workflows
 

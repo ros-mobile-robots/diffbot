@@ -3,16 +3,19 @@
 # misc-include-cleaner and the compiler flags of one PlatformIO environment. It runs in the
 # firmware container, in diffbot_firmware. From the repository's root:
 #   .docker/firmware/run.sh tools/check_includes.sh native test/test_bno055/test_bno055.cpp
+#   .docker/firmware/run.sh tools/check_includes.sh native_googletest \
+#     test/googletest/test_wire_bus/test_wire_bus.cpp
 #   .docker/firmware/run.sh tools/check_includes.sh teensy31 src/main.cpp
 # native is for the files that build on the PC: the libraries without Arduino, test/fakes and the
-# test_* suites. teensy31 and teensy40 are for the board-only files: src/main.cpp, the libraries
-# that use Arduino and the tests that run on a Teensy.
+# Unity suites test_*. native_googletest is for the GoogleTest suites in test/googletest. teensy31
+# and teensy40 are for the board-only files: src/main.cpp, the libraries that use Arduino and the
+# tests that run on a Teensy.
 #
 # Steps:
 #   1. Check the arguments and that the environment's libraries are there. Install clang-tidy into
 #      .pio/clang-tidy on the first run, and again when the version there isn't the pinned one.
-#   2. Collect the environment's compiler flags: for native the flags of the unit tests, for a
-#      board the flags that PlatformIO compiles src/main.cpp with, and what the board's GCC knows
+#   2. Collect the environment's compiler flags: for native and native_googletest the flags of
+#      their unit tests, for a board the flags that PlatformIO compiles src/main.cpp with, and what the board's GCC knows
 #      by itself and clang doesn't. PlatformIO writes the board's compile commands into a build
 #      folder of the check's own, .pio/check-includes, so the board's build and a
 #      compile_commands.json of one's own stay as they are.
@@ -45,7 +48,7 @@ readonly TOOLS_DIR
 compile_flags=()
 
 usage() {
-    echo "Usage: $0 {native|teensy31|teensy40} FILE..."
+    echo "Usage: $0 {native|native_googletest|teensy31|teensy40} FILE..."
     echo "Checks the includes of each FILE with clang-tidy's misc-include-cleaner, in diffbot_firmware."
 }
 
@@ -54,7 +57,7 @@ check_arguments() {
     local env=$1 file
     shift
     case "$env" in
-        native | teensy31 | teensy40) ;;
+        native | native_googletest | teensy31 | teensy40) ;;
         *)
             echo "error: unknown environment: $env" >&2
             usage >&2
@@ -73,7 +76,8 @@ check_arguments() {
     done
     if [ ! -d ".pio/libdeps/$env" ]; then
         echo "error: .pio/libdeps/$env is missing. Build the board or run the unit tests first:" >&2
-        echo "  pio run -e teensy31, pio run -e teensy40 or pio test -e native" >&2
+        echo "  pio run -e teensy31, pio run -e teensy40, pio test -e native" >&2
+        echo "  or pio test -e native_googletest" >&2
         exit 2
     fi
 }
@@ -96,14 +100,21 @@ install_clang_tidy() {
     fi
 }
 
-# 2. The compiler flags of the unit tests on the PC: the native environment's
-native_flags() {
-    local dir
-    compile_flags=(-std=c++17 -Wall -DUNIT_TEST -Itest -I.pio/libdeps/native/Unity/src
-                   '-I.pio/libdeps/native/Rosserial Arduino Library/src')
+# 2. The compiler flags of the unit tests on the PC, for the environment native or
+#    native_googletest: the same standard and folders, and the include folders of the
+#    environment's libraries
+pc_test_flags() {
+    local env=$1 dir
+    compile_flags=(-std=c++17 -Wall -DUNIT_TEST -Itest)
     for dir in lib/*/; do
         compile_flags+=("-I${dir%/}")
     done
+    if [ "$env" = native ]; then
+        compile_flags+=(-I.pio/libdeps/native/Unity/src
+                        '-I.pio/libdeps/native/Rosserial Arduino Library/src')
+    else
+        compile_flags+=(-I.pio/libdeps/native_googletest/googletest/googletest/include)
+    fi
 }
 
 # 2. The compiler flags of a board
@@ -176,8 +187,8 @@ main() {
     shift
     check_arguments "$env" "$@"
     install_clang_tidy
-    if [ "$env" = native ]; then
-        native_flags
+    if [ "$env" = native ] || [ "$env" = native_googletest ]; then
+        pc_test_flags "$env"
     else
         board_flags "$env"
     fi
