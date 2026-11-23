@@ -110,7 +110,8 @@ jobs:
       # those folders with the outermost first, shared_source.cpp the folder test,
       # grouped_source.cpp a shared file's grouping folders with the outermost first,
       # inner_case.cpp no enclosing suite's folder, and details_case.cpp its suite and the test
-      # folder found through a folder named test inside the suite. These seven have to pass.
+      # folder found through a folder named test inside the suite. These seven have to pass,
+      # order_case.cpp also by its absolute path.
       # unity_header.cpp and rosserial_header.cpp have to pass with native, and fail with the
       # status 1 with native_googletest, which has neither library.
       - name: Check the include check's flags for GoogleTest suites
@@ -124,6 +125,10 @@ jobs:
             "$samples/test/googletest/deep/grouped_source.cpp" \
             "$samples/test/googletest/test_include_order/test/details_case.cpp" \
             "$samples/test/googletest/test_outer/test_inner/inner_case.cpp"
+          # order_case.cpp once more by its absolute path in the container, which the container's
+          # shell expands from $PWD
+          .docker/firmware/run.sh bash -c "tools/check_includes.sh native_googletest \
+            \"\$PWD/$samples/test/googletest/test_include_order/cases/order_case.cpp\""
           .docker/firmware/run.sh tools/check_includes.sh native \
             "$samples/unity_header.cpp" "$samples/rosserial_header.cpp"
           for sample in unity_header rosserial_header; do
