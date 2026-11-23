@@ -6,8 +6,8 @@
 # the lidar driver. No Gazebo and no navigation. RViz is in the image although the robot never
 # opens it: the robot models' packages declare it as a dependency, so rosdep installs it.
 # CI publishes it as ghcr.io/ros-mobile-robots/diffbot-robot (.github/workflows/robot_container.yml).
-# Build it from the repository's root folder, as compose.build.yaml does:
-#   docker build -f .docker/robot/Dockerfile -t diffbot-robot:noetic .
+# Build it from the repository's root folder, under the name that compose.build.yaml gives it:
+#   docker build -f .docker/robot/Dockerfile -t diffbot-robot:local .
 
 # The two base images: each FROM line names a tag and, after the @, a digest, which is a
 # checksum of the image's content. Docker then downloads exactly that content, whatever the tag
@@ -32,6 +32,7 @@ FROM ros:noetic-ros-base@sha256:72b8bc59035dc0a5b8e07aae28c16caa84192971d72d207c
 
 # The image's repository, which links the published package to it on GitHub, and what the image
 # is. CI adds the commit (org.opencontainers.image.revision).
+# publish_image.sh gives the published index this description too
 LABEL org.opencontainers.image.source=https://github.com/ros-mobile-robots/diffbot \
       org.opencontainers.image.description="ROS Noetic and the robot's packages for DiffBot and Remo, for the robot's Raspberry Pi"
 

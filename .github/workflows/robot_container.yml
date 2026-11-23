@@ -3,6 +3,8 @@
 # test needs no hardware; a test on the real robot is still needed after a change.
 # On noetic-devel, the publish job then publishes the tested images to GitHub's container
 # registry as ghcr.io/ros-mobile-robots/diffbot-robot, for the robot to download.
+# It is a workflow of its own because it runs only when the image's inputs change, needs a runner
+# of each architecture, and is the only workflow that may write packages.
 
 name: Robot container
 
@@ -75,6 +77,16 @@ jobs:
       # The template that users copy to .env must give a valid configuration
       - name: Check the settings template
         run: docker compose --env-file .docker/robot/env.example -f .docker/robot/compose.yaml config --quiet
+      # With the template's settings and without ROBOT_IMAGE, both services run the published
+      # image, the one that a robot downloads on its first start
+      - name: Check the image that the robot downloads
+        run: |
+          cd .docker/robot
+          images=$(env -u ROBOT_IMAGE docker compose --env-file env.example --profile lidar \
+            -f compose.yaml config --format json |
+            jq -c '{bringup: .services.bringup.image, lidar: .services.lidar.image}')
+          expected='{"bringup":"ghcr.io/ros-mobile-robots/diffbot-robot:noetic","lidar":"ghcr.io/ros-mobile-robots/diffbot-robot:noetic"}'
+          test "$images" = "$expected"
       # A build of one's own must never be planned under the published image's name. ROBOT_IMAGE
       # is set to that name here, every profile is on, so that the lidar service counts too, and
       # the two files are combined in both orders. The names that a build can give an image are
@@ -101,7 +113,7 @@ jobs:
       - name: Build the robot image
         run: >-
           docker build -f .docker/robot/Dockerfile -t diffbot-robot:noetic
-          --label org.opencontainers.image.revision=${{ github.sha }} .
+          --label "org.opencontainers.image.revision=$GITHUB_SHA" .
       - name: Smoke test, without hardware
         run: >-
           docker run --rm
@@ -154,6 +166,8 @@ jobs:
       github.ref == 'refs/heads/noetic-devel' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-24.04
+    # A copy that hangs would hold the queue of publications. A publication takes a few minutes.
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -163,10 +177,12 @@ jobs:
       group: robot-image-publish
       queue: max
     steps:
-      # The whole history, so that noetic only moves forward
+      # The whole history, so that noetic only moves forward. The token stays out of git's settings:
+      # this job's token may write packages, and git doesn't need it after the checkout.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: robot-image-*

@@ -11,6 +11,9 @@
 services:
   robot-image:
     image: diffbot-robot:local
+    # The service exists to be built, never to run: up starts no container of it, also when a
+    # command names both files
+    scale: 0
     build:
       # The repository's root folder, whose files the Dockerfile copies into the image
       context: ../..

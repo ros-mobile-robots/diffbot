@@ -29,10 +29,10 @@ cp env.example .env        # then edit .env: the robot model, the lidar, the ROS
 docker compose up -d       # download the image if needed, start the bringup in the background
 docker compose logs -f     # follow the output. Ctrl+C stops following, the robot keeps running
 docker compose down        # stop
-docker compose pull --policy always && docker compose up -d   # update the image
+git pull && docker compose pull --policy always && docker compose up -d   # update the files and the image
 ```
 
-`compose.yaml` only runs an image and never builds one, so a failed download is an error. To run your own changes, build the image on the robot with `docker compose -f compose.build.yaml build`. The build gets a name of its own, `diffbot-robot:local`, never the published image's name. Then set `ROBOT_IMAGE=diffbot-robot:local` in `.env` and start the build with `docker compose up -d --pull never`. Remove the line again to go back to the published image.
+`compose.yaml` only runs an image and never builds one, so a failed download is an error. To run your own changes, build the image on the robot with `docker compose -f compose.build.yaml build`. The build gets a name of its own, `diffbot-robot:local`, never the published image's name. Then set `ROBOT_IMAGE=diffbot-robot:local` in `.env` and start that image with `docker compose up -d --pull never`. Remove the line again to go back to the published image.
 
 [`env.example`](env.example) explains each setting. The ROS master runs in one of two places:
 

@@ -2,7 +2,7 @@
 #   docker compose up -d      # download the image if needed, start the bringup in the background
 #   docker compose logs -f    # follow its output (Ctrl+C stops following, not the robot)
 #   docker compose down       # stop and remove the containers
-#   docker compose pull --policy always && docker compose up -d   # update the image
+#   git pull && docker compose pull --policy always && docker compose up -d   # update
 # Settings come from a .env file in this folder: copy env.example, which explains each one:
 #   ROBOT_MODEL     remo (default) or diffbot
 #   COMPOSE_PROFILES=lidar          starts the lidar too. Only together with ROS_MASTER_URI, the

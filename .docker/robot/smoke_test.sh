@@ -6,7 +6,7 @@
 # starts its two controllers. It can't show that the Teensy or the lidar work: no test here talks
 # to a device, and the lidar driver isn't started. To run it in a container of the image, from
 # the repository's root:
-#   docker run --rm -v "$PWD/.docker/robot/smoke_test.sh:/smoke_test.sh:ro" diffbot-robot:noetic bash /smoke_test.sh
+#   docker run --rm -v "$PWD/.docker/robot/smoke_test.sh:/smoke_test.sh:ro" diffbot-robot:local bash /smoke_test.sh
 set -eo pipefail
 
 echo "== The packages are found"
