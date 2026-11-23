@@ -25,7 +25,7 @@ A sample is published only after a read that succeeded and took at most `read_bu
 | [`imu_publisher.h`](imu_publisher.h) | The rate, the checks above and the message |
 | [`imu_config.h`](imu_config.h) | The publisher's settings, as one typed value |
 
-The unit tests run all four on the PC, with a fake sensor, Wire library, serial port and clock, and rosserial's own parser: `.docker/firmware/run.sh pio test -e native`, from the repository's root, runs [`test/test_bno055`](../../test/test_bno055), [`test_wire_bus`](../../test/test_wire_bus), [`test_synced_node_handle`](../../test/test_synced_node_handle) and [`test_imu_publisher`](../../test/test_imu_publisher). They check the logic, not the hardware: the bench checks below are still needed.
+The unit tests run all four on the PC, with a fake sensor, Wire library, serial port and clock, and rosserial's own parser: `.docker/firmware/run.sh pio test -e native -e native_googletest`, from the repository's root, runs [`test/test_bno055`](../../test/test_bno055), [`test/googletest/test_wire_bus`](../../test/googletest/test_wire_bus), [`test_synced_node_handle`](../../test/test_synced_node_handle) and [`test_imu_publisher`](../../test/test_imu_publisher). They check the logic, not the hardware: the bench checks below are still needed.
 
 ## The fusion mode
 

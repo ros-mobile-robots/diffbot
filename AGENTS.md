@@ -46,10 +46,10 @@ Without a display, Gazebo runs headless in the tests. Expect about a minute per 
 ```bash
 .docker/firmware/run.sh pio run -e teensy31   # DiffBot's Teensy 3.2. Ends with [SUCCESS]
 .docker/firmware/run.sh pio run -e teensy40   # Remo's Teensy 4.0. Ends with [SUCCESS]
-.docker/firmware/run.sh pio test -e native    # the unit tests on the PC. Ends with "… test cases: … succeeded"
+.docker/firmware/run.sh pio test -e native -e native_googletest   # the unit tests on the PC. Ends with "… test cases: … succeeded"
 ```
 
-Or install PlatformIO on the PC with its installer script or in a virtual environment (CONTRIBUTING.md shows both), not with `pip` into the system Python, and run `pio run -e teensy31 && pio run -e teensy40` and `pio test -e native` in `diffbot_firmware`.
+Or install PlatformIO on the PC with its installer script or in a virtual environment (CONTRIBUTING.md shows both), not with `pip` into the system Python, and run `pio run -e teensy31 && pio run -e teensy40` and `pio test -e native -e native_googletest` in `diffbot_firmware`.
 
 **The checks of the code's style**, each with the place where it runs:
 
@@ -131,7 +131,7 @@ The first comment below tells history, and nobody can say what its "it" is. The 
 
 ### Tests
 
-- **Names:** a test's name says what the test checks, as a sentence: the subject, the observable result, then the condition, for example `test_bno055_startup_fails_at_the_reset_deadline_without_another_poll` or `test_imu_publisher_publishes_nothing_before_the_time_sync`. Omit the condition when none is needed to identify the behavior (`test_wire_bus_read_registers_uses_a_repeated_start`). The form follows the article [Naming standards for unit tests](https://osherove.com/blog/2005/4/3/naming-standards-for-unit-tests.html) (`MethodName_StateUnderTest_ExpectedBehavior`), with the result before the condition so that the name reads as a sentence. No numbers that put tests in an order (`test_1_…`), no name without a result (`test_counts`), and no name that claims more than the test checks. The older Python tests with short names, such as `test_forward`, keep them until their test changes. Then that test gets a name after this rule, without renaming the others.
+- **Names:** a test's name says what the test checks, as a sentence: the subject, the observable result, then the condition, for example `test_bno055_startup_fails_at_the_reset_deadline_without_another_poll` or `test_imu_publisher_publishes_nothing_before_the_time_sync`. Omit the condition when none is needed to identify the behavior (`test_bno055_read_skips_the_reserved_register`). The form follows the article [Naming standards for unit tests](https://osherove.com/blog/2005/4/3/naming-standards-for-unit-tests.html) (`MethodName_StateUnderTest_ExpectedBehavior`), with the result before the condition so that the name reads as a sentence. No numbers that put tests in an order (`test_1_…`), no name without a result (`test_counts`), and no name that claims more than the test checks. The older Python tests with short names, such as `test_forward`, keep them until their test changes. Then that test gets a name after this rule, without renaming the others.
 - **One behavior per test:** several cases of one behavior can share a test. Loop over them and put the case into the assertion's message. Don't rely on `subTest` in tests that nose or rostest runs: nose stops at the first failing case without naming it, and rostest's result file doesn't record the failure. Cases that all have to run, whatever the others do, get a test each.
 - **No order between tests:** a scenario whose steps need each other is one test that calls named phases (`check_…()` methods) in order, and the class's docstring says why.
 - **Helpers:** a helper that asserts is called `assert_…` and says the case in its message. A helper that returns a value doesn't assert.
@@ -177,7 +177,7 @@ The C++ of this repository is in three places: `diffbot_base`, `diffbot_gazebo_p
 - **Include what you use:** every file includes the header of each name it uses itself, and doesn't rely on another header to bring it in. A header that can't be included alone stays behind its entry header with `// IWYU pragma: keep` and a comment that says why, as `ros/node_handle.h` in `diffbot_firmware/lib/imu/imu_publisher.h`, and `Arduino.h` and `Wire.h` in `diffbot_firmware/src/main.cpp`. [Check the includes](#check-the-includes) has the commands.
 - **The firmware's core:** it includes no Arduino, rosserial or vendor header, and its comments name no adapter. `diffbot_firmware/README.md` lists the cores, their ports and the adapters used on the robot.
 - **Words:** a command is valid or invalid, and the firmware receives or drops it. Ports are primary and secondary.
-- **Unit tests:** Unity tests in `diffbot_firmware/test/<suite>/`, named as above: `void test_<subject>_<result>_<condition>()`. A package that gets GoogleTest tests names them `TEST(Subject, ResultCondition)`, with the same three parts.
+- **Unit tests:** the firmware's unit tests use two frameworks, each with its own PlatformIO environment. The Unity suites are in `diffbot_firmware/test/test_*/` (`native`), named as above: `void test_<subject>_<result>_<condition>()`. The GoogleTest suites are in `diffbot_firmware/test/googletest/test_*/` (`native_googletest`). A new test of the firmware's core is a GoogleTest suite, as `diffbot_firmware/README.md` says. GoogleTest writes the same three parts without underscores, `TEST(Subject, ResultCondition)` or, with a fixture, `TEST_F(WireBusTest, WriteRegisterFailsWhenTheAddressIsNotAcknowledged)`. Another package that gets GoogleTest tests names them the same way.
 - **Final newline:** every file ends with one.
 
 The first version below compiles only because `bno055.h` happens to include `i2c_bus.h`. The second one, as in `diffbot_firmware/test/fakes/fake_bno055.h`, names the header of each name it uses:
@@ -217,21 +217,23 @@ catkin build diffbot_base diffbot_gazebo_plugins --cmake-args -DCMAKE_EXPORT_COM
 
 **The firmware**, in the firmware container, with the script [`diffbot_firmware/tools/check_includes.sh`](diffbot_firmware/tools/check_includes.sh). Build both boards and run the unit tests first ([Commands](#commands)), so that PlatformIO has downloaded the libraries. The script's first argument is the PlatformIO environment whose compiler flags clang-tidy gets:
 
-- **`native`:** for the files that build on the PC: the libraries without Arduino, `test/fakes` and the `test_*` suites.
+- **`native`:** for the files that build on the PC: the libraries without Arduino, `test/fakes` and the Unity suites `test_*`.
+- **`native_googletest`:** for the GoogleTest suites in `test/googletest/test_*`. For both PC environments, the script gives clang-tidy the definitions and include folders that `pio test` compiles a suite with, and the test folders in PlatformIO's order: a suite's own folder, the folders above it up to the next suite's with the outermost first, then `test`. A shared file in no suite, such as a fake in `test/fakes`, gets the grouping folders down to its own, the outermost first, then `test`. For `native`, it leaves out the Unity configuration that `pio test` generates, `unity_config.h`.
 - **`teensy31` or `teensy40`:** for the board-only files: `src/main.cpp`, the libraries that use Arduino (`base_controller`, `config`, `encoder`, `motor_controllers`) and the tests that run on a Teensy. The script takes the flags that PlatformIO compiles `src/main.cpp` with, because that command names every include folder of the firmware.
 
 On the PC, in the repository's root. The paths of the files are relative to `diffbot_firmware`:
 
 ```bash
 .docker/firmware/run.sh tools/check_includes.sh native test/test_bno055/test_bno055.cpp lib/imu/bno055.h
+.docker/firmware/run.sh tools/check_includes.sh native_googletest test/googletest/test_wire_bus/test_wire_bus.cpp
 .docker/firmware/run.sh tools/check_includes.sh teensy31 src/main.cpp lib/base_controller/base_controller.h
 ```
 
 - **clang-tidy:** the script installs clang-tidy 18.1.8 into `diffbot_firmware/.pio/clang-tidy` on its first run, and again when the version there is another one. PlatformIO's own `pio check` brings clang-tidy 15, which doesn't have the check.
-- **Exit status:** 0 when clang-tidy could read every file, also when it printed warnings. 1 when it failed on a file, couldn't be installed or the board's flags couldn't be found, and 2 for wrong arguments and missing libraries.
+- **Exit status:** 0 when clang-tidy could read every file, also when it printed warnings. 1 when it failed on a file, couldn't be installed or the flags couldn't be found, and 2 for wrong arguments and a missing library folder, `.pio/libdeps/<environment>`.
 - **Your files:** PlatformIO writes the board's compile commands into a build folder of the check's own, `.pio/check-includes`. The board's build in `.pio/build` and a `compile_commands.json` of your own stay as they are.
 - **One board is enough today:** the firmware's own files have no code for one board only, and both boards give the same warnings. A file that gets such code is checked with both boards.
-- **In CI:** the workflow Firmware runs the script on the files of the two lines above, with each board, to see that it works with the toolchains. It doesn't check the files of a pull request yet (#117).
+- **In CI:** the workflow Firmware runs the script on the files of the three lines above, the board line with each board, to see that it works with the toolchains. For `native_googletest`, it also checks the samples in `tools/include_check_samples`: one that needs GoogleMock and PlatformIO's definitions for a test build, six for the order of the test folders, and two that include Unity and rosserial, which pass with `native` and have to fail with `native_googletest`. It doesn't check the files of a pull request yet (#117).
 
 ### Launch files, shell scripts and workflows
 

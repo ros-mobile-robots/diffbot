@@ -12,7 +12,7 @@ namespace diffbot
      * @brief \ref I2cBus on the Arduino Wire library, for the Teensy.
      *
      * A template on the Wire class (TwoWire on the Teensy), so that the native unit tests run it
-     * with a fake one, without the Arduino core (test/test_wire_bus).
+     * with a fake one, without the Arduino core (test/googletest/test_wire_bus).
      */
     template <class Wire>
     class WireBusT : public I2cBus
