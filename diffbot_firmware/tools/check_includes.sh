@@ -170,24 +170,39 @@ board_flags() {
     compile_flags+=("-I.pio/libdeps/$board/Unity/src" -UUNITY_INCLUDE_CONFIG_H)
 }
 
-# 3. The include folders for one file, one per line. For a file of a test suite on the PC, as
-#    pio test adds them: the suite's folder, such as test/googletest/test_wire_bus, then each
-#    folder above it up to test. PlatformIO searches them in this order, so a header in the
-#    suite's folder comes before one of the same name in test/googletest. For another file,
-#    its own folder.
+# 3. The include folders for one file, one per line, for a board its own folder. For the PC
+#    tests, as pio test adds them (ConfigureTestTarget() in PlatformIO 6.2.0's piotest.py), in
+#    the order in which the compiler searches them:
+#    - A file of a suite, the innermost folder test_* below test, such as
+#      test/googletest/test_wire_bus/test_wire_bus.cpp: the suite's folder, then each folder
+#      above it that isn't another suite's, such as test/googletest, then test. A header in
+#      the suite's folder comes before one of the same name in test/googletest.
+#    - Another file below test, such as test/fakes/fake_bno055.h: its own folder, then test,
+#      for the suites that include it.
+#    - Any other file: its own folder, then the project's test folder.
+#    A path with a folder test outside diffbot_firmware's own, such as the samples in
+#    tools/include_check_samples/test, gets the same folders below that one.
 file_folders() {
-    local env=$1 file=$2 root folder
-    if [[ $env == native* && $file =~ ^((.*/)?test)/(([^/]+/)*test_[^/]+)/ ]]; then
+    local env=$1 file=$2 root=test suite folder
+    if [[ $env != native* ]]; then
+        echo "-I$(dirname "$file")"
+        return
+    fi
+    if [[ $file =~ ^((.*/)?test)/ ]]; then
         root=${BASH_REMATCH[1]}
-        folder=$root/${BASH_REMATCH[3]}
-        while [ "$folder" != "$root" ]; do
+    fi
+    if [[ $file =~ ^((.*/)?test)/(([^/]+/)*test_[^/]+)/ ]]; then
+        suite=$root/${BASH_REMATCH[3]}
+        echo "-I$suite"
+        folder=$(dirname "$suite")
+        while [ "$folder" != "$root" ] && [[ $(basename "$folder") != test_* ]]; do
             echo "-I$folder"
             folder=$(dirname "$folder")
         done
-        echo "-I$root"
     else
         echo "-I$(dirname "$file")"
     fi
+    echo "-I$root"
 }
 
 # 3. clang-tidy on each file. The status is 1 if it failed on one of them.
