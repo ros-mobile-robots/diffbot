@@ -10,10 +10,12 @@
 #
 # Steps:
 #   1. Check the arguments and that the environment's libraries are there. Install clang-tidy into
-#      .pio/clang-tidy on the first run.
+#      .pio/clang-tidy on the first run, and again when the version there isn't the pinned one.
 #   2. Collect the environment's compiler flags: for native the flags of the unit tests, for a
 #      board the flags that PlatformIO compiles src/main.cpp with, and what the board's GCC knows
-#      by itself and clang doesn't.
+#      by itself and clang doesn't. PlatformIO writes the board's compile commands into a build
+#      folder of the check's own, .pio/check-includes, so the board's build and a
+#      compile_commands.json of one's own stay as they are.
 #   3. Run clang-tidy on each file, a header with -x c++-header in front of the flags.
 #
 # Exit status: 0 when clang-tidy could read every file. Its warnings don't change the status,
@@ -25,8 +27,9 @@ readonly CLANG_TIDY_VERSION=18.1.8
 readonly CLANG_TIDY_ENV=.pio/clang-tidy
 readonly CLANG_TIDY=$CLANG_TIDY_ENV/bin/clang-tidy
 readonly BOARD_GCC=/pio-core/packages/toolchain-gccarmnoneeabi-teensy/bin/arm-none-eabi-g++
-# PlatformIO writes a board's compile commands here, in diffbot_firmware
-readonly DATABASE=compile_commands.json
+# The check's own build folder. A build folder of its own keeps PlatformIO from cleaning the
+# board's build in .pio/build, which it does when the build settings change.
+readonly CHECK_BUILD_DIR=.pio/check-includes
 # The headers behind the entry headers unity.h, Arduino.h and Wire.h. A name from one of them
 # counts as included when the file includes the entry header.
 readonly IGNORED_HEADERS='unity.*;core_pins.h;WireKinetis.h;WireIMXRT.h'
@@ -39,8 +42,6 @@ readonly TOOLS_DIR
 
 # The flags for clang-tidy, which step 2 fills
 compile_flags=()
-# Where step 2 keeps a compile_commands.json that was there before, until the exit
-saved_database=''
 
 usage() {
     echo "Usage: $0 {native|teensy31|teensy40} FILE..."
@@ -77,12 +78,18 @@ check_arguments() {
 }
 
 install_clang_tidy() {
+    local installed=''
     if [ -x "$CLANG_TIDY" ]; then
+        # The line "LLVM version 18.1.8" of clang-tidy --version
+        installed=$("$CLANG_TIDY" --version 2> /dev/null | awk '/LLVM version/ {print $3}') ||
+            installed=''
+    fi
+    if [ "$installed" = "$CLANG_TIDY_VERSION" ]; then
         return
     fi
-    echo "Installing clang-tidy $CLANG_TIDY_VERSION into $CLANG_TIDY_ENV (once)"
+    echo "Installing clang-tidy $CLANG_TIDY_VERSION into $CLANG_TIDY_ENV${installed:+, instead of $installed}"
     python3 -m venv "$CLANG_TIDY_ENV"
-    "$CLANG_TIDY_ENV/bin/pip" install --quiet "clang-tidy==$CLANG_TIDY_VERSION"
+    "$CLANG_TIDY_ENV/bin/pip" install --quiet --force-reinstall "clang-tidy==$CLANG_TIDY_VERSION"
 }
 
 # 2. The compiler flags of the unit tests on the PC: the native environment's
@@ -95,31 +102,21 @@ native_flags() {
     done
 }
 
-# Puts back the compile_commands.json that was there before step 2, or removes PlatformIO's.
-# The compile commands aren't committed.
-restore_database() {
-    rm -f "$DATABASE"
-    if [ -n "$saved_database" ]; then
-        mv "$saved_database" "$DATABASE"
-    fi
-}
-
 # 2. The compiler flags of a board
 board_flags() {
-    local board=$1 flags version multilib sysroot cxx
-    # 2.1 PlatformIO's compile commands for the board, written anew. A compile_commands.json
-    #     that was there before comes back at the exit, also after an error.
-    if [ -e "$DATABASE" ]; then
-        saved_database=$(mktemp)
-        mv "$DATABASE" "$saved_database"
-    fi
-    trap restore_database EXIT
-    if ! pio run -e "$board" -t compiledb > /dev/null; then
+    local board=$1 database=$CHECK_BUILD_DIR/$1/compile_commands.json flags version multilib
+    local sysroot cxx
+    # 2.1 PlatformIO's compile commands for the board, written anew into the check's build folder.
+    #     compiledb_path.py tells PlatformIO to write them there instead of into diffbot_firmware.
+    rm -f "$database"
+    if ! PLATFORMIO_BUILD_DIR=$CHECK_BUILD_DIR \
+         PLATFORMIO_EXTRA_SCRIPTS="pre:$TOOLS_DIR/compiledb_path.py" \
+         pio run -e "$board" -t compiledb > /dev/null; then
         echo "error: PlatformIO wrote no compile commands for $board" >&2
         exit 1
     fi
     # 2.2 The flags of the command for src/main.cpp that clang understands (board_flags.py)
-    if ! flags=$(python3 "$TOOLS_DIR/board_flags.py" "$DATABASE"); then
+    if ! flags=$(python3 "$TOOLS_DIR/board_flags.py" "$database"); then
         exit 1
     fi
     mapfile -t compile_flags <<< "$flags"
