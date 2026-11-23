@@ -185,6 +185,11 @@ board_flags() {
 #    - A shared file in no suite, such as test/fakes/fake_bno055.h: the grouping folders down to
 #      its own, the outermost first, then the test folder, as a suite below them gets them.
 #    - A file outside the test folder: its own folder, then the project's test folder.
+#    The rule follows PlatformIO 6.2.0. When PlatformIO's version changes
+#    (.docker/firmware/requirements.txt), compare it with ConfigureTestTarget() again: the
+#    samples in tools/include_check_samples check this function, not PlatformIO.
+#    A path is taken relative to diffbot_firmware first, so that an absolute path or one that
+#    starts with ./ gets the same folders.
 file_folders() {
     local env=$1 file=$2 root='' suite='' path='' part folder
     local -a parts above=()
@@ -192,6 +197,7 @@ file_folders() {
         echo "-I$(dirname "$file")"
         return
     fi
+    file=$(realpath -m --relative-to=. "$file")
     IFS=/ read -r -a parts <<< "$(dirname "$file")"
     for part in "${parts[@]}"; do
         path=${path:+$path/}$part

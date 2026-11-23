@@ -110,8 +110,9 @@ jobs:
       # those folders with the outermost first, shared_source.cpp the folder test,
       # grouped_source.cpp a shared file's grouping folders with the outermost first,
       # inner_case.cpp no enclosing suite's folder, and details_case.cpp its suite and the test
-      # folder found through a folder named test inside the suite. These seven have to pass. unity_header.cpp and rosserial_header.cpp have to pass with native, and fail with
-      # the status 1 with native_googletest, which has neither library.
+      # folder found through a folder named test inside the suite. These seven have to pass.
+      # unity_header.cpp and rosserial_header.cpp have to pass with native, and fail with the
+      # status 1 with native_googletest, which has neither library.
       - name: Check the include check's flags for GoogleTest suites
         run: |
           samples=tools/include_check_samples
