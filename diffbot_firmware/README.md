@@ -23,19 +23,7 @@ The firmware files land in `.pio/build/<board>/` in this folder, for example `fi
 
 ## Ports and adapters
 
-The firmware is moving to Alistair Cockburn's [ports and adapters](https://alistair.cockburn.us/hexagonal-architecture/) structure, also called hexagonal architecture ([#148](https://github.com/ros-mobile-robots/diffbot/issues/148)). It separates the logic from the libraries and the hardware, so that the unit tests can run the logic on a PC. [Ports and adapters](https://ros-mobile-robots.com/packages/diffbot_base/low-level/#ports-and-adapters) on ros-mobile-robots.com shows it in diagrams.
-
-- The **core** contains the logic that we want to test independently. The firmware's portable core includes no Arduino, rosserial or vendor library headers.
-- A **port** defines an interaction across the core's boundary: the functions, their arguments and their required behavior. A port can be ordinary public functions, such as `WheelControl`'s `receiveCommand()` and `step()`. A secondary port can also be an abstract class, such as `I2cBus`, or requirements on a template argument, such as `Controller`.
-- An **adapter** connects a port to a particular environment, such as ROS, Arduino, a motor driver or a test harness.
-
-The two kinds of ports differ in who calls whom:
-
-| | Primary port | Secondary port |
-|:--|:--|:--|
-| Who calls the functions | an adapter | the core |
-| Who implements the functions | the core | an adapter |
-| Other names | driving, inbound | driven, outbound |
+The firmware's portable parts follow Alistair Cockburn's [ports and adapters](https://alistair.cockburn.us/hexagonal-architecture/) pattern, also called hexagonal architecture. It separates the logic from the libraries and the hardware, so that the unit tests can run the logic on a PC. A core includes no Arduino, rosserial or vendor library header. [Ports and adapters](https://ros-mobile-robots.com/packages/diffbot_base/low-level/#ports-and-adapters) on ros-mobile-robots.com explains the core, the two kinds of ports and the adapters, and how the firmware uses them.
 
 Where the firmware stands today:
 
@@ -44,7 +32,7 @@ Where the firmware stands today:
 | [`WheelControl`](lib/wheel_control/wheel_control.h) | `receiveCommand()`: [`RosWheelCommandSubscriber`](lib/ros_wheel_commands/ros_wheel_command_subscriber.h)<br>`step()`: `loop()` in [`main.cpp`](src/main.cpp) | `Controller`: [`BaseController`](lib/base_controller/base_controller.h)<br>`LogTimeout`: `RosTimeoutLogger` in [`main.cpp`](src/main.cpp) |
 | [`Bno055`](lib/imu/bno055.h), the portable sensor driver | `update()`, `read()`, `restart()`, `state()`: [`ImuPublisher`](lib/imu/imu_publisher.h) | [`I2cBus`](lib/imu/i2c_bus.h): [`WireBusT`](lib/imu/wire_bus.h) |
 
-`main.cpp` creates the objects and connects them. `CommandTimeout` is internal to `WheelControl` and has no separate port across this boundary. `BaseController` supplies the `Controller` operations, and also contains PID logic and dependencies on rosserial, the encoder library and the motor library. The work planned in [#148](https://github.com/ros-mobile-robots/diffbot/issues/148) separates those responsibilities.
+`main.cpp` creates the objects and connects them. `CommandTimeout` is internal to `WheelControl` and has no separate port across this boundary. `BaseController` supplies the `Controller` operations, and also contains PID logic and dependencies on rosserial, the encoder library and the motor library. An issue plans [the firmware's new structure for the ROS 2 branch](https://github.com/ros-mobile-robots/diffbot/issues/148), which separates those responsibilities. The firmware on `noetic-devel` keeps rosserial and gets fixes of today's code.
 
 ## More
 
