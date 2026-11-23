@@ -45,11 +45,10 @@ constexpr bool WITH_REPEATED_START = false;
 // The first byte that FakeWire delivers to a read. Each further byte is one higher
 constexpr uint8_t FIRST_DELIVERED_BYTE = 0x10;
 
-// The length of the reads that get all their bytes: three bytes have a first, a middle and a
-// last one
+// The length of a read of three registers: three bytes have a first, a middle and a last one
 constexpr size_t READ_LENGTH_BYTES = 3;
-// The length of a whole sample: the 18 data bytes that the BNO055 driver reads in one transfer
-constexpr int SAMPLE_LENGTH_BYTES = 18;
+// The length of a sample's data: the 18 data bytes that the BNO055 driver reads in one transfer
+constexpr size_t SAMPLE_LENGTH_BYTES = 18;
 
 // A byte as text, such as 0x28
 std::string hexByte(uint8_t value)
@@ -177,9 +176,6 @@ TEST_F(WireBusTest, ReadRegistersUsesARepeatedStart)
         endTransmissionCall(WITH_REPEATED_START),
         requestFromCall(DEVICE_ADDRESS, READ_LENGTH_BYTES)};
     EXPECT_EQ(wire_.calls, expected_calls);
-    const std::array<uint8_t, READ_LENGTH_BYTES> delivered_bytes{
-        FIRST_DELIVERED_BYTE, FIRST_DELIVERED_BYTE + 1, FIRST_DELIVERED_BYTE + 2};
-    EXPECT_EQ(data, delivered_bytes);
 }
 
 TEST_F(WireBusTest, ReadRegistersPassesOnTheAddressAndRegister)

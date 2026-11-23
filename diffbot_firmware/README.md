@@ -7,7 +7,7 @@ The firmware for the robots' Teensy microcontroller: it reads the wheel encoders
 | [`src`](src) | `main.cpp`: the control loop |
 | [`lib`](lib) | The wheel control, command timeout, base controller, encoders, motor driver, IMU, PID, configuration, and the rosserial message headers in `ros_lib` |
 | [`test`](test) | Unit tests that run on the PC: Unity suites in `test_*`, GoogleTest suites in `googletest/test_*`, and fakes for the hardware in `fakes`. Also checks that run on the Teensy |
-| [`tools`](tools) | The include check of the C++ files, `check_includes.sh`, with its helpers for a board's compiler flags, the tests of the flag helper, and samples that CI checks the include check's flags for the PC tests with. The repository's [AGENTS.md](../AGENTS.md#check-the-includes) says how to run it |
+| [`tools`](tools) | The include check of the C++ files, `check_includes.sh`, with its helpers for a board's compiler flags, the tests of the flag helper, and samples with which CI checks the flags that the include check uses for the PC tests. The repository's [AGENTS.md](../AGENTS.md#check-the-includes) says how to run it |
 | [`sketches`](sketches) | Older Arduino sketches: the encoders alone over rosserial, the same with the BNO055 IMU, and a check of the encoders by hand |
 
 Build the firmware for your robot's Teensy in the firmware's container, [`.docker/firmware`](../.docker/firmware). It needs only Docker. Our script [`.docker/firmware/run.sh`](../.docker/firmware/run.sh) builds the image and runs a command in the container as your user, here PlatformIO's `pio`. From the repository's root folder, run the line for your robot:
@@ -23,7 +23,7 @@ The unit tests use two frameworks, and [`platformio.ini`](platformio.ini) has an
 
 | Framework | Suites | Environment | Used for |
 |:--|:--|:--|:--|
-| [Unity](https://github.com/ThrowTheSwitch/Unity), which can also run on a Teensy | [`test/test_*`](test) | `native` | The tests of the rosserial code, and the suites of the core that are still written for Unity |
+| [Unity](https://github.com/ThrowTheSwitch/Unity), which can also run on a Teensy | `test/test_*` | `native` | The tests of the rosserial code, and the suites of the core that are still written for Unity |
 | [GoogleTest](https://google.github.io/googletest/), which PlatformIO offers for the PC and not for a Teensy | [`test/googletest/test_*`](test/googletest) | `native_googletest` | New tests of the core. A Unity suite of the core moves here when its code changes |
 
 [`test/googletest/test_wire_bus`](test/googletest/test_wire_bus/test_wire_bus.cpp) shows the pattern for a GoogleTest suite: a fixture for what the tests share, and a parameterized test for a test that runs with several values. [Write a GoogleTest suite](https://ros-mobile-robots.com/development/firmware-unit-tests/#write-a-googletest-suite) on ros-mobile-robots.com walks through a new suite, from a first file with one test to the fixture and the parameterized test.

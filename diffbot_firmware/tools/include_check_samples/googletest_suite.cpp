@@ -11,5 +11,5 @@
 
 TEST(IncludeCheckSample, ComparesWithAGoogleMockMatcher)
 {
-  EXPECT_THAT(2, testing::Gt(1));
+    EXPECT_THAT(2, testing::Gt(1));
 }

@@ -106,9 +106,9 @@ jobs:
       # The include check's flags for GoogleTest suites, with the samples in
       # tools/include_check_samples, whose folder test mirrors diffbot_firmware/test.
       # googletest_suite.cpp needs GoogleMock and PlatformIO's definitions for a test build.
-      # order_case.cpp needs its suite's folder before the folders above it, shared_source.cpp
-      # the folder test, and inner_case.cpp no enclosing suite's folder. These four have to
-      # pass. unity_header.cpp and rosserial_header.cpp have to pass with native, and fail with
+      # order_case.cpp needs its suite's folder before the folders above it, two_levels_case.cpp
+      # those folders with the outermost first, shared_source.cpp the folder test, and
+      # inner_case.cpp no enclosing suite's folder. These five have to pass. unity_header.cpp and rosserial_header.cpp have to pass with native, and fail with
       # the status 1 with native_googletest, which has neither library.
       - name: Check the include check's flags for GoogleTest suites
         run: |
@@ -116,6 +116,7 @@ jobs:
           .docker/firmware/run.sh tools/check_includes.sh native_googletest \
             "$samples/googletest_suite.cpp" \
             "$samples/test/googletest/test_include_order/cases/order_case.cpp" \
+            "$samples/test/googletest/deep/test_two_levels/two_levels_case.cpp" \
             "$samples/test/googletest/shared_source.cpp" \
             "$samples/test/googletest/test_outer/test_inner/inner_case.cpp"
           .docker/firmware/run.sh tools/check_includes.sh native \

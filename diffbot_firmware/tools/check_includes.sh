@@ -15,10 +15,11 @@
 #   1. Check the arguments and that the environment's libraries are there. Install clang-tidy into
 #      .pio/clang-tidy on the first run, and again when the version there isn't the pinned one.
 #   2. Collect the environment's compiler flags: for native and native_googletest the flags that
-#      pio test compiles their suites with, for a board the flags that PlatformIO compiles src/main.cpp with, and what the board's GCC knows
-#      by itself and clang doesn't. PlatformIO writes the board's compile commands into a build
-#      folder of the check's own, .pio/check-includes, so the board's build and a
-#      compile_commands.json of one's own stay as they are.
+#      pio test compiles their suites with, for a board the flags that PlatformIO compiles
+#      src/main.cpp with, and what the board's GCC knows by itself and clang doesn't.
+#      PlatformIO writes the board's compile commands into a build folder of the check's own,
+#      .pio/check-includes, so the board's build and a compile_commands.json of one's own stay
+#      as they are.
 #   3. Run clang-tidy on each file, with the test folders that PlatformIO adds for it (see
 #      file_folders()). A header gets -x c++-header in front of the flags.
 #
@@ -174,9 +175,11 @@ board_flags() {
 #    tests, as pio test adds them (ConfigureTestTarget() in PlatformIO 6.2.0's piotest.py), in
 #    the order in which the compiler searches them:
 #    - A file of a suite, the innermost folder test_* below test, such as
-#      test/googletest/test_wire_bus/test_wire_bus.cpp: the suite's folder, then each folder
-#      above it that isn't another suite's, such as test/googletest, then test. A header in
-#      the suite's folder comes before one of the same name in test/googletest.
+#      test/googletest/test_wire_bus/test_wire_bus.cpp: the suite's folder, then the folders
+#      above it up to the next enclosing suite's, the outermost first, such as test/googletest,
+#      then test. PlatformIO prepends each of them, which reverses the order of the folders
+#      above the suite. A header in the suite's folder comes before one of the same name in
+#      test/googletest.
 #    - Another file below test, such as test/fakes/fake_bno055.h: its own folder, then test,
 #      for the suites that include it.
 #    - Any other file: its own folder, then the project's test folder.
@@ -184,6 +187,7 @@ board_flags() {
 #    tools/include_check_samples/test, gets the same folders below that one.
 file_folders() {
     local env=$1 file=$2 root=test suite folder
+    local -a above=()
     if [[ $env != native* ]]; then
         echo "-I$(dirname "$file")"
         return
@@ -196,9 +200,12 @@ file_folders() {
         echo "-I$suite"
         folder=$(dirname "$suite")
         while [ "$folder" != "$root" ] && [[ $(basename "$folder") != test_* ]]; do
-            echo "-I$folder"
+            above=("-I$folder" "${above[@]}")
             folder=$(dirname "$folder")
         done
+        if [ "${#above[@]}" -gt 0 ]; then
+            printf '%s\n' "${above[@]}"
+        fi
     else
         echo "-I$(dirname "$file")"
     fi
@@ -219,8 +226,8 @@ check_files() {
                     "${folders[@]}" || status=1
                 ;;
             *)
-                "$CLANG_TIDY" "${TIDY_OPTIONS[@]}" "$file" -- "${compile_flags[@]}" "${folders[@]}" ||
-                    status=1
+                "$CLANG_TIDY" "${TIDY_OPTIONS[@]}" "$file" -- "${compile_flags[@]}" \
+                    "${folders[@]}" || status=1
                 ;;
         esac
     done
