@@ -12,8 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # Every board in platformio.ini, so none of them can break unnoticed (the native
-      # environment is for the unit tests below)
+      # Every board in platformio.ini, so none of them can break unnoticed (the PC environments
+      # native and native_googletest are for the unit tests below)
       matrix:
         env: [teensy31, teensy40]
 
@@ -52,9 +52,11 @@ jobs:
       - name: Run the include check on two board files
         run: .docker/firmware/run.sh tools/check_includes.sh ${{ matrix.env }} src/main.cpp lib/base_controller/base_controller.h
 
-  # The firmware's unit tests that run on the PC, without a Teensy (the native environment in
-  # platformio.ini), for example the BNO055 driver with a fake I2C bus. They run in the same
-  # firmware container as the builds, with a cache of their own for the native platform.
+  # The firmware's unit tests that run on the PC, without a Teensy, for example the BNO055 driver
+  # with a fake I2C bus. platformio.ini has one environment for each test framework: native runs
+  # the Unity suites and native_googletest the GoogleTest suites. Both build for PlatformIO's
+  # native platform, which the job's name stands for. They run in the same firmware container as
+  # the builds, with a cache of their own for the native platform.
   unit_tests:
     name: unit tests (native)
     runs-on: ubuntu-latest
@@ -70,8 +72,26 @@ jobs:
           key: pio-core-${{ runner.os }}-${{ runner.arch }}-native-${{ hashFiles('.docker/firmware/requirements.txt', 'diffbot_firmware/platformio.ini') }}
           restore-keys: |
             pio-core-${{ runner.os }}-${{ runner.arch }}-native-
+      # pio test also passes when no test of an environment passed, for example when PlatformIO
+      # finds no suite folder for it, or when every test is skipped. So the step has PlatformIO
+      # write its JSON report, which lists each suite with its environment (env_name) and each
+      # test case with its status. jq counts each environment's test cases with the status
+      # PASSED, and the step fails when one of the two environments has none.
       - name: Run the unit tests
-        run: .docker/firmware/run.sh pio test -e native
+        run: |
+          .docker/firmware/run.sh pio test -e native -e native_googletest \
+            --json-output-path .pio/unit-test-report.json
+          for environment in native native_googletest; do
+            passed="$(jq --arg environment "$environment" \
+              '[.test_suites[] | select(.env_name == $environment) | .test_cases[]
+                | select(.status == "PASSED")] | length' \
+              diffbot_firmware/.pio/unit-test-report.json)"
+            echo "$environment: $passed test cases passed"
+            if [ "$passed" -eq 0 ]; then
+              echo "::error::No test case of the environment $environment passed"
+              exit 1
+            fi
+          done
       # The unit tests of tools/board_flags.py, which turns PlatformIO's compile command into
       # clang's flags for the include check
       - name: Test the include check's flag helper
@@ -80,3 +100,43 @@ jobs:
       # build jobs above
       - name: Run the include check on two PC files
         run: .docker/firmware/run.sh tools/check_includes.sh native test/test_bno055/test_bno055.cpp lib/imu/bno055.h
+      # The same check on the GoogleTest suite, with the flags of its environment native_googletest
+      - name: Run the include check on the GoogleTest suite
+        run: .docker/firmware/run.sh tools/check_includes.sh native_googletest test/googletest/test_wire_bus/test_wire_bus.cpp
+      # The include check's flags for GoogleTest suites, with the samples in
+      # tools/include_check_samples, whose folder test mirrors diffbot_firmware/test.
+      # googletest_suite.cpp needs GoogleMock and PlatformIO's definitions for a test build.
+      # order_case.cpp needs its suite's folder before the folders above it, two_levels_case.cpp
+      # those folders with the outermost first, shared_source.cpp the folder test,
+      # grouped_source.cpp a shared file's grouping folders with the outermost first,
+      # inner_case.cpp no enclosing suite's folder, and details_case.cpp its suite and the test
+      # folder found through a folder named test inside the suite. These seven have to pass,
+      # order_case.cpp also by its absolute path.
+      # unity_header.cpp and rosserial_header.cpp have to pass with native, and fail with the
+      # status 1 with native_googletest, which has neither library.
+      - name: Check the include check's flags for GoogleTest suites
+        run: |
+          samples=tools/include_check_samples
+          .docker/firmware/run.sh tools/check_includes.sh native_googletest \
+            "$samples/googletest_suite.cpp" \
+            "$samples/test/googletest/test_include_order/cases/order_case.cpp" \
+            "$samples/test/googletest/deep/test_two_levels/two_levels_case.cpp" \
+            "$samples/test/googletest/shared_source.cpp" \
+            "$samples/test/googletest/deep/grouped_source.cpp" \
+            "$samples/test/googletest/test_include_order/test/details_case.cpp" \
+            "$samples/test/googletest/test_outer/test_inner/inner_case.cpp"
+          # order_case.cpp once more by its absolute path in the container, which the container's
+          # shell expands from $PWD
+          .docker/firmware/run.sh bash -c "tools/check_includes.sh native_googletest \
+            \"\$PWD/$samples/test/googletest/test_include_order/cases/order_case.cpp\""
+          .docker/firmware/run.sh tools/check_includes.sh native \
+            "$samples/unity_header.cpp" "$samples/rosserial_header.cpp"
+          for sample in unity_header rosserial_header; do
+            status=0
+            .docker/firmware/run.sh tools/check_includes.sh native_googletest \
+              "$samples/$sample.cpp" || status=$?
+            if [ "$status" -ne 1 ]; then
+              echo "::error::The include check ended with status $status on $sample.cpp, not with 1"
+              exit 1
+            fi
+          done
