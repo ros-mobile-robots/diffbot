@@ -19,9 +19,9 @@ import sys
 import tempfile
 from typing import Any
 from typing import List
+from typing import NamedTuple
 from typing import Optional
 from typing import Sequence
-from typing import Tuple
 from typing import TypeVar
 import unittest
 
@@ -49,6 +49,7 @@ from imu_noise_at_rest import DEFAULT_TOPIC  # noqa: E402
 from imu_noise_at_rest import field_statistics  # noqa: E402
 from imu_noise_at_rest import FieldStatistics  # noqa: E402
 from imu_noise_at_rest import format_duration  # noqa: E402
+from imu_noise_at_rest import format_longest_interval  # noqa: E402
 from imu_noise_at_rest import format_report  # noqa: E402
 from imu_noise_at_rest import format_table  # noqa: E402
 from imu_noise_at_rest import IMU_PERIOD  # noqa: E402
@@ -171,8 +172,8 @@ class TestAxisStatistics(unittest.TestCase):
             self) -> None:
         """Check that 9.81 and the next float above it have the variance (b - a)² / 2.
 
-        Their mean lies between two floats. Rounded to one of them, it would give one deviation
-        of zero and one of a whole step, and twice the variance.
+        Their mean lies between two floats. A mean rounded to one of them would give one
+        deviation of zero and one of a whole step, and twice the variance.
         """
         reading, next_reading = 9.81, 9.810000000000002
         self.assertEqual(axis_statistics([reading, next_reading]).variance,
@@ -306,6 +307,14 @@ class TestStampStatistics(unittest.TestCase):
         stamps = stamp_statistics(STAMPS_WITH_A_REPEAT_AND_A_STEP_BACK)
         self.assertEqual(stamps.duration, 80 * MILLISECOND)
         self.assertIsNone(stamps.rate)
+
+    def test_stamp_statistics_gives_no_rate_when_one_stamp_repeats_among_advancing_ones(
+            self) -> None:
+        """Check that one repeat among stamps that advance gives no rate and one repeat."""
+        stamps = stamp_statistics(
+            [EPOCH + offset * MILLISECOND for offset in (0, 20, 20, 40)])
+        self.assertIsNone(stamps.rate)
+        self.assertEqual(stamps.repeated_stamp_count, 1)
 
     def test_stamp_statistics_gives_no_rate_when_no_stamp_advances(self) -> None:
         """Check that three stamps of zero, an unset clock, give no rate and two repeats."""
@@ -551,6 +560,27 @@ class TestFormatDuration(unittest.TestCase):
         """Check that 40 ms reads "40.0 ms", not "0.0 s"."""
         self.assertEqual(format_duration(40 * MILLISECOND), '40.0 ms')
 
+    def test_format_duration_gives_seconds_when_the_rounded_milliseconds_reach_one_second(
+            self) -> None:
+        """Check that 999.96 ms reads "1.0 s", not "1000.0 ms"."""
+        self.assertEqual(format_duration(999960 * MILLISECOND // 1000), '1.0 s')
+
+
+class TestFormatLongestInterval(unittest.TestCase):
+    """format_longest_interval() shows ns only where one decimal would read as LONG_INTERVAL."""
+
+    def test_format_longest_interval_shows_ns_when_one_decimal_would_read_as_the_limit(
+            self) -> None:
+        """Check that LONG_INTERVAL and 40 µs reads with ns, since it is longer than the limit."""
+        just_longer = LONG_INTERVAL + 40 * MILLISECOND // 1000
+        self.assertEqual(format_longest_interval(just_longer),
+                         f'{just_longer / NANOSECONDS_PER_MILLISECOND:.6f} ms')
+
+    def test_format_longest_interval_reads_like_any_duration_otherwise(self) -> None:
+        """Check that an interval 1 ms longer than LONG_INTERVAL reads with one decimal."""
+        longer = LONG_INTERVAL + MILLISECOND
+        self.assertEqual(format_longest_interval(longer), format_duration(longer))
+
 
 class TestFormatTable(unittest.TestCase):
     """format_table() aligns the columns."""
@@ -714,11 +744,19 @@ def damage_first_chunk(bag_path: str) -> None:
         bag_file.write(bytes([damaged_byte]))
 
 
-def run_tool(arguments: Sequence[str]) -> Tuple[int, str, str]:
-    """Run the tool as a command and return its exit status, its stdout and its stderr."""
+class ToolRun(NamedTuple):
+    """What the tool did as a command: its exit status, its stdout and its stderr."""
+
+    status: int
+    stdout: str
+    stderr: str
+
+
+def run_tool(arguments: Sequence[str]) -> ToolRun:
+    """Run the tool as a command and return what it did."""
     result = subprocess.run([sys.executable, TOOL] + list(arguments), stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE, universal_newlines=True)
-    return result.returncode, result.stdout, result.stderr
+    return ToolRun(result.returncode, result.stdout, result.stderr)
 
 
 class TestToolOnBags(unittest.TestCase):
@@ -730,16 +768,17 @@ class TestToolOnBags(unittest.TestCase):
         self.addCleanup(folder.cleanup)
         self.bag_path = os.path.join(folder.name, 'imu_still.bag')
 
-    def report_lines(self, arguments: Sequence[str] = ()) -> List[str]:
-        """Return the lines of the report that the tool prints for the test's bag."""
-        status, stdout, stderr = run_tool([self.bag_path] + list(arguments))
-        self.assertEqual((status, stderr), (0, ''))
-        return stdout.splitlines()
+    def run_on_bag(self, arguments: Sequence[str] = ()) -> ToolRun:
+        """Run the tool on the test's bag and return what it did."""
+        return run_tool([self.bag_path] + list(arguments))
+
+    def assert_tool_printed_a_report(self, run: ToolRun) -> None:
+        """Check that the tool ended with status 0 and printed nothing on stderr."""
+        self.assertEqual((run.status, run.stderr), (0, ''))
 
     def assert_tool_ends_with(self, message: str, arguments: Sequence[str] = ()) -> None:
         """Check that the tool prints only the message, on stderr, and ends with status 1."""
-        result = run_tool([self.bag_path] + list(arguments))
-        self.assertEqual(result, (1, '', message + '\n'))
+        self.assertEqual(self.run_on_bag(arguments), ToolRun(1, '', message + '\n'))
 
     def assert_tool_ends_with_a_reason_after(self, line_start: str) -> None:
         """Check that the tool ends with status 1 and one line: the start, then a reason.
@@ -747,11 +786,11 @@ class TestToolOnBags(unittest.TestCase):
         For reasons whose words come from rosbag or from Python, so that the test doesn't
         depend on them. An empty reason or "None" fails.
         """
-        status, stdout, stderr = run_tool([self.bag_path])
-        self.assertEqual((status, stdout), (1, ''))
-        self.assertEqual(stderr.count('\n'), 1)
-        self.assertTrue(stderr.startswith(line_start), stderr)
-        self.assertNotIn(stderr[len(line_start):].strip(), ('', 'None'))
+        run = self.run_on_bag()
+        self.assertEqual((run.status, run.stdout), (1, ''))
+        self.assertEqual(run.stderr.count('\n'), 1)
+        self.assertTrue(run.stderr.startswith(line_start), run.stderr)
+        self.assertNotIn(run.stderr[len(line_start):].strip(), ('', 'None'))
 
     def test_tool_prints_the_report_of_three_readings_one_output_step_apart(self) -> None:
         """Check every line for yaw rates of 0, 1 and 2 steps: a variance of one step squared.
@@ -760,7 +799,9 @@ class TestToolOnBags(unittest.TestCase):
         the variance 1.235e-06 (rad/s)^2. The covariances of zeros don't hide the readings.
         """
         write_bag(self.bag_path, DEFAULT_TOPIC, messages_one_step_apart())
-        self.assertEqual(self.report_lines(), [
+        run = self.run_on_bag()
+        self.assert_tool_printed_a_report(run)
+        self.assertEqual(run.stdout.splitlines(), [
             '/diffbot/imu/data_raw: 3 messages, frame_id "imu_link"',
             'Header stamps: 40.0 ms from the first to the last, 50.00 Hz',
             'Header intervals: shortest 20.0 ms, longest 20.0 ms, 0 longer than 30 ms',
@@ -784,14 +825,18 @@ class TestToolOnBags(unittest.TestCase):
     def test_tool_reads_another_topic_with_the_topic_option(self) -> None:
         """Check that --topic picks the messages of a topic with another name."""
         write_bag(self.bag_path, '/imu/data', messages_one_step_apart())
-        lines = self.report_lines(['--topic', '/imu/data'])
+        run = self.run_on_bag(['--topic', '/imu/data'])
+        self.assert_tool_printed_a_report(run)
+        lines = run.stdout.splitlines()
         self.assertEqual(lines[0], '/imu/data: 3 messages, frame_id "imu_link"')
 
     def test_tool_shows_a_line_break_in_the_topic_on_the_first_line(self) -> None:
         """Check that a topic's name with a line break doesn't split the report's first line."""
         topic = '/imu\nraw'
         write_bag(self.bag_path, topic, messages_one_step_apart())
-        lines = self.report_lines(['--topic', topic])
+        run = self.run_on_bag(['--topic', topic])
+        self.assert_tool_printed_a_report(run)
+        lines = run.stdout.splitlines()
         self.assertEqual(lines[0], '/imu\\nraw: 3 messages, frame_id "imu_link"')
         self.assertEqual(len(lines), 18)
 
@@ -805,7 +850,9 @@ class TestToolOnBags(unittest.TestCase):
         for message in messages:
             message.angular_velocity_covariance[0] = NOT_MEASURED
         write_bag(self.bag_path, DEFAULT_TOPIC, messages)
-        self.assertEqual(self.report_lines()[5:10], [
+        run = self.run_on_bag()
+        self.assert_tool_printed_a_report(run)
+        self.assertEqual(run.stdout.splitlines()[5:10], [
             'angular_velocity: 0 readings, the statistics need at least two',
             '  (a message without a reading has -1 as angular_velocity_covariance[0])',
             '',
@@ -821,7 +868,9 @@ class TestToolOnBags(unittest.TestCase):
         late = REGULAR_STAMPS[2] + 500 * MILLISECOND
         write_bag(self.bag_path, DEFAULT_TOPIC, messages_one_step_apart(),
                   arrival_stamps=[REGULAR_STAMPS[0], REGULAR_STAMPS[1], late])
-        self.assertEqual(self.report_lines()[1:3], [
+        run = self.run_on_bag()
+        self.assert_tool_printed_a_report(run)
+        self.assertEqual(run.stdout.splitlines()[1:3], [
             'Header stamps: 40.0 ms from the first to the last, 50.00 Hz',
             'Header intervals: shortest 20.0 ms, longest 20.0 ms, 0 longer than 30 ms',
         ])
@@ -834,7 +883,9 @@ class TestToolOnBags(unittest.TestCase):
 
     def assert_report_has_no_rate_and_the_yaw_rate_statistics(self) -> None:
         """Check the report of messages_with_a_step_back(): no rate, one earlier stamp."""
-        lines = self.report_lines()
+        run = self.run_on_bag()
+        self.assert_tool_printed_a_report(run)
+        lines = run.stdout.splitlines()
         self.assertEqual(lines[1], 'Header stamps: 40.0 ms from the first to the last, no rate '
                                    "(some stamps don't advance)")
         self.assertEqual(lines[3],

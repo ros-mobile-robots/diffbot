@@ -582,9 +582,9 @@ def sample_variance(values: Sequence[float]) -> float:
     closer to them than the true mean. It needs at least two values.
 
     statistics.variance() gets the values as fractions, which hold each float exactly, so the
-    mean, the deviations and their squares aren't rounded. With floats, the mean of two
-    neighbouring floats rounds to one of them, which doubles their variance, and Python 3.8
-    stops on deviations so small that their squares are zero.
+    mean, the deviations and their squares aren't rounded. With floats, Python 3.8 stops with
+    "negative sum of square deviations" on deviations so small that their squares are zero as
+    floats, such as one reading of 7e-304 next to readings of zero.
     """
     return float(statistics.variance([Fraction(value) for value in values]))
 
@@ -668,10 +668,26 @@ def imu_statistics(samples: Sequence[ImuSample]) -> ImuStatistics:
 
 
 def format_duration(duration: int) -> str:
-    """Return a duration in ns as text: in seconds from one second on, in milliseconds below."""
-    if abs(duration) >= NANOSECONDS_PER_SECOND:
+    """Return a duration in ns as text: in seconds from one second on, in milliseconds below.
+
+    The unit follows the rounded value, so 999.96 ms reads "1.0 s", not "1000.0 ms".
+    """
+    milliseconds = round(duration / NANOSECONDS_PER_MILLISECOND, 1)
+    if abs(milliseconds) >= NANOSECONDS_PER_SECOND // NANOSECONDS_PER_MILLISECOND:
         return f'{duration / NANOSECONDS_PER_SECOND:.1f} s'
-    return f'{duration / NANOSECONDS_PER_MILLISECOND:.1f} ms'
+    return f'{milliseconds:.1f} ms'
+
+
+def format_longest_interval(longest_interval: int) -> str:
+    """Return the longest interval as text, with ns when one decimal would hide LONG_INTERVAL.
+
+    An interval of 30.04 ms is longer than LONG_INTERVAL, 30 ms, but reads "30.0 ms" with one
+    decimal, next to a count that calls it longer.
+    """
+    text = format_duration(longest_interval)
+    if longest_interval > LONG_INTERVAL and text == format_duration(LONG_INTERVAL):
+        return f'{longest_interval / NANOSECONDS_PER_MILLISECOND:.6f} ms'
+    return text
 
 
 def format_rate(rate: Optional[float]) -> str:
@@ -688,7 +704,7 @@ def format_stamps(topic: str, frame_id: str, stamps: StampStatistics) -> List[st
             f'Header stamps: {format_duration(stamps.duration)} from the first to the last, '
             f'{format_rate(stamps.rate)}',
             f'Header intervals: shortest {format_duration(stamps.shortest_interval)}, '
-            f'longest {format_duration(stamps.longest_interval)}, '
+            f'longest {format_longest_interval(stamps.longest_interval)}, '
             f'{stamps.long_interval_count} longer than '
             f'{LONG_INTERVAL // NANOSECONDS_PER_MILLISECOND} ms',
             f"Stamps that don't advance: {stamps.repeated_stamp_count} repeated, "
