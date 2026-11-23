@@ -76,8 +76,15 @@ archive_of() {
   echo "$archives/robot-image-$1/robot-image.tar.gz"
 }
 
+# The sha256 digest of a tag or digest reference. A missing or malformed digest stops the job, so
+# that two missing digests never compare as equal.
 digest_of() {
-  docker buildx imagetools inspect "$1" --format '{{json .Manifest}}' | jq -r .digest
+  local digest
+  if ! digest=$(docker buildx imagetools inspect "$1" --format '{{json .Manifest}}' |
+    jq -er '.digest | strings | select(test("^sha256:[0-9a-f]{64}$"))'); then
+    fail "The registry gives no sha256 digest for $1"
+  fi
+  echo "$digest"
 }
 
 # The images in an index, without attestations: one "<digest> <os>/<architecture>" per line
@@ -212,7 +219,7 @@ check_index() {
 
 # Step 3. The version's tag goes only to an index that passed check_index
 publish_version() {
-  local arch candidate sources=()
+  local arch candidate tagged sources=()
   for arch in amd64 arm64; do
     skopeo copy "${copy_options[@]}" --digestfile "$work/$arch" \
       "docker-archive:$(archive_of "$arch")" "docker://$version-$arch"
@@ -225,23 +232,28 @@ publish_version() {
   candidate=$(digest_of "$version-index")
   check_index "$image@$candidate"
   docker buildx imagetools create --tag "$version" "$image@$candidate"
-  if [ "$(digest_of "$version")" != "$candidate" ]; then
+  tagged=$(digest_of "$version")
+  if [ "$tagged" != "$candidate" ]; then
     fail "$version doesn't point to the checked index $candidate"
   fi
+  index=$candidate
 }
 
 promote() {
+  local moved
   docker buildx imagetools create --tag "$image:noetic" "$image@$index"
-  if [ "$(digest_of "$image:noetic")" != "$index" ]; then
+  moved=$(digest_of "$image:noetic")
+  if [ "$moved" != "$index" ]; then
     fail "$image:noetic doesn't point to $index"
   fi
   echo "$image:noetic is now $version"
 }
 
 # Step 5. Move noetic to this version only forward: from the commit it has now to a later one.
-# Its commit has to be a full commit ID of this repository's history, or noetic stays.
+# Its commit has to be the full ID of a commit of this repository's history, not of a tag or any
+# other object, or noetic stays.
 move_noetic() {
-  local current
+  local current noetic_digest
   if [ "$noetic_state" = missing ]; then
     promote
     return
@@ -249,10 +261,11 @@ move_noetic() {
   current=$(docker buildx imagetools inspect "$image:noetic" --raw |
     jq -r --arg label "$REVISION" '.annotations[$label] // ""')
   if ! [[ $current =~ ^[0-9a-f]{40}$ ]] ||
-    ! git rev-parse --quiet --verify "$current^{commit}" > /dev/null; then
+    [ "$(git cat-file -t "$current" 2> /dev/null || true)" != commit ]; then
     fail "$image:noetic has the commit annotation '$current', which isn't a commit of this repository"
   elif [ "$current" = "$commit" ]; then
-    if [ "$(digest_of "$image:noetic")" != "$index" ]; then
+    noetic_digest=$(digest_of "$image:noetic")
+    if [ "$noetic_digest" != "$index" ]; then
       fail "$image:noetic has the commit $commit, but not the digest $index"
     fi
     echo "$image:noetic is $version already"
@@ -301,11 +314,11 @@ main() {
   # 3. and 4.
   if [ "$version_state" = present ]; then
     echo "$version is published already: reusing it, unchanged"
-    check_index "$version"
+    index=$(digest_of "$version")
+    check_index "$image@$index"
   else
     publish_version
   fi
-  index=$(digest_of "$version")
   # 5.
   move_noetic
   # 6.

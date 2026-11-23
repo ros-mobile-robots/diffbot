@@ -73,7 +73,10 @@ jobs:
             arch: amd64
     runs-on: ${{ matrix.runner }}
     steps:
+      # The job's token can only read, and git doesn't need it after the checkout either
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # The template that users copy to .env must give a valid configuration
       - name: Check the settings template
         run: docker compose --env-file .docker/robot/env.example -f .docker/robot/compose.yaml config --quiet

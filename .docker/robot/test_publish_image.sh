@@ -8,9 +8,9 @@
 # (.github/workflows/robot_container.yml). To run them, with jq and git, in the repository's root:
 #   .docker/robot/test_publish_image.sh
 # The steps:
-#   1. Make the git history: EARLIER_COMMIT, then COMMIT, then LATER_COMMIT on one branch, and
-#      UNRELATED_COMMIT on a branch of its own. The publisher publishes COMMIT, and HEAD is
-#      EARLIER_COMMIT.
+#   1. Make the git history: EARLIER_COMMIT, then COMMIT, then LATER_COMMIT on one branch,
+#      UNRELATED_COMMIT on a branch of its own, and an annotated tag of EARLIER_COMMIT. The
+#      publisher publishes COMMIT, and HEAD is EARLIER_COMMIT.
 #   2. Write the stand-ins and a login file to a temporary folder, and put the stand-ins first
 #      on PATH.
 #   3. Run each test: it chooses the registry's answers and the archives' content, runs
@@ -38,7 +38,7 @@ readonly work
 trap 'rm -rf "$work"' EXIT
 
 # Set by step 1: the commits, the version, and the writes that the tests expect
-EARLIER_COMMIT='' COMMIT='' LATER_COMMIT='' UNRELATED_COMMIT='' VERSION=''
+EARLIER_COMMIT='' COMMIT='' LATER_COMMIT='' UNRELATED_COMMIT='' TAG_OBJECT='' VERSION=''
 VERSION_PUBLICATION='' INDEX_CANDIDATE='' NOETIC_MOVE='' COMPLETE_PUBLICATION=''
 FIRST_PUBLICATION_COPY=''
 
@@ -68,6 +68,10 @@ make_history() {
   # HEAD stays at EARLIER_COMMIT: a publisher that took a name such as HEAD from noetic's
   # annotation would read it as an earlier commit and move noetic
   history_git checkout -q --detach "$EARLIER_COMMIT"
+  # An annotated tag of EARLIER_COMMIT: its own ID has 40 hexadecimal digits too, but it names a
+  # tag object, not a commit
+  history_git tag -a -m "a tag" earlier-tag "$EARLIER_COMMIT"
+  TAG_OBJECT=$(history_git rev-parse earlier-tag)
   VERSION=$IMAGE:noetic-$COMMIT
   INDEX_CANDIDATE="copy robot-image-amd64 $VERSION-amd64
 copy robot-image-arm64 $VERSION-arm64
@@ -80,7 +84,7 @@ create [--tag] [$VERSION] [$IMAGE@$INDEX_DIGEST]"
   COMPLETE_PUBLICATION="$VERSION_PUBLICATION
 $NOETIC_MOVE"
   FIRST_PUBLICATION_COPY="copy robot-image-amd64 $IMAGE:first-publication"
-  readonly EARLIER_COMMIT COMMIT LATER_COMMIT UNRELATED_COMMIT VERSION VERSION_PUBLICATION
+  readonly EARLIER_COMMIT COMMIT LATER_COMMIT UNRELATED_COMMIT TAG_OBJECT VERSION VERSION_PUBLICATION
   readonly INDEX_CANDIDATE NOETIC_MOVE COMPLETE_PUBLICATION FIRST_PUBLICATION_COPY
 }
 
@@ -163,7 +167,7 @@ if [ "$1 $2" = "inspect --raw" ]; then
 elif [ "$1 $2" = "inspect --config" ]; then
   case "$(architecture_of "$last")" in
     amd64) platform=$AMD64_ARCHIVE_PLATFORM archive_commit=$AMD64_ARCHIVE_COMMIT
-      description=$DESCRIPTION ;;
+      description=$AMD64_ARCHIVE_DESCRIPTION ;;
     arm64) platform=$ARM64_ARCHIVE_PLATFORM archive_commit=$ARM64_ARCHIVE_COMMIT
       description=$ARM64_ARCHIVE_DESCRIPTION ;;
     *) unexpected "$@" ;;
@@ -179,6 +183,12 @@ elif [ "$1" = copy ]; then
   has_option --dest-authfile "$AUTH_FILE" "$@" || unexpected "$@"
   architecture=$(architecture_of "${*: -2:1}")
   [ -n "$architecture" ] || unexpected "$@"
+  # A copy of the arm64 image fails while the file ARM64_COPY_FAILURES counts more than 0
+  if [ "$architecture" = arm64 ] && [ "$(cat "$ARM64_COPY_FAILURES" 2> /dev/null || echo 0)" -gt 0 ]; then
+    echo $(($(cat "$ARM64_COPY_FAILURES") - 1)) > "$ARM64_COPY_FAILURES"
+    echo 'time="2026-11-23T11:40:00Z" level=fatal msg="writing blob: connection reset by peer"' >&2
+    exit 1
+  fi
   echo "copy robot-image-$architecture ${last#docker://}" >> "$WRITES"
   # The digest of the copied image, as the registry would report it for this architecture
   while [ $# -gt 0 ]; do
@@ -196,8 +206,11 @@ fi
 STAND_IN
 
   # docker: "buildx imagetools inspect" reads a published tag or digest, "buildx imagetools create"
-  # writes one. noetic's index has NOETIC_COMMIT. Every other index has COMMIT, with
-  # INDEX_ARM64_PLATFORM as its second image's platform.
+  # writes one. noetic's index has NOETIC_COMMIT. Every other index has INDEX_MEDIA_TYPE,
+  # INDEX_COMMIT, INDEX_DESCRIPTION and INDEX_ARM64_PLATFORM as its second image's platform, and
+  # only the amd64 image with INDEX_ONLY_AMD64=true. The digests: NOETIC_DIGEST for noetic,
+  # VERSION_DIGEST for the version's tag, INDEX_DIGEST for the rest, and none at all with
+  # MANIFEST_WITHOUT_DIGEST=true.
   cat > "$work/bin/docker" <<'STAND_IN'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -209,24 +222,35 @@ elif [ "$1 $2 $3" != "buildx imagetools inspect" ]; then
   echo "unexpected: docker $*" >> "$WRITES"
   exit 90
 elif [ "$5" = --raw ]; then
-  index_commit=$COMMIT second_platform=$INDEX_ARM64_PLATFORM
+  index_type=$INDEX_MEDIA_TYPE index_commit=$INDEX_COMMIT index_description=$INDEX_DESCRIPTION
+  second_platform=$INDEX_ARM64_PLATFORM
   case "$4" in
-    *:noetic) index_commit=$NOETIC_COMMIT second_platform=linux/arm64 ;;
+    *:noetic) index_type=application/vnd.oci.image.index.v1+json index_commit=$NOETIC_COMMIT
+      index_description=$DESCRIPTION second_platform=linux/arm64 ;;
   esac
-  jq -n --arg revision "$revision" --arg commit "$index_commit" --arg description "$DESCRIPTION" \
-    --arg amd64 "$AMD64_DIGEST" --arg arm64 "$ARM64_DIGEST" \
+  jq -n --arg revision "$revision" --arg commit "$index_commit" --arg description "$index_description" \
+    --arg amd64 "$AMD64_DIGEST" --arg arm64 "$ARM64_DIGEST" --arg type "$index_type" \
     --arg os "${second_platform%/*}" --arg architecture "${second_platform#*/}" \
-    '{mediaType: "application/vnd.oci.image.index.v1+json",
+    --arg only_amd64 "$INDEX_ONLY_AMD64" \
+    '{mediaType: $type,
       annotations: ({($revision): $commit, "org.opencontainers.image.description": $description}
                     | with_entries(select(.value != ""))),
-      manifests: [
+      manifests: ([
         {digest: $amd64, platform: {os: "linux", architecture: "amd64"}},
-        {digest: $arm64, platform: {os: $os, architecture: $architecture}}]}'
+        {digest: $arm64, platform: {os: $os, architecture: $architecture}}]
+        | if $only_amd64 == "true" then .[:1] else . end)}'
 elif [ "$6" = '{{json .Manifest}}' ]; then
+  if [ "$MANIFEST_WITHOUT_DIGEST" = true ]; then
+    echo '{}'
+    exit 0
+  fi
   case "$4" in
-    *:noetic) jq -n --arg digest "$NOETIC_DIGEST" '{digest: $digest}' ;;
-    *) jq -n --arg digest "$INDEX_DIGEST" '{digest: $digest}' ;;
+    *:noetic) digest=$NOETIC_DIGEST ;;
+    *:noetic-*-index) digest=$INDEX_DIGEST ;;
+    *:noetic-*) digest=$VERSION_DIGEST ;;
+    *) digest=$INDEX_DIGEST ;;
   esac
+  jq -n --arg digest "$digest" '{digest: $digest}'
 elif [ "$6" = '{{json .Image}}' ]; then
   case "$4" in
     *@"$AMD64_DIGEST") architecture=amd64 image_commit=$COMMIT ;;
@@ -261,8 +285,12 @@ run_publisher() {
       ANSWER_ONCE_THE_PACKAGE_EXISTS='' FAILED_READS=0 \
       COMMIT="$COMMIT" DESCRIPTION="$DESCRIPTION" AMD64_DIGEST="$AMD64_DIGEST" \
       ARM64_DIGEST="$ARM64_DIGEST" INDEX_DIGEST="$INDEX_DIGEST" NOETIC_DIGEST="$INDEX_DIGEST" \
+      VERSION_DIGEST="$INDEX_DIGEST" MANIFEST_WITHOUT_DIGEST=false \
       NOETIC_COMMIT="$COMMIT" ARM64_IMAGE_COMMIT="$COMMIT" INDEX_ARM64_PLATFORM=linux/arm64 \
+      INDEX_MEDIA_TYPE=application/vnd.oci.image.index.v1+json INDEX_COMMIT="$COMMIT" \
+      INDEX_DESCRIPTION="$DESCRIPTION" INDEX_ONLY_AMD64=false ARM64_COPY_FAILURES="$work/arm64-copy-failures" \
       AMD64_ARCHIVE_PLATFORM=linux/amd64 AMD64_ARCHIVE_COMMIT="$COMMIT" \
+      AMD64_ARCHIVE_DESCRIPTION="$DESCRIPTION" \
       ARM64_ARCHIVE_PLATFORM=linux/arm64 ARM64_ARCHIVE_COMMIT="$COMMIT" \
       ARM64_ARCHIVE_DESCRIPTION="$DESCRIPTION" \
       FIRST_PUBLICATION=false "$@" \
@@ -417,6 +445,11 @@ test_publisher_writes_nothing_when_the_arm64_archive_has_no_description() {
   assert_exit_code_and_writes 1 ""
 }
 
+test_publisher_writes_nothing_when_neither_archive_has_a_description() {
+  run_publisher manifest_unknown AMD64_ARCHIVE_DESCRIPTION="" ARM64_ARCHIVE_DESCRIPTION=""
+  assert_exit_code_and_writes 1 ""
+}
+
 test_first_publication_writes_nothing_when_the_arm64_archive_is_from_another_commit() {
   run_publisher denied FIRST_PUBLICATION=true ARM64_ARCHIVE_COMMIT="$LATER_COMMIT"
   assert_exit_code_and_writes 1 ""
@@ -424,9 +457,61 @@ test_first_publication_writes_nothing_when_the_arm64_archive_is_from_another_com
 
 # The version's tag goes only to a combined index that passed its check
 
-test_publisher_gives_no_tag_of_its_own_to_an_index_that_fails_its_check() {
+test_publisher_gives_no_tag_of_its_own_to_an_index_with_two_images_of_one_architecture() {
   run_publisher manifest_unknown INDEX_ARM64_PLATFORM=linux/amd64
   assert_exit_code_and_writes 1 "$INDEX_CANDIDATE"
+}
+
+test_publisher_gives_no_tag_of_its_own_to_an_index_without_the_arm64_image() {
+  run_publisher manifest_unknown INDEX_ONLY_AMD64=true
+  assert_exit_code_and_writes 1 "$INDEX_CANDIDATE"
+}
+
+test_publisher_gives_no_tag_of_its_own_to_an_index_of_another_media_type() {
+  run_publisher manifest_unknown INDEX_MEDIA_TYPE=application/vnd.docker.distribution.manifest.list.v2+json
+  assert_exit_code_and_writes 1 "$INDEX_CANDIDATE"
+}
+
+test_publisher_gives_no_tag_of_its_own_to_an_index_of_another_commit() {
+  run_publisher manifest_unknown INDEX_COMMIT="$LATER_COMMIT"
+  assert_exit_code_and_writes 1 "$INDEX_CANDIDATE"
+}
+
+test_publisher_gives_no_tag_of_its_own_to_an_index_without_the_images_description() {
+  run_publisher manifest_unknown INDEX_DESCRIPTION="Another image"
+  assert_exit_code_and_writes 1 "$INDEX_CANDIDATE"
+}
+
+# Each tag that the script writes is read back, and a tag with another digest stops the job
+
+test_publisher_leaves_noetic_when_the_version_tag_points_elsewhere_after_its_write() {
+  run_publisher manifest_unknown VERSION_DIGEST="$OTHER_DIGEST"
+  assert_exit_code_and_writes 1 "$VERSION_PUBLICATION"
+}
+
+test_publisher_fails_when_noetic_points_elsewhere_after_its_move() {
+  run_publisher manifest_unknown NOETIC_ANSWER=manifest_unknown NOETIC_DIGEST="$OTHER_DIGEST"
+  assert_exit_code_and_writes 1 "$COMPLETE_PUBLICATION"
+}
+
+test_publisher_writes_nothing_when_the_registry_gives_no_digest() {
+  run_publisher present MANIFEST_WITHOUT_DIGEST=true
+  assert_exit_code_and_writes 1 ""
+}
+
+# A copy that fails stops the job before any tag of its own. The rerun publishes everything.
+
+test_publisher_publishes_everything_in_the_rerun_after_a_failed_arm64_copy() {
+  local status=0
+  echo 1 > "$work/arm64-copy-failures"
+  run_publisher manifest_unknown
+  assert_exit_code_and_writes 1 "copy robot-image-amd64 $VERSION-amd64" || status=1
+  if [ "$status" -eq 0 ]; then
+    run_publisher manifest_unknown
+    assert_exit_code_and_writes 0 "$COMPLETE_PUBLICATION" || status=1
+  fi
+  rm -f "$work/arm64-copy-failures"
+  return "$status"
 }
 
 # A version that is published already is checked and reused, never written again
@@ -484,6 +569,11 @@ test_publisher_leaves_noetic_when_its_commit_is_a_name_instead_of_a_commit_id() 
   assert_exit_code_and_writes 1 ""
 }
 
+test_publisher_leaves_noetic_when_its_commit_is_the_id_of_a_tag() {
+  run_publisher present NOETIC_COMMIT="$TAG_OBJECT"
+  assert_exit_code_and_writes 1 ""
+}
+
 test_publisher_leaves_noetic_when_its_commit_is_not_in_the_history() {
   run_publisher present NOETIC_COMMIT="$UNKNOWN_COMMIT"
   assert_exit_code_and_writes 1 ""
@@ -511,8 +601,17 @@ readonly TESTS=(
   test_publisher_writes_nothing_when_the_amd64_archive_holds_another_architecture
   test_publisher_writes_nothing_when_the_arm64_archive_has_another_description
   test_publisher_writes_nothing_when_the_arm64_archive_has_no_description
+  test_publisher_writes_nothing_when_neither_archive_has_a_description
   test_first_publication_writes_nothing_when_the_arm64_archive_is_from_another_commit
-  test_publisher_gives_no_tag_of_its_own_to_an_index_that_fails_its_check
+  test_publisher_gives_no_tag_of_its_own_to_an_index_with_two_images_of_one_architecture
+  test_publisher_gives_no_tag_of_its_own_to_an_index_without_the_arm64_image
+  test_publisher_gives_no_tag_of_its_own_to_an_index_of_another_media_type
+  test_publisher_gives_no_tag_of_its_own_to_an_index_of_another_commit
+  test_publisher_gives_no_tag_of_its_own_to_an_index_without_the_images_description
+  test_publisher_leaves_noetic_when_the_version_tag_points_elsewhere_after_its_write
+  test_publisher_fails_when_noetic_points_elsewhere_after_its_move
+  test_publisher_writes_nothing_when_the_registry_gives_no_digest
+  test_publisher_publishes_everything_in_the_rerun_after_a_failed_arm64_copy
   test_publisher_writes_nothing_when_the_version_and_noetic_are_published
   test_publisher_writes_nothing_when_a_published_image_is_from_another_commit
   test_publisher_writes_nothing_when_noetic_has_this_commit_but_another_digest
@@ -523,6 +622,7 @@ readonly TESTS=(
   test_publisher_leaves_noetic_when_it_is_at_an_unrelated_commit
   test_publisher_leaves_noetic_when_it_has_no_commit
   test_publisher_leaves_noetic_when_its_commit_is_a_name_instead_of_a_commit_id
+  test_publisher_leaves_noetic_when_its_commit_is_the_id_of_a_tag
   test_publisher_leaves_noetic_when_its_commit_is_not_in_the_history
 )
 
