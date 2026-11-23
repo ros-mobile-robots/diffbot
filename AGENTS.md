@@ -218,7 +218,7 @@ catkin build diffbot_base diffbot_gazebo_plugins --cmake-args -DCMAKE_EXPORT_COM
 **The firmware**, in the firmware container, with the script [`diffbot_firmware/tools/check_includes.sh`](diffbot_firmware/tools/check_includes.sh). Build both boards and run the unit tests first ([Commands](#commands)), so that PlatformIO has downloaded the libraries. The script's first argument is the PlatformIO environment whose compiler flags clang-tidy gets:
 
 - **`native`:** for the files that build on the PC: the libraries without Arduino, `test/fakes` and the Unity suites `test_*`.
-- **`native_googletest`:** for the GoogleTest suites in `test/googletest/test_*`.
+- **`native_googletest`:** for the GoogleTest suites in `test/googletest/test_*`. For both PC environments, the script gives clang-tidy the definitions and include folders that `pio test` compiles a suite with.
 - **`teensy31` or `teensy40`:** for the board-only files: `src/main.cpp`, the libraries that use Arduino (`base_controller`, `config`, `encoder`, `motor_controllers`) and the tests that run on a Teensy. The script takes the flags that PlatformIO compiles `src/main.cpp` with, because that command names every include folder of the firmware.
 
 On the PC, in the repository's root. The paths of the files are relative to `diffbot_firmware`:
@@ -230,10 +230,10 @@ On the PC, in the repository's root. The paths of the files are relative to `dif
 ```
 
 - **clang-tidy:** the script installs clang-tidy 18.1.8 into `diffbot_firmware/.pio/clang-tidy` on its first run, and again when the version there is another one. PlatformIO's own `pio check` brings clang-tidy 15, which doesn't have the check.
-- **Exit status:** 0 when clang-tidy could read every file, also when it printed warnings. 1 when it failed on a file, couldn't be installed or the board's flags couldn't be found, and 2 for wrong arguments and missing libraries.
+- **Exit status:** 0 when clang-tidy could read every file, also when it printed warnings. 1 when it failed on a file, couldn't be installed or the flags couldn't be found, and 2 for wrong arguments and a missing library folder, `.pio/libdeps/<environment>`.
 - **Your files:** PlatformIO writes the board's compile commands into a build folder of the check's own, `.pio/check-includes`. The board's build in `.pio/build` and a `compile_commands.json` of your own stay as they are.
 - **One board is enough today:** the firmware's own files have no code for one board only, and both boards give the same warnings. A file that gets such code is checked with both boards.
-- **In CI:** the workflow Firmware runs the script on the files of the three lines above, the board line with each board, to see that it works with the toolchains. It doesn't check the files of a pull request yet (#117).
+- **In CI:** the workflow Firmware runs the script on the files of the three lines above, the board line with each board, to see that it works with the toolchains. For `native_googletest`, it also checks three samples in `tools/include_check_samples`: one that needs GoogleMock and PlatformIO's definitions for a test build, and two that include Unity and rosserial, which have to fail. It doesn't check the files of a pull request yet (#117).
 
 ### Launch files, shell scripts and workflows
 

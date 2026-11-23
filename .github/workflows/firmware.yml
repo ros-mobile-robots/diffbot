@@ -12,8 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # Every board in platformio.ini, so none of them can break unnoticed (the native
-      # environment is for the unit tests below)
+      # Every board in platformio.ini, so none of them can break unnoticed (the PC environments
+      # native and native_googletest are for the unit tests below)
       matrix:
         env: [teensy31, teensy40]
 
@@ -103,3 +103,19 @@ jobs:
       # The same check on the GoogleTest suite, with the flags of its environment native_googletest
       - name: Run the include check on the GoogleTest suite
         run: .docker/firmware/run.sh tools/check_includes.sh native_googletest test/googletest/test_wire_bus/test_wire_bus.cpp
+      # The include check's flags for a GoogleTest suite: the first sample needs GoogleMock and
+      # PlatformIO's definitions for a test build and has to pass. The other two include Unity
+      # and rosserial, which belong to the environment native, and have to fail with status 1.
+      - name: Check the include check's flags for GoogleTest suites
+        run: |
+          .docker/firmware/run.sh tools/check_includes.sh native_googletest \
+            tools/include_check_samples/googletest_suite.cpp
+          for sample in unity_header rosserial_header; do
+            status=0
+            .docker/firmware/run.sh tools/check_includes.sh native_googletest \
+              "tools/include_check_samples/$sample.cpp" || status=$?
+            if [ "$status" -ne 1 ]; then
+              echo "::error::The include check ended with status $status on $sample.cpp, not with 1"
+              exit 1
+            fi
+          done

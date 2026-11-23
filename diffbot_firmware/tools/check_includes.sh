@@ -14,17 +14,18 @@
 # Steps:
 #   1. Check the arguments and that the environment's libraries are there. Install clang-tidy into
 #      .pio/clang-tidy on the first run, and again when the version there isn't the pinned one.
-#   2. Collect the environment's compiler flags: for native and native_googletest the flags of
-#      their unit tests, for a board the flags that PlatformIO compiles src/main.cpp with, and what the board's GCC knows
+#   2. Collect the environment's compiler flags: for native and native_googletest the flags that
+#      pio test compiles their suites with, for a board the flags that PlatformIO compiles src/main.cpp with, and what the board's GCC knows
 #      by itself and clang doesn't. PlatformIO writes the board's compile commands into a build
 #      folder of the check's own, .pio/check-includes, so the board's build and a
 #      compile_commands.json of one's own stay as they are.
-#   3. Run clang-tidy on each file, a header with -x c++-header in front of the flags.
+#   3. Run clang-tidy on each file, with its folder as one more include folder, as PlatformIO
+#      adds a suite's folder. A header gets -x c++-header in front of the flags.
 #
 # Exit status: 0 when clang-tidy could read every file. Its warnings don't change the status,
 # because older files have some (AGENTS.md, "Check the includes", says which ones count). 1 when
 # clang-tidy failed on a file, couldn't be installed or the flags couldn't be found. 2 for wrong
-# arguments and when the environment's libraries are missing.
+# arguments and when the environment's library folder, .pio/libdeps/<environment>, is missing.
 set -euo pipefail
 
 readonly CLANG_TIDY_VERSION=18.1.8
@@ -54,7 +55,7 @@ usage() {
 
 # 1. The arguments, the environment's libraries and clang-tidy
 check_arguments() {
-    local env=$1 file
+    local env=$1 file setup
     shift
     case "$env" in
         native | native_googletest | teensy31 | teensy40) ;;
@@ -75,9 +76,11 @@ check_arguments() {
         fi
     done
     if [ ! -d ".pio/libdeps/$env" ]; then
-        echo "error: .pio/libdeps/$env is missing. Build the board or run the unit tests first:" >&2
-        echo "  pio run -e teensy31, pio run -e teensy40, pio test -e native" >&2
-        echo "  or pio test -e native_googletest" >&2
+        case "$env" in
+            native*) setup="pio test -e $env" ;;
+            *) setup="pio run -e $env" ;;
+        esac
+        echo "error: .pio/libdeps/$env is missing. $setup downloads its libraries." >&2
         exit 2
     fi
 }
@@ -101,19 +104,30 @@ install_clang_tidy() {
 }
 
 # 2. The compiler flags of the unit tests on the PC, for the environment native or
-#    native_googletest: the same standard and folders, and the include folders of the
-#    environment's libraries
+#    native_googletest, as pio test compiles a suite: PlatformIO's definitions for a test build,
+#    the project's folders, and the include folders of the environment's test libraries
 pc_test_flags() {
-    local env=$1 dir
-    compile_flags=(-std=c++17 -Wall -DUNIT_TEST -Itest)
+    local env=$1 version major minor patch dir googletest
+    # PlatformIO defines PLATFORMIO as its version in one number, 60200 for 6.2.0. The line
+    # of pio --version is "PlatformIO Core, version 6.2.0".
+    if ! version=$(pio --version | awk '{print $NF}') ||
+       ! [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "error: PlatformIO's version couldn't be read" >&2
+        exit 1
+    fi
+    IFS=. read -r major minor patch <<< "$version"
+    compile_flags=(-std=c++17 -Wall "-DPLATFORMIO=$(printf '%d%02d%02d' "$major" "$minor" "$patch")"
+                   -DPIO_UNIT_TESTING -DUNIT_TEST -Iinclude -Isrc)
     for dir in lib/*/; do
         compile_flags+=("-I${dir%/}")
     done
     if [ "$env" = native ]; then
         compile_flags+=(-I.pio/libdeps/native/Unity/src
-                        '-I.pio/libdeps/native/Rosserial Arduino Library/src')
+                        '-I.pio/libdeps/native/Rosserial Arduino Library/src' -Itest)
     else
-        compile_flags+=(-I.pio/libdeps/native_googletest/googletest/googletest/include)
+        googletest=.pio/libdeps/native_googletest/googletest
+        compile_flags+=("-I$googletest/googlemock/include" "-I$googletest/googletest/include"
+                        -Itest/googletest -Itest)
     fi
 }
 
@@ -163,11 +177,12 @@ check_files() {
         echo "== $file ($env)"
         case "$file" in
             *.h | *.hpp)
-                "$CLANG_TIDY" "${TIDY_OPTIONS[@]}" "$file" -- -x c++-header "${compile_flags[@]}" ||
-                    status=1
+                "$CLANG_TIDY" "${TIDY_OPTIONS[@]}" "$file" -- -x c++-header "${compile_flags[@]}" \
+                    "-I$(dirname "$file")" || status=1
                 ;;
             *)
-                "$CLANG_TIDY" "${TIDY_OPTIONS[@]}" "$file" -- "${compile_flags[@]}" || status=1
+                "$CLANG_TIDY" "${TIDY_OPTIONS[@]}" "$file" -- "${compile_flags[@]}" \
+                    "-I$(dirname "$file")" || status=1
                 ;;
         esac
     done

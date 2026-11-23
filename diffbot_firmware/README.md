@@ -7,7 +7,7 @@ The firmware for the robots' Teensy microcontroller: it reads the wheel encoders
 | [`src`](src) | `main.cpp`: the control loop |
 | [`lib`](lib) | The wheel control, command timeout, base controller, encoders, motor driver, IMU, PID, configuration, and the rosserial message headers in `ros_lib` |
 | [`test`](test) | Unit tests that run on the PC: Unity suites in `test_*`, GoogleTest suites in `googletest/test_*`, and fakes for the hardware in `fakes`. Also checks that run on the Teensy |
-| [`tools`](tools) | The include check of the C++ files, `check_includes.sh`, with its helpers for a board's compiler flags and the tests of the flag helper. The repository's [AGENTS.md](../AGENTS.md#check-the-includes) says how to run it |
+| [`tools`](tools) | The include check of the C++ files, `check_includes.sh`, with its helpers for a board's compiler flags, the tests of the flag helper, and samples that CI checks the flags for GoogleTest suites with. The repository's [AGENTS.md](../AGENTS.md#check-the-includes) says how to run it |
 | [`sketches`](sketches) | Older Arduino sketches: the encoders alone over rosserial, the same with the BNO055 IMU, and a check of the encoders by hand |
 
 Build the firmware for your robot's Teensy in the firmware's container, [`.docker/firmware`](../.docker/firmware). It needs only Docker. Our script [`.docker/firmware/run.sh`](../.docker/firmware/run.sh) builds the image and runs a command in the container as your user, here PlatformIO's `pio`. From the repository's root folder, run the line for your robot:
