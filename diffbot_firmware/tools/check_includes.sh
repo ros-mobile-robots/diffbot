@@ -19,8 +19,8 @@
 #      by itself and clang doesn't. PlatformIO writes the board's compile commands into a build
 #      folder of the check's own, .pio/check-includes, so the board's build and a
 #      compile_commands.json of one's own stay as they are.
-#   3. Run clang-tidy on each file, with its folder as one more include folder, as PlatformIO
-#      adds a suite's folder. A header gets -x c++-header in front of the flags.
+#   3. Run clang-tidy on each file, with the test folders that PlatformIO adds for it (see
+#      file_folders()). A header gets -x c++-header in front of the flags.
 #
 # Exit status: 0 when clang-tidy could read every file. Its warnings don't change the status,
 # because older files have some (AGENTS.md, "Check the includes", says which ones count). 1 when
@@ -105,7 +105,9 @@ install_clang_tidy() {
 
 # 2. The compiler flags of the unit tests on the PC, for the environment native or
 #    native_googletest, as pio test compiles a suite: PlatformIO's definitions for a test build,
-#    the project's folders, and the include folders of the environment's test libraries
+#    the project's folders, and the include folders of the environment's test libraries.
+#    file_folders() adds the test folders for each file. For native, the flags leave out the
+#    Unity configuration that pio test generates in .pio/build/native/unity_config.
 pc_test_flags() {
     local env=$1 version major minor patch dir googletest
     # PlatformIO defines PLATFORMIO as its version in one number, 60200 for 6.2.0. The line
@@ -123,11 +125,10 @@ pc_test_flags() {
     done
     if [ "$env" = native ]; then
         compile_flags+=(-I.pio/libdeps/native/Unity/src
-                        '-I.pio/libdeps/native/Rosserial Arduino Library/src' -Itest)
+                        '-I.pio/libdeps/native/Rosserial Arduino Library/src')
     else
         googletest=.pio/libdeps/native_googletest/googletest
-        compile_flags+=("-I$googletest/googlemock/include" "-I$googletest/googletest/include"
-                        -Itest/googletest -Itest)
+        compile_flags+=("-I$googletest/googlemock/include" "-I$googletest/googletest/include")
     fi
 }
 
@@ -169,20 +170,42 @@ board_flags() {
     compile_flags+=("-I.pio/libdeps/$board/Unity/src" -UUNITY_INCLUDE_CONFIG_H)
 }
 
+# 3. The include folders for one file, one per line. For a file of a test suite on the PC, as
+#    pio test adds them: the suite's folder, such as test/googletest/test_wire_bus, then each
+#    folder above it up to test. PlatformIO searches them in this order, so a header in the
+#    suite's folder comes before one of the same name in test/googletest. For another file,
+#    its own folder.
+file_folders() {
+    local env=$1 file=$2 root folder
+    if [[ $env == native* && $file =~ ^((.*/)?test)/(([^/]+/)*test_[^/]+)/ ]]; then
+        root=${BASH_REMATCH[1]}
+        folder=$root/${BASH_REMATCH[3]}
+        while [ "$folder" != "$root" ]; do
+            echo "-I$folder"
+            folder=$(dirname "$folder")
+        done
+        echo "-I$root"
+    else
+        echo "-I$(dirname "$file")"
+    fi
+}
+
 # 3. clang-tidy on each file. The status is 1 if it failed on one of them.
 check_files() {
     local env=$1 file status=0
+    local -a folders
     shift
     for file in "$@"; do
         echo "== $file ($env)"
+        mapfile -t folders < <(file_folders "$env" "$file")
         case "$file" in
             *.h | *.hpp)
                 "$CLANG_TIDY" "${TIDY_OPTIONS[@]}" "$file" -- -x c++-header "${compile_flags[@]}" \
-                    "-I$(dirname "$file")" || status=1
+                    "${folders[@]}" || status=1
                 ;;
             *)
-                "$CLANG_TIDY" "${TIDY_OPTIONS[@]}" "$file" -- "${compile_flags[@]}" \
-                    "-I$(dirname "$file")" || status=1
+                "$CLANG_TIDY" "${TIDY_OPTIONS[@]}" "$file" -- "${compile_flags[@]}" "${folders[@]}" ||
+                    status=1
                 ;;
         esac
     done
