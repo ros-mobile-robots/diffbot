@@ -662,7 +662,7 @@ class TestFormatReport(unittest.TestCase):
 
         With one decimal it would read "30.0 ms" next to "1 longer than 30 ms".
         """
-        stamps = self.STAMPS._replace(longest_interval=LONG_INTERVAL + 40000,
+        stamps = self.STAMPS._replace(longest_interval=LONG_INTERVAL + 40 * MILLISECOND // 1000,
                                       long_interval_count=1)
         imu = ImuStatistics(stamps=stamps, frame_id=FRAME, angular_velocity=self.ROTATION,
                             linear_acceleration=self.ACCELERATION, gravity=9.81)
