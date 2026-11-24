@@ -656,6 +656,20 @@ class TestFormatReport(unittest.TestCase):
             "Stamps that don't advance: 1 repeated, 1 earlier than the one before",
         ])
 
+    def test_format_report_gives_the_longest_interval_with_ns_just_above_long_interval(
+            self) -> None:
+        """Check the intervals' line when the longest interval is LONG_INTERVAL and 40 µs.
+
+        With one decimal it would read "30.0 ms" next to "1 longer than 30 ms".
+        """
+        stamps = self.STAMPS._replace(longest_interval=LONG_INTERVAL + 40000,
+                                      long_interval_count=1)
+        imu = ImuStatistics(stamps=stamps, frame_id=FRAME, angular_velocity=self.ROTATION,
+                            linear_acceleration=self.ACCELERATION, gravity=9.81)
+        self.assertEqual(format_report('/imu', imu)[2],
+                         'Header intervals: shortest 19.0 ms, longest 30.040000 ms, '
+                         '1 longer than 30 ms')
+
     def test_format_report_gives_the_reason_instead_of_a_table_for_a_field_without_statistics(
             self) -> None:
         """Check a report without the acceleration: two lines for it, and no gravity."""
