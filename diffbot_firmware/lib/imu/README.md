@@ -1,6 +1,6 @@
 # IMU: Bosch BNO055 on the Teensy
 
-The firmware reads a BNO055 on the Teensy's I2C bus (`Wire`: SDA pin 18, SCL pin 19 on the Teensy 4.0 and 3.2, the same bus as the Adafruit motor FeatherWing) and publishes it over rosserial. Its settings are typed values in [`diffbot_base_config.h`](../config/diffbot_base_config.h): `IMU_BNO055_ADDRESS`, and `IMU_PUBLISHER_CONFIG` with the fields of [`imu_config.h`](imu_config.h). For a robot without an IMU, set its `enabled` to `false`. Not tested on the robot yet: the bench checks below are still open.
+The firmware reads a BNO055 on the Teensy's I2C bus (`Wire`: SDA pin 18, SCL pin 19 on the Teensy 4.0 and 3.2, the same bus as the Adafruit motor FeatherWing) and publishes the sensor's readings over rosserial. Its settings are typed values in [`diffbot_base_config.h`](../config/diffbot_base_config.h): `IMU_BNO055_ADDRESS`, and `IMU_PUBLISHER_CONFIG` with the fields of [`imu_config.h`](imu_config.h). For a robot without an IMU, set its `enabled` to `false`. The [bench checks below](#bench-checks-on-the-robot) ran on Remo, with a Teensy 3.2 and with Remo's own Teensy 4.0. Their results are in [diffbot#169](https://github.com/ros-mobile-robots/diffbot/issues/169).
 
 ## What it publishes
 
@@ -13,7 +13,7 @@ The firmware reads a BNO055 on the Teensy's I2C bus (`Wire`: SDA pin 18, SCL pin
 | `angular_velocity` | rad/s, the gyroscope, corrected for its offset by the chip's fusion (see below) |
 | `linear_acceleration` | m/s², the specific force including gravity (about +9.8 m/s² on the upward axis at rest), corrected for its offset by the chip's fusion |
 | `orientation` | not provided: `orientation_covariance[0] = -1`, as REP 145 says for a missing field |
-| covariances | diagonal starting values from the datasheet, not measured yet |
+| covariances | diagonal starting values, explained at `IMU_PUBLISHER_CONFIG` in [`diffbot_base_config.h`](../config/diffbot_base_config.h). They are larger than the noise at rest measured on Remo (bench check 3) |
 
 A sample is published only after a read that succeeded and took at most `read_budget_us`, and only while the sensor reports that its fusion runs (`SYS_STATUS` 5), so a stalled, starting or unplugged IMU stops the topic instead of repeating old values. If the sensor resets itself or reads fail ten times in a row, the firmware starts it again. A missing IMU is looked for again after `retry_ms`. The start-up doesn't wait for the sensor, so the motor control loop runs between its steps. The I2C transfers themselves are synchronous, and the read budget is checked after a read returns. The 50 Hz period counts on the Teensy's own clock (`millis()`), so the rate doesn't change when ROS time jumps, for example after a reconnect to a host whose clock is earlier.
 
@@ -25,7 +25,7 @@ A sample is published only after a read that succeeded and took at most `read_bu
 | [`imu_publisher.h`](imu_publisher.h) | The rate, the checks above and the message |
 | [`imu_config.h`](imu_config.h) | The publisher's settings, as one typed value |
 
-The unit tests run all four on the PC, with a fake sensor, Wire library, serial port and clock, and rosserial's own parser: `.docker/firmware/run.sh pio test -e native`, from the repository's root, runs [`test/test_bno055`](../../test/test_bno055), [`test_wire_bus`](../../test/test_wire_bus), [`test_synced_node_handle`](../../test/test_synced_node_handle) and [`test_imu_publisher`](../../test/test_imu_publisher). They check the logic, not the hardware: the bench checks below are still needed.
+The unit tests run all four on the PC, with a fake sensor, Wire library, serial port and clock, and rosserial's own parser: `.docker/firmware/run.sh pio test -e native -e native_googletest`, from the repository's root, runs [`test/test_bno055`](../../test/test_bno055), [`test/googletest/test_wire_bus`](../../test/googletest/test_wire_bus), [`test_synced_node_handle`](../../test/test_synced_node_handle) and [`test_imu_publisher`](../../test/test_imu_publisher). They check the firmware's logic. The [bench checks](#bench-checks-on-the-robot) test the sensor and the control loop on the robot.
 
 ## The fusion mode
 
@@ -43,6 +43,6 @@ With the bringup running and the wheels off the ground:
 
 1. **Rate and stamps:** `rostopic hz /diffbot/imu/data_raw` shows about 50 Hz, and the stamps in `rostopic echo` are current ROS time.
 2. **Axes and signs:** at rest, the acceleration's upward axis reads about +9.8 m/s². Turning the robot counterclockwise by hand (seen from above) gives a positive angular velocity about the upward axis. That decides how `imu_link` has to sit in the URDF.
-3. **Noise and bias:** a stationary recording of a few minutes (`rosbag record /diffbot/imu/data_raw`) gives the gyroscope's bias and variance at 50 Hz, to replace the covariances' starting values.
+3. **Noise and bias:** record 180 s with the robot at rest (`rosbag record -o imu_still --duration=180 /diffbot/imu/data_raw`) and run [`imu_noise_at_rest.py`](../../../diffbot_bringup/scripts/imu_noise_at_rest.py) on the bag. [Bias and noise at rest](https://ros-mobile-robots.com/packages/imu/driver-bno055/#bias-and-noise-at-rest) on the IMU page explains the commands and what the tool's two results mean.
 4. **Faults:** unplugging the IMU stops the topic within a sample, logs a warning, and the wheels keep responding to commands. Plugging it back in restarts it within `retry_ms`. The command timeout keeps working: when the loop detects `COMMAND_TIMEOUT_MS` without a new wheel-command receipt, it releases motor drive.
 5. **Timing:** the control loop keeps its rate with the IMU running (for example `rostopic hz /diffbot/measured_joint_states`).

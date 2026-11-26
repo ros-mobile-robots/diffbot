@@ -52,16 +52,20 @@ constexpr uint8_t IMU_BNO055_ADDRESS = 0x28;
 /// - retry_ms: look for a missing IMU again after 10 s.
 /// - read_budget_us: drop a sample whose read took longer than 10 ms, half the period.
 /// - frame_id: imu_link, the link of the sensor in the robot model.
-/// - The variances, (rad/s)² and (m/s²)²: starting values, not measured yet. They are chosen
-///   standard deviations of 0.02 rad/s and 0.1 m/s², squared. For scale, from the BNO055
+/// - The variances, (rad/s)² and (m/s²)²: starting values. They are chosen standard deviations
+///   of 0.02 rad/s and 0.1 m/s², squared. For scale, from the BNO055
 ///   datasheet (rev. 1.8, table 0-2, and table 3-7 for the bandwidths in the fusion modes): the
 ///   gyroscope's noise of 0.014 °/s/√Hz gives about 0.08 °/s (0.0014 rad/s) rms at its 32 Hz
 ///   bandwidth. Its zero-rate offset is typically ±1 °/s (0.017 rad/s), specified with the
 ///   offset cancellation off. The accelerometer's 150 µg/√Hz give about 1.2 mg (0.012 m/s²) rms
 ///   at 62.5 Hz, and its offset is typically ±80 mg. The gyroscope's value covers its typical
-///   offset as well, so that the EKF doesn't take a biased rate as exact. Replace both with the
-///   variance and the bias of a stationary recording at this rate (lib/imu/README.md, bench
-///   checks).
+///   offset as well, so that the EKF doesn't take a biased rate as exact.
+///   diffbot_bringup/scripts/imu_noise_at_rest.py measures two different things on a recording
+///   of the robot at rest at this rate (lib/imu/README.md, bench checks). The variances of the
+///   readings are the noise at rest, a baseline for these two values. The mean angular velocity
+///   is the bias that remains in the readings, in rad/s: no variance, so it isn't a value for
+///   these settings. Driving adds vibration. Before changing a value here, compare with a
+///   recording while driving, and tell the vibration apart from the robot's real motion there.
 constexpr diffbot::ImuPublisherConfig IMU_PUBLISHER_CONFIG = {
     true,       // enabled
     20,         // period_ms

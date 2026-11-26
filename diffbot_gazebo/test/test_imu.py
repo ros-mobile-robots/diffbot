@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Check the simulated IMU's topic /diffbot/imu/data_raw, as the EKF and the firmware expect it.
 
-The checks: its rate, its frame, the orientation marked unavailable, usable variances,
-gravity on the upward axis at rest, and a positive yaw rate when the robot turns left
-(counterclockwise seen from above, REP 103). rostest starts the simulation of
-sim_drive_<model>.test again for each of its tests, so this one waits for the drive controller
-itself before it drives.
+The checks: its rate, its frame, the orientation marked unavailable, usable variances, gravity
+on the upward axis and a yaw rate of about zero at rest, and a positive yaw rate when the robot
+turns left (counterclockwise seen from above, REP 103). A yaw rate that keeps one value fails
+one of the two tests: about zero fails the left turn, and about the turn rate fails at rest.
+rostest starts the simulation of sim_drive_<model>.test again for each of its tests, so this one
+waits for the drive controller itself before it drives.
 """
 
 import math
@@ -46,6 +47,10 @@ GRAVITY = 9.81  # m/s², what the upward axis reads at rest
 GRAVITY_TOLERANCE = 0.5  # m/s²
 TURN_RATE = 0.5  # rad/s, the commanded left turn
 TURN_RATE_TOLERANCE = 0.15  # rad/s
+# How far the mean yaw rate may lie from zero while the robot stands still. A tenth of TURN_RATE
+# is far more than the mean of the plugin's noise, and far less than a yaw rate that stays at
+# the turn rate
+YAW_RATE_AT_REST_TOLERANCE = TURN_RATE / 10  # rad/s
 
 
 class TestImu(unittest.TestCase):
@@ -81,14 +86,22 @@ class TestImu(unittest.TestCase):
         self.send_command(command, seconds)
         return list(self.messages)
 
-    def test_imu_publishes_the_firmware_message_at_rest(self) -> None:
-        stand_still = Twist()  # all velocities are 0
-        self.send_command(stand_still, SETTLE)
-        messages = self.collect_messages(stand_still, MEASURE)
+    def assert_message_rate(self, messages: List[Imu]) -> None:
+        """Fail unless the messages of MEASURE came at more than RATE_TOLERANCE of RATE.
+
+        So a mean is taken only over more than that share of the messages that RATE gives in
+        MEASURE, and never over one message or none.
+        """
         rate = len(messages) / MEASURE
         self.assertGreater(rate, RATE_TOLERANCE * RATE,
                            '{} published at {:.1f} Hz, expected {:.0f} Hz'.format(
                                TOPIC, rate, RATE))
+
+    def test_imu_publishes_the_firmware_message_at_rest(self) -> None:
+        stand_still = Twist()  # all velocities are 0
+        self.send_command(stand_still, SETTLE)
+        messages = self.collect_messages(stand_still, MEASURE)
+        self.assert_message_rate(messages)
         stamps = [message.header.stamp for message in messages]
         for earlier, later in zip(stamps, stamps[1:]):
             self.assertGreater(later, earlier, 'each stamp should be later than the one before')
@@ -107,6 +120,11 @@ class TestImu(unittest.TestCase):
         self.assertAlmostEqual(mean_upward_reading, GRAVITY, delta=GRAVITY_TOLERANCE,
                                msg='at rest, the upward axis should read gravity, '
                                    'read {:.2f} m/s²'.format(mean_upward_reading))
+        yaw_rates = [message.angular_velocity.z for message in messages]
+        mean_yaw_rate = sum(yaw_rates) / len(yaw_rates)
+        self.assertAlmostEqual(mean_yaw_rate, 0.0, delta=YAW_RATE_AT_REST_TOLERANCE,
+                               msg='at rest, the yaw rate should be about zero, the IMU '
+                                   'measured {:.3f} rad/s about z'.format(mean_yaw_rate))
 
     def test_imu_measures_a_positive_yaw_rate_in_a_left_turn(self) -> None:
         turn_left = Twist()
@@ -114,6 +132,7 @@ class TestImu(unittest.TestCase):
         self.send_command(turn_left, SPEED_UP)
         messages = self.collect_messages(turn_left, MEASURE)
         self.command_publisher.publish(Twist())  # stop the robot
+        self.assert_message_rate(messages)
         yaw_rates = [message.angular_velocity.z for message in messages]
         mean_yaw_rate = sum(yaw_rates) / len(yaw_rates)
         self.assertAlmostEqual(mean_yaw_rate, TURN_RATE, delta=TURN_RATE_TOLERANCE,
