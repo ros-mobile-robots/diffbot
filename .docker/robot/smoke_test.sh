@@ -2,9 +2,11 @@
 # Smoke test of the robot image, without hardware. It runs inside a container of the image, not on
 # the host: CI starts it there (.github/workflows/robot_container.yml), directly and through
 # compose.yaml. It checks that the packages are built, roscore starts, the robot models expand,
-# the launch files parse, and the programs that talk to the hardware are there. It can't show that
-# the Teensy or the lidar work. To run it in a container of the image, from the repository's root:
-#   docker run --rm -v "$PWD/.docker/robot/smoke_test.sh:/smoke_test.sh:ro" diffbot-robot:noetic bash /smoke_test.sh
+# the launch files parse, the programs that talk to the hardware are there, and Remo's bringup
+# starts its two controllers. It can't show that the Teensy or the lidar work: no test here talks
+# to a device, and the lidar driver isn't started. To run it in a container of the image, from
+# the repository's root:
+#   docker run --rm -v "$PWD/.docker/robot/smoke_test.sh:/smoke_test.sh:ro" diffbot-robot:local bash /smoke_test.sh
 set -eo pipefail
 
 echo "== The packages are found"
@@ -35,7 +37,9 @@ echo "== The launch files parse"
 for model in remo diffbot; do
     roslaunch --nodes diffbot_bringup bringup.launch model:=$model
 done
-# The lidar driver in the robot's namespace, so its scans are on /diffbot/scan
+# The lidar's launch file names the driver's node in the robot's namespace, /diffbot. A
+# connected lidar's scans are then on /diffbot/scan. --nodes only lists the node's name. The
+# driver itself isn't started here: it needs the lidar.
 roslaunch --nodes diffbot_bringup lidar.launch | grep -x /diffbot/rplidarNode
 
 echo "== Remo's bringup starts without hardware: the model loads and both controllers run"

@@ -1,0 +1,20 @@
+# Builds the robot image from this repository, with your changes, under a name of its own:
+# diffbot-robot:local. This file stands alone: name only this file in the command. In this folder:
+#   docker compose -f compose.build.yaml build    # build diffbot-robot:local
+# To run the build, set ROBOT_IMAGE=diffbot-robot:local in .env, then:
+#   docker compose up -d --pull never             # start it, without a download
+# The build has a service of its own, robot-image, with a fixed image name. compose.yaml's
+# services and the setting ROBOT_IMAGE don't reach this service, also if a command names both
+# files, in any order. So a build can't take the name of the published image,
+# ghcr.io/ros-mobile-robots/diffbot-robot, and be started in the published image's place later.
+
+services:
+  robot-image:
+    image: diffbot-robot:local
+    # The service exists to be built, never to run: up starts no container of it, also when a
+    # command names both files
+    scale: 0
+    build:
+      # The repository's root folder, whose files the Dockerfile copies into the image
+      context: ../..
+      dockerfile: .docker/robot/Dockerfile
