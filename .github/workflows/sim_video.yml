@@ -1,0 +1,116 @@
+# Records a short video of DiffBot driving in Gazebo, when someone asks for it: a maintainer adds
+# the label sim-video to a pull request, or runs this workflow by hand in the Actions tab. It
+# builds the dev container and the workspace as the workflow Dev container (devcontainer.yml)
+# does, runs diffbot_gazebo's video recorder (scripts/record_drive_video.sh) in it and uploads
+# the video, its JSON file and the logs as an artifact of the run.
+# The video shows the simulation test's commands, driven once more in a run of their own: it's a
+# new drive after nothing else, not a recording of the tests, which run in the other workflows.
+# It's a workflow of its own, so the required checks of the other workflows never wait for it,
+# and a label never starts or skips them.
+
+name: Simulation video
+
+on:
+  # A label added to a pull request starts the workflow, but its job runs only for the label
+  # sim-video (if: below). One label, one recording: for another one, remove the label and add
+  # it again. pull_request runs with the pull request's code but without the repository's
+  # secrets, also for pull requests from forks
+  pull_request:
+    types: [labeled]
+  # The button "Run workflow" in the Actions tab records the chosen branch
+  workflow_dispatch:
+
+# Checking out the code needs only read access. Uploading the artifact uses a token of its own
+permissions:
+  contents: read
+
+# One recording at a time per pull request or branch: a new request cancels the one still
+# running. The label's name is part of the group, so the run of another label, whose job is
+# skipped, can't cancel a recording
+concurrency:
+  group: >-
+    sim-video-${{ github.event.pull_request.number || github.ref }}-${{ github.event.label.name }}
+  cancel-in-progress: true
+
+jobs:
+  record:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'sim-video'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # As in devcontainer.yml: build the image and create the container, which builds the
+      # workspace (.devcontainer/noetic/setup.sh). The command checks that the image has the
+      # recorder's tools. A failure here fails the job
+      - name: Build the dev container and the workspace
+        uses: devcontainers/ci@v0.3
+        with:
+          configFile: .devcontainer/noetic/devcontainer.json
+          push: never
+          runCmd: command -v Xvfb xauth ffmpeg ffprobe
+      # The same action again: the image comes from Docker's cache, and the container from the
+      # step above still runs, with the workspace built. The video goes to sim-video in the
+      # checkout, which the container mounts. A failed recording doesn't fail the job
+      # (continue-on-error): its log shows why, and the summary at the end says it failed
+      - name: Record the video
+        id: record
+        continue-on-error: true
+        timeout-minutes: 20
+        uses: devcontainers/ci@v0.3
+        with:
+          configFile: .devcontainer/noetic/devcontainer.json
+          push: never
+          runCmd: >-
+            source ~/catkin_ws/devel/setup.bash
+            && rosrun diffbot_gazebo record_drive_video.sh ~/catkin_ws/src/diffbot/sim-video
+      # Also after a failed recording, for its logs
+      - name: Upload the video and the logs
+        id: upload
+        if: ${{ !cancelled() && steps.record.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: diffbot-sim-video-${{ github.run_id }}-${{ github.run_attempt }}
+          path: sim-video/
+          retention-days: 14
+      # The values come in as environment variables, not interpolated into run: with ${{ }}, so
+      # no text from the event can become part of the command (GitHub's "Secure use reference",
+      # script injection)
+      - name: Summary
+        if: ${{ !cancelled() && steps.record.outcome != 'skipped' }}
+        env:
+          OUTCOME: ${{ steps.record.outcome }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          {
+            echo '## Simulation video'
+            echo
+            if [[ $OUTCOME == success ]]; then
+              echo "DiffBot drove the simulation test's commands once more, for the video."
+              jq -r '"Video: \(.video.duration) s, \(.video.frames) frames, "
+                + "\(.video.bytes) bytes, real-time factor while recording "
+                + "\(.drive.real_time_factor)."' \
+                sim-video/diffbot_drive.json
+            else
+              echo '**The recording failed.** The step "Record the video" shows why, and'
+              echo "\`record.log\` in the artifact. The recorder's messages:"
+              echo
+              echo '```text'
+              # Its scripts' lines and ROS errors, without the Gazebo output in between
+              messages=$(grep -E '^[a-z_]+\.(sh|py): |\[(ERROR|FATAL)\]' sim-video/record.log \
+                2> /dev/null | tail -n 20)
+              echo "${messages:-none, see the step Record the video}"
+              echo '```'
+            fi
+            echo
+            if [[ -n $ARTIFACT_URL ]]; then
+              echo "Download: [the video, its JSON file and the logs]($ARTIFACT_URL),"
+              echo 'kept for 14 days.'
+            fi
+            if [[ -n $PR_NUMBER ]]; then
+              echo "Code: pull request #$PR_NUMBER at $PR_HEAD_SHA,"
+              echo "merged into its base branch as $GITHUB_SHA."
+            else
+              echo "Code: $GITHUB_REF_NAME at $GITHUB_SHA."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
