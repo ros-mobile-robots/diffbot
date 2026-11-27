@@ -25,7 +25,6 @@ jobs:
           # because the default branch requires the check industrial_ci (noetic, main)
           - {ROS_DISTRO: noetic, ROS_REPO: main}
     env:
-      CCACHE_DIR: /github/home/.ccache # Directory for ccache (and how we enable ccache in industrial_ci)
       # The simulation tests in diffbot_gazebo also drive Remo, whose model (remo_description) isn't
       # a released ROS package. So industrial_ci first clones the repositories listed in
       # diffbot_dev.repos, the file the dev container uses too, into an upstream workspace and
@@ -36,14 +35,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # This step will fetch/store the directory used by ccache before/after the ci run.
-      # The run id gives each successful run its own cache; restore-keys picks the newest one.
-      - uses: actions/cache@v6
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ matrix.env.ROS_DISTRO }}-${{ matrix.env.ROS_REPO }}-${{ github.run_id }}
-          restore-keys: |
-            ccache-${{ matrix.env.ROS_DISTRO }}-${{ matrix.env.ROS_REPO }}-
       # Run industrial_ci
       - uses: 'ros-industrial/industrial_ci@master'
         env: ${{ matrix.env }}
